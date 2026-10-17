@@ -1,4 +1,4 @@
-"""POST /api/join（TD2）。"""
+"""POST /api/join (TD2)."""
 import re
 import secrets
 import sqlite3
@@ -14,7 +14,7 @@ from .. import db
 
 router = APIRouter(prefix="/api", tags=["join"])
 
-# 成员编号前缀，和 mock token 的规则一致（auth.py）
+# Member ID prefixes, same rules as for mock tokens (auth.py)
 ID_PREFIX = {"teacher": "T", "head": "H", "admin": "ADM"}
 
 
@@ -25,7 +25,7 @@ class JoinRequest(BaseModel):
 
 
 def next_member_id(conn, role: str) -> str:
-    """前缀 + 已有最大编号 + 1（不用 COUNT：编号不连续时 COUNT 会撞上已有的编号）。"""
+    """Prefix + highest existing number + 1 (not COUNT: with gaps in the numbering, COUNT could collide with an existing ID)."""
     prefix = ID_PREFIX[role]
     numbers = [int(m.group(1)) for (mid,) in conn.execute("SELECT member_id FROM members WHERE role = ?", (role,))
                if (m := re.fullmatch(rf"{prefix}(\d+)", mid))]
@@ -33,7 +33,7 @@ def next_member_id(conn, role: str) -> str:
 
 
 def insert_member(conn, workspace_id: str, req: "JoinRequest", token: str, attempts: int = 5) -> str:
-    """两个人同时加入可能算出同一个编号：撞了就重算，而不是返回 500。"""
+    """Two people joining at the same time may compute the same ID: on collision, recompute instead of returning 500."""
     for _ in range(attempts):
         member_id = next_member_id(conn, req.role)
         try:

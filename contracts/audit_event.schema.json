@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "audit_event",
-  "description": "审计日志条目。D（Hub）。每次审批和撤回各写一条。§4、§5",
+  "description": "Audit log entry. D (Hub). One entry is written per approval and per revocation. §4, §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["event_id", "workspace_id", "actor", "action", "target_id", "at"],

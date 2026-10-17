@@ -1,7 +1,7 @@
-"""Bearer token → 角色（§6.4）。token 由 POST /api/join 发放，每个 token 对应一个角色。
+"""Bearer token -> role (§6.4). Tokens are issued by POST /api/join; each token maps to one role.
 
-联调用的 mock token（mock-token-<id>）默认关闭：Hub 要部署到公网，开着就等于任何人都能冒充管理员。
-本地开发和 Docker 联调环境（make hub、docker-compose.yml）显式设置 HUB_MOCK_AUTH=1。
+Mock tokens for test mode (mock-token-<id>) are off by default: the Hub is deployed on the public internet, and leaving them on would let anyone impersonate an admin.
+Local development and the Docker test environment (make hub, docker-compose.yml) explicitly set HUB_MOCK_AUTH=1.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def current_member(cred: HTTPAuthorizationCredentials | None = Depends(bearer)) 
         ).fetchone()
     if row is not None:
         return Member(id=row["member_id"], role=row["role"], workspace_id=row["workspace_id"])
-    # 联调用 mock token（HUB_MOCK_AUTH=1 才接受）：形如 mock-token-<id>，角色看前缀。
+    # Mock tokens for test mode (only accepted with HUB_MOCK_AUTH=1): mock-token-<id>, role determined by the prefix.
     if mock_auth_enabled() and cred.credentials.startswith("mock-token-"):
         member_id = cred.credentials.removeprefix("mock-token-")
         role = "head" if member_id.startswith("H") else "admin" if member_id.startswith("ADM") else "teacher"

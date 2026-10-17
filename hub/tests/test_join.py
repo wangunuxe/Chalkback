@@ -1,4 +1,4 @@
-"""TD2 验收：三种角色各能用自己的邀请码加入，拿到的 token 对应正确角色。"""
+"""TD2 acceptance: each of the three roles can join with its own invite code and gets a token for the correct role."""
 import pytest
 from fastapi.testclient import TestClient
 

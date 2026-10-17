@@ -3,7 +3,7 @@ marp: true
 theme: default
 paginate: true
 header: "Français 4e · Grammaire"
-footer: "ChalkBack 演示课堂 · 4A"
+footer: "ChalkBack demo lesson · 4A"
 style: |
   section {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;

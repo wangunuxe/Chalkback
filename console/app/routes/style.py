@@ -1,4 +1,4 @@
-"""/style：只读展示风格文件及每条规则的来源（TC6）。"""
+"""/style: read-only view of the style profile and the source of each rule (TC6)."""
 import json
 
 from fastapi import APIRouter

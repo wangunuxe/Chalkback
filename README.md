@@ -1,56 +1,56 @@
 # ChalkBack
 
-面向学校的教学助手：screenpipe 在每位老师电脑上记住课堂，chalkback-pipe 下课后生成测验、学生游戏、漏讲提醒和学情；
-老师审批后，只有考纲覆盖数据进入学校 Hub。screenpipe 黑客松赛道 3。
+A teaching assistant for schools: screenpipe remembers the lesson on each teacher's computer, and after class chalkback-pipe generates quizzes, a student game, missed-point alerts and learning stats;
+after the teacher's approval, only syllabus coverage data reaches the school Hub. screenpipe hackathon Track 3.
 
-**完整设计见 [`ChalkBack 技术文档.md`](./ChalkBack%20技术文档.md)，它是唯一的事实来源。**
+**The full design is in [`DESIGN.md`](./DESIGN.md); it is the single source of truth.**
 
-## 目录与负责人（§7）
+## Directories and owners (§7)
 
-只有负责人合并该目录的改动。
+Only the owner merges changes to a directory.
 
-| 目录 | 负责人 | 内容 |
+| Directory | Owner | Contents |
 | --- | --- | --- |
-| `contracts/` | 全员 | JSON Schema + 示例。周六 13:00 冻结，改动需全员同意 |
-| `pipe/` | A + B | chalkback-pipe，`screenpipe pipe install` 安装的就是它 |
-| `pipe/scripts/extract_segments.py`、`read_reports.py`、`prompts/map_kp.md` | A | 取数据、对知识点 |
-| `pipe/pipe.md`、`scripts/validate.py`、`prompts/{alerts,learn_style,gen_quiz}.md`、`templates/` | B | 编排、出题、提醒、风格 |
-| `console/` | C | 老师控制台 :4000（审批 A1–A3、A5 发起） |
-| `hub/` | D | 学校 Hub（审批 A4、A5 执行） |
-| `demo/`、`docs/DEMO.md` | A | 演示数据与剧本 |
-| `docs/SETUP.md` | B | 新老师安装说明 |
-| `docs/ADMIN.md` | D | 管理员与组长说明 |
-| `tools/`、`tests/`、`Makefile` | 全员 | 开发辅助、契约自检 |
+| `contracts/` | Everyone | JSON Schema + examples. Frozen Saturday 13:00; changes need everyone's agreement |
+| `pipe/` | A + B | chalkback-pipe; this is what `screenpipe pipe install` installs |
+| `pipe/scripts/extract_segments.py`, `read_reports.py`, `prompts/map_kp.md` | A | Fetch data, map to knowledge points |
+| `pipe/pipe.md`, `scripts/validate.py`, `prompts/{alerts,learn_style,gen_quiz}.md`, `templates/` | B | Orchestration, quiz generation, alerts, style |
+| `console/` | C | Teacher console :4000 (approvals A1–A3, initiates A5) |
+| `hub/` | D | School Hub (approval A4, executes A5) |
+| `demo/`, `docs/DEMO.md` | A | Demo data and script |
+| `docs/SETUP.md` | B | Install guide for new teachers |
+| `docs/ADMIN.md` | D | Guide for admins and department heads |
+| `tools/`, `tests/`, `Makefile` | Everyone | Dev helpers, contract self-checks |
 
-## 开始
+## Getting started
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
-make check          # 示例全部通过契约 + 各组件测试
-make seed-mock      # 用示例生成 .mock-home/（假的 ~/.chalkback/）
-make hub            # https://localhost:8000，联调模式（mock token、DEMO-* 邀请码）
-make teacher        # https://localhost:4000/console，读 .mock-home
+make check          # all examples pass the contracts + component tests
+make seed-mock      # generate .mock-home/ (a fake ~/.chalkback/) from the examples
+make hub            # https://localhost:8000, test mode (mock token, DEMO-* invite codes)
+make teacher        # https://localhost:4000/console, reads .mock-home
 ```
 
-上游没完成就用 `contracts/examples/` 的 mock 开工，不要等。
+If upstream isn't done yet, start with the mocks in `contracts/examples/`; don't wait.
 
-### 用 Docker
+### With Docker
 
 ```bash
 make up             # = docker compose up --build -d
-                    # Hub https://localhost:8443（/docs 看 API），控制台 https://localhost:4000
-make down           # 停止，数据保留
-make reset-mock     # 连数据卷一起删，下次 up 重新生成 mock
+                    # Hub https://localhost:8443 (API at /docs), console https://localhost:4000
+make down           # stop, data is kept
+make reset-mock     # also delete the data volumes; the next up regenerates the mocks
 ```
 
-- 容器里只有 **Hub + 控制台（mock 数据）**。screenpipe 和 chalkback-pipe 必须跑在老师电脑上（要录麦克风和屏幕），不进容器。
-- 控制台容器只绑定 `127.0.0.1:4000`。学生游戏也只在老师电脑上打开，不做手机端。
-- 真实部署时，控制台直接跑在老师电脑上，不用 Docker；Hub 可以用 `hub/Dockerfile` 部署到云端。
+- The containers hold only **the Hub + console (mock data)**. screenpipe and chalkback-pipe must run on the teacher's computer (they record the mic and screen) and do not go in a container.
+- The console container binds only `127.0.0.1:4000`. The student game also opens only on the teacher's computer; there is no mobile version.
+- In a real deployment, the console runs directly on the teacher's computer without Docker; the Hub can be deployed to the cloud with `hub/Dockerfile`.
 
-## 规则速记
+## Rules at a glance
 
-- 契约（§5、§6）是硬约束，不得擅自修改。改了 `contracts/` 记得 `make sync-schemas`。
-- 录音、截图、转写原文、screenpipe id 永远不离开老师电脑；上传只能是 `coverage_share`。
-- 时间一律 ISO 8601 带时区偏移（Europe/Paris）。代码、字段名、文件名用英文。
-- 提交信息写任务编号：`TC3: approve flow writes edits.jsonl`。
+- The contracts (§5, §6) are hard constraints; do not change them on your own. After changing `contracts/`, remember to run `make sync-schemas`.
+- Recordings, screenshots, raw transcripts and screenpipe ids never leave the teacher's computer; the only upload is `coverage_share`.
+- All times are ISO 8601 with a timezone offset (Europe/Paris). Code, field names and file names are in English.
+- Put the task ID in commit messages: `TC3: approve flow writes edits.jsonl`.

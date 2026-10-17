@@ -1,7 +1,7 @@
-"""判分（TC4）和学情统计（TC5）：attempts.jsonl → kp_stats → weights.json（§5）。
+"""Grading (TC4) and learning statistics (TC5): attempts.jsonl -> kp_stats -> weights.json (§5).
 
-权重规则（§5 weights）：默认 1.0；该知识点正确率低于 50% 设为 2.0；来自 Kahoot 报告的薄弱点再加 0.5。
-weights.json 只保存一个班级（plan_quiz.py 只用 class_id 相同的权重）：同班合并更新，换班就重写。
+Weight rules (§5 weights): default 1.0; 2.0 if the knowledge point's accuracy is below 50%; +0.5 more for weak points from the Kahoot report.
+weights.json holds only one class (plan_quiz.py only uses weights with the same class_id): same class -> merge and update, different class -> overwrite.
 """
 from __future__ import annotations
 
@@ -17,12 +17,12 @@ KAHOOT_BONUS = 0.5
 
 
 def is_correct(question: dict, response) -> bool:
-    """超时（response 为 None）一律算错。"""
+    """A timeout (response is None) always counts as wrong."""
     if response is None:
         return False
     answer, kind = question["answer"], question["type"]
     if kind == "mcq":
-        # bool 是 int 的子类：True 不能当作下标 1
+        # bool is a subclass of int: True must not be treated as index 1
         return isinstance(response, int) and not isinstance(response, bool) and response == answer
     if kind == "true_false":
         return isinstance(response, bool) and response == answer
@@ -53,7 +53,7 @@ def kp_stats(quiz: dict) -> dict:
 def weights(stats: dict, weak_kp_ids: set[str]) -> dict:
     current = read_json(paths.WEIGHTS)
     w = dict(current["weights"]) if current and current.get("class_id") == stats["class_id"] else {}
-    # 每次都从规则重新算，不在旧权重上累加（否则每次作答都会再加一次 Kahoot 的 0.5）
+    # Recompute from the rules every time instead of adding to the old weights (otherwise every attempt would add Kahoot's 0.5 again)
     fresh = {row["kp_id"]: LOW_ACCURACY_WEIGHT if row["accuracy"] < LOW_ACCURACY else DEFAULT_WEIGHT
              for row in stats["by_kp"]}
     for kp in weak_kp_ids:
@@ -63,7 +63,7 @@ def weights(stats: dict, weak_kp_ids: set[str]) -> dict:
 
 
 def refresh(lesson_id: str, quiz: dict) -> dict:
-    """每次作答后重算本测验的 kp_stats，并更新 weights.json，下次出题使用（pipe 第 7 步 plan_quiz.py）。"""
+    """After every attempt, recompute this quiz's kp_stats and update weights.json for the next quiz (pipe step 7, plan_quiz.py)."""
     stats = kp_stats(quiz)
     alerts = outbox.load(lesson_id, "alerts") or {}
     weak = {r["kp_id"] for r in alerts.get("weak_from_reports", [])}

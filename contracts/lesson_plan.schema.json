@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "lesson_plan",
-  "description": "教案：本节课计划讲的知识点。C（老师填）→ B。~/.chalkback/lesson_plans/{class_id}/{date}.json。不离开老师电脑。§5",
+  "description": "Lesson plan: the knowledge points planned for this lesson. C (filled in by the teacher) → B. ~/.chalkback/lesson_plans/{class_id}/{date}.json. Never leaves the teacher's computer. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["class_id", "date", "syllabus_id", "kp_ids"],

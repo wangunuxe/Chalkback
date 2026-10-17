@@ -1,44 +1,44 @@
-<!-- 负责人：A（TA3）。由 pipe.md 第 3 步引用。 -->
+<!-- Owner: A (TA3). Referenced by step 3 of pipe.md. -->
 
-# map_kp：把讲解片段对到考纲知识点
+# map_kp: map teaching segments to syllabus knowledge points
 
-## 目标
+## Goal
 
-判断本节课的每个讲解片段在讲考纲的哪个知识点，算出每个知识点讲了多少分钟，写成本机使用的 `$OUT/coverage.json`。
-这份结果决定出题范围（只考讲过的点）、漏讲提醒和学校看板，所以**宁可漏标，不要错标**。
+Decide which syllabus knowledge point each teaching segment of this lesson covers, compute how many minutes each knowledge point was taught, and write the result to the local `$OUT/coverage.json`.
+This result determines the quiz scope (only points that were taught are tested), the missed-point alerts and the school dashboard, so **better to leave a segment unlabelled than to label it wrongly**.
 
-## 输入
+## Input
 
-1. `$OUT/segments.json`：片段数组，每段有 `segment_id`、`start`、`end`、`speech`（老师原话）、`slide_text`（屏幕上的课件文字）。
-2. `$CB/cache/syllabus.json`：`syllabus_id`、`version`、`knowledge_points`（`kp_id`、`title`、`keywords`）。
-3. `$WORK/lesson.json`（第 1 步 `current_lesson.py` 的输出）：`lesson_id`、`teacher_id`、`class_id`。
-   这三个字段只从这里取，不要从片段或 `config.json` 推断。
+1. `$OUT/segments.json`: array of segments, each with `segment_id`, `start`, `end`, `speech` (the teacher's own words), `slide_text` (slide text on the screen).
+2. `$CB/cache/syllabus.json`: `syllabus_id`, `version`, `knowledge_points` (`kp_id`, `title`, `keywords`).
+3. `$WORK/lesson.json` (output of `current_lesson.py` in step 1): `lesson_id`, `teacher_id`, `class_id`.
+   Take these three fields only from here; do not infer them from the segments or from `config.json`.
 
-## 判断规则
+## Decision rules
 
-对每个片段，决定它在讲哪个知识点（0 个、1 个或最多 2 个）：
+For each segment, decide which knowledge points it teaches (0, 1, or at most 2):
 
-1. **以老师的话（`speech`）为准**：老师在解释、举例、纠错或带学生练习这个知识点，才算讲了。
-   `slide_text` 只用来帮助理解老师在讲什么；只有课件上出现、老师没讲的内容不算。
-2. **顺口提到不算**：只是一句话带过（“我们下次讲 imparfait”）、点名、课堂管理、闲聊，不对应任何知识点。
-3. **最多 2 个**：一段同时在比较两个知识点（如对比 avoir 和 être 作助动词）时可以记 2 个；更多就选讲得最多的 2 个。
-4. **只用考纲里的 `kp_id`**，不要发明新的知识点。
-5. **拿不准时用关键词兜底**：老师原话里出现某知识点的标题，或至少 2 个不同的关键词，才记这个知识点；
-   只出现 1 个关键词（如“accord”同时属于几个知识点）不记。
+1. **The teacher's words (`speech`) are what count**: a knowledge point is taught only if the teacher is explaining it, giving examples, correcting mistakes, or practising it with students.
+   `slide_text` only helps you understand what the teacher is talking about; content that appears only on the slides and that the teacher does not talk about does not count.
+2. **Passing mentions don't count**: a one-line mention ("we'll do the imparfait next time"), roll call, classroom management, or small talk maps to no knowledge point.
+3. **At most 2**: a segment that compares two knowledge points at once (e.g. contrasting avoir and être as auxiliaries) may get 2; if more, pick the 2 taught the most.
+4. **Use only `kp_id`s from the syllabus**; do not invent new knowledge points.
+5. **When unsure, fall back on keywords**: assign a knowledge point only if the teacher's words contain its title or at least 2 different keywords;
+   a single keyword (e.g. "accord", which belongs to several knowledge points) is not enough.
 
-## 计算
+## Computation
 
-- 片段时长 = `end` − `start`（分钟）。
-- 一个片段记在 n 个知识点下时，每个知识点分到 时长 ÷ n。
-- 每个知识点的 `minutes` = 分到的时长之和，保留 1 位小数。
-- `covered` = `minutes` ≥ 1.0（讲不到 1 分钟不算讲过）。
-- `segment_ids` = 记在这个知识点下的片段，按时间顺序；没有就是 `[]`，`minutes` 为 0。
-- **考纲的每个知识点都列一次**，包括没讲的（`covered: false`）。
-- `syllabus_id`、`syllabus_version` 取自 `syllabus.json` 的 `syllabus_id`、`version`；`generated_at` 为当前时间（ISO 8601，带时区偏移）。
+- Segment duration = `end` − `start` (minutes).
+- When a segment is assigned to n knowledge points, each one gets duration ÷ n.
+- Each knowledge point's `minutes` = sum of its shares, rounded to 1 decimal place.
+- `covered` = `minutes` ≥ 1.0 (less than 1 minute does not count as taught).
+- `segment_ids` = the segments assigned to this knowledge point, in chronological order; `[]` if none, with `minutes` 0.
+- **List every knowledge point in the syllabus exactly once**, including those not taught (`covered: false`).
+- `syllabus_id` and `syllabus_version` come from `syllabus_id` and `version` in `syllabus.json`; `generated_at` is the current time (ISO 8601, with timezone offset).
 
-## 输出
+## Output
 
-严格符合 `contracts/coverage.schema.json`，不要多写字段（不要写理由、原话或片段文字）：
+Must strictly conform to `contracts/coverage.schema.json`; do not write extra fields (no reasons, quotes, or segment text):
 
 ```json
 {
@@ -57,9 +57,9 @@
 }
 ```
 
-## 检查
+## Checks
 
-写完后依次运行，任何一个报错就按错误信息修改后重试（同一步最多 3 轮，见 pipe.md 硬约束）：
+After writing, run these in order; if any reports an error, fix according to the error messages and retry (at most 3 rounds per step, see the hard rules in pipe.md):
 
 ```bash
 python $PIPE_DIR/scripts/validate.py coverage $OUT/coverage.json
@@ -67,4 +67,4 @@ python $PIPE_DIR/scripts/check_coverage.py --coverage $OUT/coverage.json --segme
     --syllabus $CB/cache/syllabus.json --lesson $WORK/lesson.json
 ```
 
-`check_coverage.py` 会检查：片段 id 都存在、分钟数按上面的规则算对、`covered` 与分钟数一致、考纲和课程信息一致。
+`check_coverage.py` checks that: all segment ids exist, minutes are computed according to the rules above, `covered` is consistent with the minutes, and the syllabus and lesson information match.

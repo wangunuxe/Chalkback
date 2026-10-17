@@ -11,5 +11,5 @@ demo
 docs
 *.md
 *.webp
-# 自签证书和私钥：镜像里由 generate_cert.py 重新生成，不带宿主机的
+# Self-signed certificates and private keys: regenerated inside the image by generate_cert.py; the host's are not included
 **/*.pem

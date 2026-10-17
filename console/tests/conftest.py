@@ -24,7 +24,7 @@ def schema():
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
-    """用 contracts/examples 生成的假 ~/.chalkback/。"""
+    """A fake ~/.chalkback/ generated from contracts/examples."""
     import subprocess
     import sys
 

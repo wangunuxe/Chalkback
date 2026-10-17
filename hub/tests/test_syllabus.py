@@ -1,4 +1,4 @@
-"""TD3 验收：组长上传的考纲先是草稿，批准（A4）后才生效。"""
+"""TD3 acceptance: a syllabus uploaded by a department head is a draft first and only takes effect after approval (A4)."""
 import json
 from pathlib import Path
 

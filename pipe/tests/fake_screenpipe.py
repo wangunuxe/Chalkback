@@ -1,7 +1,7 @@
-"""极简的假 screenpipe：GET /search，返回格式按 demo/screenpipe_test_record.md（H2 实测）。
+"""A minimal fake screenpipe: GET /search, with the response format from demo/screenpipe_test_record.md (tested in H2).
 
-支持 content_type、q 和 window_name（都是不区分大小写的子串）、start_time、end_time、limit、offset；
-记录收到的每个请求的参数。
+Supports content_type, q and window_name (all case-insensitive substrings), start_time, end_time, limit, offset;
+records the parameters of every request it receives.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def ocr(frame_id: int, text: str, ts: str, app: str = "PowerPoint", window: str 
 
 
 def ui(text: str, ts: str, app: str = "Keynote", window: str = "cours.key") -> dict:
-    """accessibility 文字（字段名待 TA1 实测；没有 frame_id）。"""
+    """accessibility text (field names pending testing in TA1; no frame_id)."""
     return {"type": "UI", "content": {"text": text, "timestamp": ts, "app_name": app, "window_name": window}}
 
 

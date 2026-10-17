@@ -1,7 +1,7 @@
-"""控制台用到的共用工具：契约校验、Europe/Paris 时间、读写 JSON，以及复用 pipe 里的脚本。
+"""Shared helpers used by the console: contract validation, Europe/Paris time, JSON read/write, and reuse of pipe scripts.
 
-控制台和 pipe 在同一个仓库里运行（make teacher / Docker 都会带上 contracts/ 和 pipe/scripts/），
-所以判分规则和游戏页面生成直接复用 pipe 的实现，不另抄一份。
+The console and pipe run from the same repo (make teacher / Docker both include contracts/ and pipe/scripts/),
+so grading rules and game page generation reuse pipe's implementation directly instead of keeping a second copy.
 """
 from __future__ import annotations
 
@@ -24,12 +24,12 @@ try:
     from zoneinfo import ZoneInfo
 
     PARIS = ZoneInfo("Europe/Paris")
-except Exception:  # Windows 没装 tzdata 时退回本机时区
+except Exception:  # fall back to the local timezone when tzdata is not installed on Windows
     PARIS = None
 
 
 def now_iso() -> str:
-    """ISO 8601 带时区偏移（§0 约定）。"""
+    """ISO 8601 with timezone offset (§0 convention)."""
     now = datetime.now(PARIS) if PARIS else datetime.now().astimezone()
     return now.isoformat(timespec="seconds")
 

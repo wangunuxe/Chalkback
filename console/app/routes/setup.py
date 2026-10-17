@@ -1,9 +1,9 @@
-"""/setup：邀请码 → 学科班级 → 课表 → 知情同意（A1）→ 写 config.json 和 pipe 定时（TC2）。
+"""/setup: invite code -> subject and class -> timetable -> informed consent (A1) -> write config.json and the pipe schedule (TC2).
 
-- 必须明确勾选同意（consent: true）才能完成安装。
-- 通过 Hub /api/join 加入；Hub 不通或邀请码无效时返回 502，不写入任何 mock token。
-- workspace_id、teacher_id、token 都取自 join 的返回；同时把当前考纲缓存到 cache/syllabus.json（pipe 第 3、4 步要用）。
-- 尚未实现：HTML 向导页面、按课表写 pipe 定时（POST screenpipe /pipes/chalkback/config）、Hub 记录 consent（待定）。
+- Consent must be explicitly checked (consent: true) to complete setup.
+- Joins via Hub /api/join; if the Hub is unreachable or the invite code is invalid, returns 502 and writes no mock token.
+- workspace_id, teacher_id and token all come from the join response; the current syllabus is also cached to cache/syllabus.json (needed by pipe steps 3 and 4).
+- Not implemented yet: HTML wizard page, writing the pipe schedule from the timetable (POST screenpipe /pipes/chalkback/config), recording consent on the Hub (TBD).
 """
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""TD1：在真实实现之前，各接口返回 contracts/examples 里的示例数据。"""
+"""TD1: before the real implementation, each endpoint returns the sample data from contracts/examples."""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,4 @@
-"""read_reports.py（TA5）：只从真实的 Kahoot 报告页读薄弱点，找不到或出错都输出 []，绝不编造。"""
+"""read_reports.py (TA5): read weak points only from real Kahoot report pages; output [] when nothing is found or on error, never invent."""
 import json
 from datetime import datetime
 
@@ -29,7 +29,7 @@ def weak(monkeypatch):
 def test_low_accuracy_question_maps_to_its_kp(weak):
     result, fake = weak([report(1, "Question 3\nL'accord du participe passé avec le COD\n23% correct\nQuestion 4\nLe passé composé avec avoir\n91% correct")])
     assert result == [{"kp_id": "KP03", "source": "kahoot_report", "seen_at": "2026-10-16T18:02:00+02:00"}]
-    assert {r["window_name"] for r in fake.requests} == {"kahoot"}  # 按窗口标题找，不是全文搜索
+    assert {r["window_name"] for r in fake.requests} == {"kahoot"}  # search by window title, not full-text search
 
 
 def test_header_marks_following_questions(weak):
@@ -38,13 +38,13 @@ def test_header_marks_following_questions(weak):
 
 
 def test_ambiguous_question_is_skipped(weak):
-    # “passé composé” 同时是 KP01 和 KP02 的关键词，分数相同：不确定就不标
+    # "passé composé" is a keyword of both KP01 and KP02, a tied score: when unsure, do not tag
     result, _ = weak([report(1, "Le passé composé\n31% correct")])
     assert result == []
 
 
 def test_no_naive_number_matching(weak):
-    # 以前 “correct: 1” 会命中 “correct: 10”；“cod” 不能命中 “code”
+    # "correct: 1" used to match "correct: 10"; "cod" must not match "code"
     result, _ = weak([report(1, "Participe passé et accord\ncorrect: 10 / 12\n85%"), report(2, "Code de la route\n10%")])
     assert result == []
 
@@ -72,7 +72,7 @@ def cli(tmp_path, *extra):
 def test_screenpipe_down_writes_empty_and_fails(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(extract_segments, "SCREENPIPE_URL", "http://127.0.0.1:9")
     assert cli(tmp_path) == (1, [])
-    assert "失败" in capsys.readouterr().err
+    assert "failed" in capsys.readouterr().err
 
 
 def test_missing_syllabus_writes_empty_and_fails(tmp_path):

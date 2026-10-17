@@ -1,4 +1,4 @@
-"""TD6 验收：切换角色后可见内容符合 §4 权限表；考前预警按规则计算。"""
+"""TD6 acceptance: after switching roles, the visible content matches the §4 permission table; pre-exam alerts follow the rule."""
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -44,7 +44,7 @@ def test_teacher_sees_only_own_classes():
 
 def test_teacher_peer_gaps_are_anonymous():
     c = by_class(board("teacher", T5))["6A"]
-    assert "KP02" in c["peer_gaps"] and "KP01" not in c["peer_gaps"]  # 6B 讲了、6A 没讲；6A 讲过的不算
+    assert "KP02" in c["peer_gaps"] and "KP01" not in c["peer_gaps"]  # 6B covered it, 6A did not; ones 6A already covered do not count
     assert "6B" not in str(c)
 
 

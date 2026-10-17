@@ -1,57 +1,57 @@
-# hub/ — 学校 Hub
+# hub/ — school Hub
 
-负责人：D。云端，对公网可访问（§6.4）。看板数据只来自批准上传的 `coverage_share`。
+Owner: D. In the cloud, publicly reachable (§6.4). Dashboard data comes only from approved uploads of `coverage_share`.
 
 ```bash
 pip install -r requirements.txt
-make hub                                         # 在仓库根目录：https://localhost:8000（联调模式），API 文档 /docs
+make hub                                         # from the repo root: https://localhost:8000 (test mode), API docs at /docs
 pytest
 ```
 
-全部接口都是真实实现，数据存在 SQLite（`HUB_DB`）。
+All endpoints are real implementations; data is stored in SQLite (`HUB_DB`).
 
-看板（TD6）：打开 Hub 首页登录（邀请码，或粘贴控制台 `config.json` 里的 token），进入 `/dashboard.html`。三种角色都登录过以后，顶部可以一键切换；页面每 3 秒刷新，老师撤回后看板会自动更新。页面不依赖外网资源。
-- 老师：只看自己的班，每个知识点是否讲过和分钟数，以及“别的班讲了、你还没讲”的知识点（不指明是哪个班）。
-- 组长：知识点 × 班级矩阵，考纲面板（上传草稿、批准），待批准草稿列表。
-- 管理员：各班进度汇总（不含知识点明细）、邀请码、各角色人数。
-- 三种角色都能看审计日志，范围按角色过滤。
-- 预警：`剩余未覆盖知识点数 > 距考试剩余周数 × 平均每周覆盖数`。平均每周覆盖数 = 已覆盖数 ÷ 从该班第一节上传课到今天的周数（最少按 1 周算）。考试日期默认 `2026-12-18`，用环境变量 `HUB_EXAM_DATE=YYYY-MM-DD` 覆盖。
+Dashboard (TD6): open the Hub home page and log in (invite code, or paste the token from the console's `config.json`), then go to `/dashboard.html`. Once all three roles have logged in, you can switch between them with one click at the top; the page refreshes every 3 seconds, so the dashboard updates automatically after a teacher withdraws. The page loads no external resources.
+- Teacher: only their own classes — whether each knowledge point was covered and for how many minutes, plus knowledge points that "another class has covered but you haven't" (without naming the class).
+- Department head: knowledge point × class matrix, syllabus panel (upload draft, approve), list of drafts awaiting approval.
+- Admin: per-class progress summary (no knowledge point detail), invite codes, head count per role.
+- All three roles can see the audit log, filtered by role.
+- Warning: `remaining uncovered knowledge points > weeks left until the exam × average coverage per week`. Average coverage per week = covered count ÷ weeks from the class's first uploaded lesson to today (at least 1 week). The exam date defaults to `2026-12-18`; override it with the env var `HUB_EXAM_DATE=YYYY-MM-DD`.
 
-彩排数据：Hub 运行时执行 `python hub/scripts/seed_demo.py [Hub 地址]`（默认 `https://localhost:8443`，即 `make up` 的地址；用 `make hub` 运行时传 `https://localhost:8000`；脚本用 mock token，只能在联调模式下用），会通过真实接口上传 3 个班的示例覆盖数据（4A 进度正常，4B 触发预警，T1 能看到同年级对比）。
+Rehearsal data: with the Hub running, run `python hub/scripts/seed_demo.py [Hub URL]` (default `https://localhost:8443`, the `make up` address; pass `https://localhost:8000` when running with `make hub`; the script uses a mock token, so it only works in test mode). It uploads sample coverage data for 3 classes through the real API (4A on track, 4B triggers the warning, T1 shows the same-grade comparison).
 
-覆盖表（TD4、TD5，审批 A3、A5）：
-- `POST /api/coverage`（老师）：严格按 `coverage_share` schema 校验，多一个字段都返回 422（隐私边界）。同一位老师重传同一节课，新的替换旧的。写审计 `share_coverage`。
-- `DELETE /api/coverage/{share_id}`：只有上传者本人能撤回（他人 403，不存在 404），写审计 `revoke`。
-- `GET /api/coverage?class_id=`：按当前已批准考纲列出每个知识点，汇总该班全部上传（`covered` 取“任一节讲过”，`minutes` 求和）。老师只能查自己上传过的班。
-- `GET /api/audit`：老师看自己的记录，组长、管理员看全校记录。
+Coverage table (TD4, TD5, approvals A3, A5):
+- `POST /api/coverage` (teacher): strictly validated against the `coverage_share` schema; even one extra field returns 422 (privacy boundary). If the same teacher re-uploads the same lesson, the new one replaces the old. Writes audit `share_coverage`.
+- `DELETE /api/coverage/{share_id}`: only the uploader can withdraw (others get 403, nonexistent 404); writes audit `revoke`.
+- `GET /api/coverage?class_id=`: lists each knowledge point of the currently approved syllabus and aggregates all uploads for that class (`covered` means "covered in any lesson", `minutes` are summed). Teachers can only query classes they have uploaded for.
+- `GET /api/audit`: teachers see their own records; department heads and admins see the whole school's.
 
-考纲（TD3，审批 A4）：组长 `POST /api/syllabus` 上传，Hub 校验格式后存为草稿，版本号自动 +1（上传者填的 `version`、`status` 会被忽略）；组长 `POST /api/syllabus/{id}/approve` 批准最新草稿，并写审计 `approve_syllabus`。`GET /api/syllabus/current` 只返回已批准的最新版本，草稿不生效。Hub 启动时预装 `contracts/examples/syllabus.json` 作为 v1 已批准版本。
+Syllabus (TD3, approval A4): the department head uploads with `POST /api/syllabus`; the Hub validates the format and stores it as a draft, with the version number auto-incremented (any `version` or `status` from the uploader is ignored). The department head approves the latest draft with `POST /api/syllabus/{id}/approve`, which writes audit `approve_syllabus`. `GET /api/syllabus/current` returns only the latest approved version; drafts don't take effect. On startup the Hub preloads `contracts/examples/syllabus.json` as approved v1.
 
-加入（TD2）：Hub 启动时自动建好演示工作区 `W1` 和三个邀请码，每种角色一个，码和角色不符会被拒绝：
+Joining (TD2): on startup the Hub creates the demo workspace `W1` and three invite codes, one per role; a code used with the wrong role is rejected:
 
-| 邀请码 | 角色 |
+| Invite code | Role |
 | --- | --- |
 | `DEMO-TEACHER` | teacher |
 | `DEMO-HEAD` | head |
 | `DEMO-ADMIN` | admin |
 
-`POST /api/join` 返回的 token 放在 `Authorization: Bearer <token>`。
-**联调模式**（`HUB_MOCK_AUTH=1`，`make hub` 和 `docker-compose.yml` 已设置）才接受 mock 认证 `Authorization: Bearer mock-token-<id>`（id 以 `H` 开头为组长、`ADM` 开头为管理员，其余为老师）和上面的 `DEMO-*` 邀请码。默认是正式模式（`hub/Dockerfile` 不设置）：mock token 一律 401，`DEMO-*` 码失效，学校的邀请码用 `HUB_INVITES="teacher=码,head=码,admin=码"` 设置。
+Put the token returned by `POST /api/join` in `Authorization: Bearer <token>`.
+Only **test mode** (`HUB_MOCK_AUTH=1`, already set by `make hub` and `docker-compose.yml`) accepts mock auth `Authorization: Bearer mock-token-<id>` (ids starting with `H` are department heads, `ADM` are admins, all others are teachers) and the `DEMO-*` invite codes above. The default is production mode (not set in `hub/Dockerfile`): mock tokens always get 401, `DEMO-*` codes are disabled, and the school's invite codes are set with `HUB_INVITES="teacher=code,head=code,admin=code"`.
 
-上传检查（TD4）：`POST /api/coverage` 除了 schema，还要求 `lesson_id` 里的老师是上传者本人、考纲版本已批准、知识点在那个版本里，否则 422。
+Upload checks (TD4): besides the schema, `POST /api/coverage` requires that the teacher in `lesson_id` is the uploader, the syllabus version is approved, and the knowledge points are in that version; otherwise 422.
 
-| 文件 | 内容 | 任务 |
+| File | Contents | Task |
 | --- | --- | --- |
-| `app/routes/join.py` | 邀请码加入、token | TD2 |
-| `app/routes/syllabus.py` | 考纲草稿、批准（A4）、版本 | TD3 |
-| `app/routes/coverage.py` | 接收 / 撤回 coverage_share（A3、A5），覆盖表 | TD4、TD5 |
-| `app/routes/dashboard.py` | 三种角色视图 + 考前预警 | TD6 |
-| `app/routes/audit.py` | 审计日志 | TD5、TD6 |
-| `app/db.py` | SQLite 表结构 | TD2–TD5 |
-| `app/auth.py` | token → 角色 | TD2 |
-| `app/static/` | 看板前端 | TD6 |
+| `app/routes/join.py` | Invite code join, token | TD2 |
+| `app/routes/syllabus.py` | Syllabus drafts, approval (A4), versions | TD3 |
+| `app/routes/coverage.py` | Receive / withdraw coverage_share (A3, A5), coverage table | TD4, TD5 |
+| `app/routes/dashboard.py` | Three role views + pre-exam warning | TD6 |
+| `app/routes/audit.py` | Audit log | TD5, TD6 |
+| `app/db.py` | SQLite tables | TD2–TD5 |
+| `app/auth.py` | token → role | TD2 |
+| `app/static/` | Dashboard frontend | TD6 |
 
-## 待定
+## TBD
 
-- 组长“本年级”的权限过滤需要班级 → 年级的对应关系，目前契约里没有（§4 表格）。**暂时让组长看全校**（覆盖表和审计日志），演示只有一个年级，效果相同。
-- 考试日期存在工作区设置里，设置接口未定义。
+- Filtering the department head's view to "their grade" needs a class → grade mapping, which the contracts don't have yet (§4 table). **For now department heads see the whole school** (coverage table and audit log); the demo has only one grade, so the result is the same.
+- The exam date lives in workspace settings; the settings API is not defined.

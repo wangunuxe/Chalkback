@@ -1,11 +1,11 @@
-# 开发与联调环境：学校 Hub + 老师控制台（mock 数据）。
+# Development and test environment: school Hub + teacher console (mock data).
 #
 #   docker compose up --build
-#   Hub      https://localhost:8443      （API 文档 /docs）
-#   控制台   https://localhost:4000      （只绑定本机）
+#   Hub      https://localhost:8443      (API docs at /docs)
+#   Console  https://localhost:4000      (bound to localhost only)
 #
-# 不在这里的：screenpipe（桌面程序，要录老师的麦克风和屏幕）和 chalkback-pipe（由 screenpipe 启动）。
-# 它们只能跑在老师电脑上，见 docs/SETUP.md。
+# Not included here: screenpipe (a desktop app that records the teacher's microphone and screen) and chalkback-pipe (started by screenpipe).
+# They can only run on the teacher's computer; see docs/SETUP.md.
 
 name: chalkback
 
@@ -17,8 +17,8 @@ services:
     ports:
       - "8443:8000"
     environment:
-      # 联调模式：接受 mock-token-<id>，开放 DEMO-* 邀请码（控制台的 mock config 用的就是 mock-token-T1）。
-      # 只用于本机联调；公网部署不要设置（hub/Dockerfile 默认关闭），见 docs/ADMIN.md。
+      # Test mode: accepts mock-token-<id> and enables the DEMO-* invite codes (the console's mock config uses mock-token-T1).
+      # Only for local testing; do not set it for public deployment (off by default in hub/Dockerfile); see docs/ADMIN.md.
       HUB_MOCK_AUTH: "1"
     volumes:
       - hub-data:/data
@@ -28,15 +28,15 @@ services:
     build:
       context: .
       dockerfile: console/Dockerfile
-    # 必须只绑定 127.0.0.1：下面的 CONSOLE_TRUSTED_NETS 让老师页面信任容器网段，
-    # 如果端口对局域网开放，等于把老师页面开放给所有人。
+    # Must be bound to 127.0.0.1 only: CONSOLE_TRUSTED_NETS below makes the teacher pages trust the container network,
+    # so if the port were open to the LAN, the teacher pages would be open to everyone.
     ports:
       - "127.0.0.1:4000:4000"
     environment:
       CONSOLE_TRUSTED_NETS: 172.28.0.0/16
       HUB_URL: https://hub:8000
     volumes:
-      - console-data:/data   # 假的 ~/.chalkback；docker compose down -v 后会重新生成 mock
+      - console-data:/data   # fake ~/.chalkback; regenerated as mock after docker compose down -v
     depends_on:
       hub:
         condition: service_healthy

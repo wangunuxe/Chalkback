@@ -1,125 +1,124 @@
-# TB7 新人安装测试流程
+# TB7 newcomer install test procedure
 
-负责人：B。目标（技术文档 §8 TB7）：请一位队外人员只看 `docs/SETUP.md` 安装 ChalkBack，记下真实用时，
-再按他卡住的地方修改文档。得到的数字用在 demo 0:15–0:35（B 讲）和答辩幻灯片里。
+Owner: B. Goal (design doc §8 TB7): have someone outside the team install ChalkBack using only `docs/SETUP.md`, record the real time taken,
+then fix the docs wherever they got stuck. The resulting numbers are used in demo 0:15–0:35 (B presents) and in the pitch slides.
 
-**截止：周日 13:00**（之后功能冻结）。
+**Deadline: Sunday 13:00** (feature freeze after that).
 
-| 时间 | 做什么 | 谁 |
+| Time | What | Who |
 | --- | --- | --- |
-| 周日 09:00 前 | 开测前检查（第 1 节），包括自己在干净环境里完整走一遍（这也是 TB6 的验收） | B |
-| 约 10:00 | 正式测试，留 45 分钟（第 3、4 节） | B 主持，测试者 |
-| 10:45–12:00 | 整理问题、修改 SETUP.md（第 5 节）；有时间就请第二位测试者 | B |
-| 12:30 前 | 把数字发给 D（幻灯片）和 A（`docs/DEMO.md`）（第 6 节） | B |
+| Before Sunday 09:00 | Pre-test checks (section 1), including a full run-through yourself in a clean environment (this is also TB6's acceptance) | B |
+| ~10:00 | The actual test, allow 45 minutes (sections 3, 4) | B hosts, tester |
+| 10:45–12:00 | Sort issues, fix SETUP.md (section 5); a second tester if time allows | B |
+| Before 12:30 | Send the numbers to D (slides) and A (`docs/DEMO.md`) (section 6) | B |
 
 ---
 
-## 1. 开测前检查（全部打勾才开测）
+## 1. Pre-test checks (start only when everything is ticked)
 
-已知会卡住的地方没解决就开测，只会浪费测试者的时间，测出来的数字也不能用。
+Starting the test with known blockers unresolved just wastes the tester's time, and the numbers won't be usable.
 
-- [ ] `SETUP.md` 里没有 `TODO` 和 *to verify*：在仓库根目录运行 `grep -n "TODO\|to verify" docs/SETUP.md`，结果为空
-  - [ ] 第 5 步：C 写好了老师启动控制台的方式
-  - [ ] 第 4 步：实测装好后 pipe 的名字（`chalkback` 还是 `pipe`），必要时修改 SETUP，并告诉 C
-  - [ ] 第 6 步：实测 pipe 的安装目录
-- [ ] **B 自己预演一遍**：在干净环境里按 SETUP 从头做到 `All required checks passed`，记下自己的用时作为参照
-- [ ] Hub 的公网地址能打开（D）
-- [ ] D 为测试者生成了一个**专用邀请码**（角色 teacher），测试后删除
-- [ ] 准备一个**测试专用的 AI key**，设好消费上限，测试后作废。不要给测试者用你个人的 key
-- [ ] 测试电脑：最好用测试者**自己的电脑**；没有的话就在某台电脑上**新建一个系统用户**
-  （macOS：系统设置 → 用户与群组；Windows：设置 → 账户 → 其他用户）。
-  如果那台电脑已经装过 Node.js 或 Python，记录下来，第 3 步的用时会因此偏短
-- [ ] 测试现场的网络能下载东西（screenpipe、Node.js、Python 安装包加起来有几百 MB）
-- [ ] 计时工具：手机秒表；征得同意的话再录屏（之后也能当 demo 备用素材）
-- [ ] 打印或发给测试者：本文末尾的**测试者说明卡**、`SETUP.md` 的链接、邀请码、AI key
+- [ ] No `TODO` or *to verify* left in `SETUP.md`: from the repo root, `grep -n "TODO\|to verify" docs/SETUP.md` returns nothing
+  - [ ] Step 5: C has written how teachers start the console
+  - [ ] Step 4: confirm the pipe's name after install (`chalkback` or `pipe`), update SETUP if needed, and tell C
+  - [ ] Step 6: confirm the pipe's install directory
+- [ ] **B does a dry run**: in a clean environment, follow SETUP from the top until `All required checks passed`, and record your own time as a baseline
+- [ ] The Hub's public URL opens (D)
+- [ ] D has generated a **dedicated invite code** for the tester (role teacher), deleted after the test
+- [ ] Prepare a **test-only AI key** with a spending cap, revoked after the test. Don't give the tester your personal key
+- [ ] Test computer: ideally the tester's **own computer**; otherwise **create a new OS user** on some computer
+  (macOS: System Settings → Users & Groups; Windows: Settings → Accounts → Other users).
+  If that computer already has Node.js or Python installed, note it down: step 3 will be faster because of it
+- [ ] The network at the test location can download things (screenpipe, Node.js and Python installers add up to several hundred MB)
+- [ ] Timer: phone stopwatch; with consent, also record the screen (it can double as backup demo footage)
+- [ ] Print or send the tester: the **tester card** at the end of this doc, the `SETUP.md` link, the invite code, the AI key
 
-## 2. 找测试者
+## 2. Finding a tester
 
-- **人选**：队外、没见过这个项目、会正常用电脑的人。老师或者不写代码的人最好，最接近真实用户。
-- **约时间时说清楚**：大约 40 分钟，用自己的电脑；过程中会安装 screenpipe（它会记录屏幕和麦克风），
-  测试结束后我们会帮忙卸载干净。
-- 测试者说明卡（文末）是英文的，可以提前发给对方。
+- **Who**: someone outside the team who has never seen this project and uses a computer normally. A teacher or a non-coder is best, closest to the real user.
+- **When scheduling, be clear**: about 40 minutes, on their own computer; screenpipe will be installed during the test (it records the screen and microphone),
+  and we will help uninstall everything afterwards.
+- The tester card (at the end) is in English and can be sent in advance.
 
-## 3. 测试当天：主持人怎么做
+## 3. Test day: what the host does
 
-### 开场（2 分钟）
+### Opening (2 minutes)
 
-照着说明卡跟测试者讲一遍，重点三句话：
-1. 我们测的是**说明文档**，不是你：卡住了说明是文档写得不好。
-2. 请**边做边说**你在想什么（"我在找……"，"这里我不确定……"）。
-3. 我尽量不帮忙，你可以随时停止。
+Go through the tester card with the tester, stressing three things:
+1. We are testing the **guide**, not you: if you get stuck, the guide is badly written.
+2. Please **think aloud** as you go ("I'm looking for…", "I'm not sure here…").
+3. I'll try not to help, and you can stop at any time.
 
-请测试者先关掉私人应用（邮件、聊天软件），因为装好 screenpipe 后它会开始记录屏幕。
+Ask the tester to close private apps (mail, chat) first, since screenpipe starts recording the screen once installed.
 
-### 计时规则
+### Timing rules
 
-- **开始**：测试者打开 `SETUP.md` 的那一刻。
-- **结束**：第 6 步 doctor 输出 `All required checks passed.`。
-- 每一步结束都记一下时间，填进下面的表。第 7 步（试跑）是可选的，单独计时，不算进总时间。
-- 下载等待时间很长时（超过 1 分钟）要单独记下来，汇报时可以说明"其中 X 分钟在等下载"。
+- **Start**: the moment the tester opens `SETUP.md`.
+- **End**: step 6 doctor prints `All required checks passed.`.
+- Note the time at the end of each step and fill in the table below. Step 7 (trial run) is optional, timed separately, and not counted in the total.
+- Note long download waits (over 1 minute) separately, so the report can say "X minutes of that were waiting for downloads".
 
-### 什么时候介入
+### When to step in
 
-- **不主动帮忙**，不指屏幕，也不说"往下看"。
-- 只有两种情况才介入：**卡住超过 3 分钟**，或者测试者**正要做有害的操作**（比如删错文件）。
-- 介入时只给最小提示（例如"再看一下第 3 步最后一段"），并且**记一次求助**：写下当时的时间、步骤和你说了什么。
-- 测试过程中**不要改文档**，先记下来。
+- **Don't help proactively**: don't point at the screen or say "look further down".
+- Step in only in two cases: **stuck for more than 3 minutes**, or the tester is **about to do something harmful** (e.g. deleting the wrong file).
+- When stepping in, give the smallest hint possible (e.g. "have another look at the last paragraph of step 3"), and **log a help request**: write down the time, the step and what you said.
+- **Don't edit the docs** during the test; note things down first.
 
-### 记录表
+### Log sheet
 
-每一步的用时（分钟）：
+Time per step (minutes):
 
-| 第 1 步 screenpipe | 第 2 步 AI key | 第 3 步 Node/Python | 第 4 步 装 pipe | 第 5 步 向导 | 第 6 步 自检 | 总计 | 求助次数 |
+| Step 1 screenpipe | Step 2 AI key | Step 3 Node/Python | Step 4 install pipe | Step 5 wizard | Step 6 self-check | Total | Help requests |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | | | | | | | | |
 
-观察记录（犹豫、出错、求助、长时间等待都记下来，测试者的原话尤其有用）：
+Observations (log hesitations, errors, help requests and long waits; the tester's exact words are especially useful):
 
-| 时间 | 步骤 | 发生了什么 | 类型：犹豫 / 出错 / 求助 / 等待 | 测试者原话 |
+| Time | Step | What happened | Type: hesitation / error / help / wait | Tester's words |
 | --- | --- | --- | --- | --- |
 | | | | | |
 
-## 4. 测试后访谈（5 分钟，用英文问）
+## 4. Post-test interview (5 minutes, ask in English)
 
 1. *Which step was the hardest, and why?*
 2. *Was anything in the instructions unclear or in the wrong order?*
-3. **隐私理解检查**：*In your own words, what does ChalkBack record, and what does it share with the school?*
-   如果答不出"录音和截图不离开电脑，只有批准后的覆盖数据会共享"，就说明 SETUP 开头那张表需要改。
+3. **Privacy understanding check**: *In your own words, what does ChalkBack record, and what does it share with the school?*
+   If they can't answer "recordings and screenshots never leave the computer; only approved coverage data is shared", the table at the top of SETUP needs fixing.
 4. *From 1 to 5, how confident are you that you could do this again alone? Could a colleague teacher do it?*
 
-然后帮测试者**卸载**：照 SETUP 里的 *Uninstall* 做，再退出并卸载 screenpipe，删除 `~/.screenpipe` 和 `~/.chalkback`。
-最后作废测试用的 AI key，请 D 删除测试邀请码和测试老师账号。
+Then help the tester **uninstall**: follow *Uninstall* in SETUP, then quit and uninstall screenpipe and delete `~/.screenpipe` and `~/.chalkback`.
+Finally, revoke the test AI key and ask D to delete the test invite code and the test teacher account.
 
-## 5. 整理问题、修改文档
+## 5. Sort issues and fix the docs
 
-把观察记录里的每一条归到下面一类：
+Put each observation into one of these categories:
 
-| 类别 | 例子 | 谁来改 |
+| Category | Example | Who fixes |
 | --- | --- | --- |
-| 文档写得不清楚 | 看不懂某句话、找不到按钮在哪 | B，马上改 |
-| 缺步骤或顺序不对 | 少了"重新打开终端"，或者要先做 B 才能做 A | B，马上改 |
-| 产品问题 | 向导报错、doctor 误报、pipe 装不上 | 对应负责人：控制台找 C、pipe 权限和数据找 A、Hub 找 D。在群里报，附上时间和截图 |
-| 环境问题 | 网速慢、公司电脑没有管理员权限 | 在常见问题里补一条说明 |
+| Docs unclear | A sentence is hard to understand, can't find a button | B, fix right away |
+| Missing step or wrong order | "Reopen the terminal" is missing, or B must be done before A | B, fix right away |
+| Product issue | Wizard errors, doctor false alarm, pipe won't install | The relevant owner: C for the console, A for pipe permissions and data, D for the Hub. Report in the group chat with the time and a screenshot |
+| Environment issue | Slow network, no admin rights on a work computer | Add a note to the FAQ |
 
-优先改**导致求助或卡住超过 3 分钟**的问题。改完后：
-1. 把这次的结果填进 `SETUP.md` 末尾的 *New-user test log* 表；
-2. 有时间的话，请第二位测试者再测一次，或者至少自己把改过的步骤重走一遍；
-3. 提交：`git commit -m "TB7: newcomer test results, SETUP fixes"`。
+Fix issues that **caused a help request or a stall of more than 3 minutes** first. After fixing:
+1. Fill in this run's results in the *New-user test log* table at the end of `SETUP.md`;
+2. If time allows, have a second tester run it again, or at least redo the changed steps yourself;
+3. Commit: `git commit -m "TB7: newcomer test results, SETUP fixes"`.
 
-## 6. 给 demo 和答辩用的数字
+## 6. Numbers for the demo and the pitch
 
-**如实汇报**，用实测的总时间，有求助就要说出来。评委可能会问细节，数字经得起追问比好看更重要。
+**Report honestly**: use the measured total time, and mention any help requests. Judges may ask for details; numbers that hold up under questioning matter more than numbers that look good.
 
-可以用的说法：
+Phrasings you can use:
 
-- 没有求助：*"A first-time user who had never seen ChalkBack installed it in **X minutes** using only our SETUP guide."*
-- 有求助：*"... in **X minutes** with **N** hint(s) — we fixed those steps in the guide afterwards."*
-- 中文：**"一位从没见过项目的队外新人，只看安装文档，X 分钟装好（期间求助 N 次，之后已据此修改文档）。"**
+- No help requests: *"A first-time user who had never seen ChalkBack installed it in **X minutes** using only our SETUP guide."*
+- With help requests: *"... in **X minutes** with **N** hint(s) — we fixed those steps in the guide afterwards."*
 
-发给：
-- **D**：答辩幻灯片；
-- **A**：`docs/DEMO.md` 和彩排；
-- **B 自己**：demo 0:15–0:35 的讲稿。
+Send to:
+- **D**: pitch slides;
+- **A**: `docs/DEMO.md` and rehearsal;
+- **B yourself**: the script for demo 0:15–0:35.
 
 ---
 

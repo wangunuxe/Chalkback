@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
-  老师审核页（TC3，负责人 C）。只用 outbox 里的真实数据；不引用外部资源（离线也能用）。
-  按钮调用 /review/{lesson_id}/action|publish|reject|share 和 DELETE /shares/{share_id}，结果显示在页面顶部，不弹对话框。
+  Teacher review page (TC3, owner: C). Uses only real data from the outbox; loads no external resources (works offline).
+  Buttons call /review/{lesson_id}/action|publish|reject|share and DELETE /shares/{share_id}; results are shown at the top of the page, no dialog boxes.
 -->
 <html lang="en">
 <head>

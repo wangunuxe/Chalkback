@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "weights",
-  "description": "按知识点的出题权重。C → B。~/.chalkback/state/weights.json。规则：默认 1.0；正确率 < 50% 设为 2.0；Kahoot 报告薄弱点 +0.5。§5",
+  "description": "Question weights per knowledge point. C → B. ~/.chalkback/state/weights.json. Rules: default 1.0; accuracy < 50% sets it to 2.0; a weak point in a Kahoot report adds +0.5. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["class_id", "updated_at", "weights"],

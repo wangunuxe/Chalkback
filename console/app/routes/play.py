@@ -1,7 +1,7 @@
-"""/play/{quiz_id}：在本机提供已发布（A2）的 game.html，记录作答（TC4），统计 kp_stats / weights.json（TC5）。
+"""/play/{quiz_id}: serve the published (A2) game.html locally, record attempts (TC4), compute kp_stats / weights.json (TC5).
 
-学生在老师电脑的浏览器里作答，和其它页面一样只允许本机访问。quiz_id = Q-{lesson_id}。
-作答接口（H9）：POST /play/{quiz_id}/attempt {nickname, q_id, response, time_ms} → {correct, answer}。
+Students answer in the browser on the teacher's computer; like every other page, it is local-only. quiz_id = Q-{lesson_id}.
+Answer endpoint (H9): POST /play/{quiz_id}/attempt {nickname, q_id, response, time_ms} -> {correct, answer}.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ router = APIRouter(prefix="/play", tags=["play"])
 class AttemptRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=40)
     q_id: str
-    # 超时为 null（game.html），按答错记录；null 是否写进 attempt 契约待全员确认
+    # A timeout is null (game.html) and is recorded as wrong; whether null goes into the attempt contract still needs team-wide confirmation
     response: StrictBool | StrictInt | StrictStr | None = None
     time_ms: int = Field(default=0, ge=0)
 

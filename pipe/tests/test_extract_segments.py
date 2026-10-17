@@ -1,4 +1,4 @@
-"""extract_segments.py（TA2）：按换页切成约 2–5 分钟的片段，只要麦克风，过滤私人窗口，时间统一 Europe/Paris。"""
+"""extract_segments.py (TA2): split at slide changes into segments of about 2–5 minutes, microphone only, private windows filtered, all times in Europe/Paris."""
 import json
 import urllib.error
 from datetime import datetime
@@ -59,7 +59,7 @@ def test_segments_follow_slides_and_contract(run, tmp_path):
     assert [s["segment_id"] for s in segments] == [f"S-{LESSON}-{i:03d}" for i in range(1, len(segments) + 1)]
     assert all(2 <= minutes(s) <= 5 for s in segments)
     assert all(s["start"].endswith("+02:00") and s["end"].endswith("+02:00") for s in segments)
-    # 换页抖动（SLIDE_A_JITTER）不算换页；同一页的两个截图都留作证据
+    # slide jitter (SLIDE_A_JITTER) does not count as a slide change; both screenshots of the same slide are kept as evidence
     first = segments[0]
     assert first["start"] == START and first["slide_text"] == SLIDE_A and first["evidence"]["frame_ids"] == [1, 2]
     assert first["evidence"]["transcription_ids"] == [801]
@@ -68,8 +68,8 @@ def test_segments_follow_slides_and_contract(run, tmp_path):
 def test_only_teacher_microphone(run):
     segments, _ = run(lesson_items())
     speech = " ".join(s["speech"] for s in segments)
-    assert "Musique de la vidéo" not in speech       # 电脑播放的声音
-    assert "On corrige ensemble." in speech           # device_type 大小写不敏感
+    assert "Musique de la vidéo" not in speech       # sound played by the computer
+    assert "On corrige ensemble." in speech           # device_type is case-insensitive
 
 
 def test_private_windows_never_become_slide_text(run):
@@ -80,8 +80,8 @@ def test_private_windows_never_become_slide_text(run):
 
 def test_segments_without_speech_are_dropped(run):
     segments, _ = run(lesson_items())
-    # 页 A（8 分钟）切 2 段、页 B（12 分钟）切 3 段、页 C（40 分钟）切 8 段，共 13 段；
-    # 只有 10:01、10:05、10:10、10:25、10:41 有讲话，其余没有讲话的段不输出
+    # slide A (8 minutes) splits into 2 segments, slide B (12 minutes) into 3, slide C (40 minutes) into 8, 13 in total;
+    # only 10:01, 10:05, 10:10, 10:25, 10:41 have speech, the other segments without speech are not output
     assert len(segments) == 5
     assert all(s["speech"] for s in segments)
 
@@ -89,7 +89,7 @@ def test_segments_without_speech_are_dropped(run):
 def test_quick_slide_flip_is_merged_and_other_apps_add_no_text(run):
     items = [
         ocr(1, SLIDE_A, t("10:00:10")),
-        ocr(2, SLIDE_B, t("10:02:00")),                   # 只停 30 秒，同一个 app：并进前一段
+        ocr(2, SLIDE_B, t("10:02:00")),                   # shown for only 30 seconds, same app: merged into the previous segment
         ocr(3, SLIDE_A, t("10:02:30")),
         ocr(4, "Wikipedia — participe passé", t("10:03:00"), app="Google Chrome", window="Wikipedia"),
         ocr(5, SLIDE_A, t("10:03:40")),
@@ -114,7 +114,7 @@ def test_nothing_recorded_gives_empty_list(run, tmp_path, monkeypatch):
         monkeypatch.setattr(extract_segments, "SCREENPIPE_URL", fake.url)
         out = tmp_path / "segments.json"
         assert extract_segments.main(["--lesson-id", LESSON, "--start", START, "--end", END, "--out", str(out)]) == 0
-    assert json.loads(out.read_text(encoding="utf-8")) == []  # pipe 第 2 步：片段为空就按失败处理
+    assert json.loads(out.read_text(encoding="utf-8")) == []  # pipe step 2: no segments is treated as a failure
 
 
 def test_utc_timestamps_become_paris_time(run):
@@ -127,7 +127,7 @@ def test_accessibility_text_is_used(run):
     segments, fake = run([ui(SLIDE_C, t("10:00:20")), audio(1, "Exercice.", t("10:01:00"))],
                          end="2026-10-17T10:04:00+02:00")
     assert segments[0]["slide_text"] == SLIDE_C and segments[0]["app_name"] == "Keynote"
-    assert segments[0]["evidence"]["frame_ids"] == []  # accessibility 没有截图
+    assert segments[0]["evidence"]["frame_ids"] == []  # accessibility has no screenshots
     assert {r["content_type"] for r in fake.requests} == {"audio", "ocr", "accessibility"}
 
 

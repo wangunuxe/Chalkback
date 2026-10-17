@@ -1,7 +1,7 @@
-"""给控制台生成自签证书 key.pem / cert.pem（https://localhost:4000）。
+"""Generate a self-signed certificate key.pem / cert.pem for the console (https://localhost:4000).
 
-写在本文件所在的 console/ 目录：宿主机（make teacher）和 Docker（/app/console）都适用。
-已有证书就不重新生成，免得浏览器每次都要重新确认证书例外；加 --force 强制重新生成。
+Written to the console/ directory containing this file: works both on the host (make teacher) and in Docker (/app/console).
+An existing certificate is not regenerated, so the browser does not have to re-confirm the certificate exception each time; use --force to regenerate.
 """
 from __future__ import annotations
 import datetime

@@ -5,7 +5,7 @@ import pytest
 import current_lesson
 from conftest import example
 
-# 2026-10-19 是周一；10 月 25 日凌晨夏令时结束（+02:00 → +01:00）
+# 2026-10-19 is a Monday; DST ends in the early hours of October 25 (+02:00 → +01:00)
 TIMETABLE = [
     {"day": "MON", "start": "10:00", "end": "11:00", "class_id": "4A"},
     {"day": "MON", "start": "14:00", "end": "15:00", "class_id": "4B"},
@@ -44,7 +44,7 @@ def test_picks_latest_ended_slot_of_the_day(home, capsys):
 
 
 def test_lesson_in_progress_is_skipped(home, capsys):
-    # 周一 10:30，第一节还没结束 → 回到上周二
+    # Monday 10:30, the first lesson has not ended yet → back to last Tuesday
     _, lesson = run(capsys, "--now", "2026-10-19T10:30:00+02:00")
     assert lesson["lesson_id"] == "L-T1-20261013-1400"
 
@@ -55,14 +55,14 @@ def test_weekend_goes_back(home, capsys):
 
 
 def test_across_dst_change(home, capsys):
-    # 现在是冬令时，上一节课在夏令时：课表时间按当天的巴黎时间算
+    # now is winter time and the previous lesson was in summer time: timetable times use that day's Paris time
     _, lesson = run(capsys, "--now", "2026-10-26T09:00:00+01:00")
     assert lesson["lesson_id"] == "L-T1-20261020-1400"
     assert lesson["start"] == "2026-10-20T14:00:00+02:00"
 
 
 def test_utc_input_is_converted_to_paris(home, capsys):
-    _, lesson = run(capsys, "--now", "2026-10-19T09:05:00+00:00")  # = 11:05 巴黎
+    _, lesson = run(capsys, "--now", "2026-10-19T09:05:00+00:00")  # = 11:05 Paris
     assert lesson["lesson_id"] == "L-T1-20261019-1000"
 
 
@@ -87,7 +87,7 @@ def test_naive_now_rejected(home):
 
 
 def test_mock_uses_fixed_time_and_finds_seeded_plan(tmp_path, monkeypatch, capsys):
-    """CHALKBACK_MOCK=1：不管哪天运行，都处理 seed 准备好的那节课（有教案、还没 ready）。"""
+    """CHALKBACK_MOCK=1: whatever day it runs, it processes the lesson the seed prepared (has a lesson plan, not ready yet)."""
     import subprocess
     import sys
     from conftest import ROOT
@@ -97,4 +97,4 @@ def test_mock_uses_fixed_time_and_finds_seeded_plan(tmp_path, monkeypatch, capsy
     code, lesson = run(capsys, "--mock")
     assert code == 0 and lesson["lesson_id"] == "L-T1-20261019-1000"
     assert lesson["ready"] is False and lesson["lesson_plan"].endswith("4A/2026-10-19.json")
-    assert run(capsys, "--mock", "--now", "2026-10-26T11:05:00+01:00")[1]["date"] == "2026-10-26"  # --now 优先
+    assert run(capsys, "--mock", "--now", "2026-10-26T11:05:00+01:00")[1]["date"] == "2026-10-26"  # --now takes precedence

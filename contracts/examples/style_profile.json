@@ -3,7 +3,7 @@
   "version": 2,
   "updated_at": "2026-10-17T11:06:00+02:00",
   "rules": [
-    {"rule": "偏好填空题", "origin": "screen_history", "evidence": {"frame_ids": [4410], "timestamp": "2026-10-15T14:20:00+02:00"}},
-    {"rule": "干扰项用学生常见错误", "origin": "teacher_edit", "evidence": {"edit_ids": ["E3"]}}
+    {"rule": "Prefers fill-in-the-blank questions", "origin": "screen_history", "evidence": {"frame_ids": [4410], "timestamp": "2026-10-15T14:20:00+02:00"}},
+    {"rule": "Uses common student mistakes as distractors", "origin": "teacher_edit", "evidence": {"edit_ids": ["E3"]}}
   ]
 }

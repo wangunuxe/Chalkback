@@ -1,4 +1,4 @@
-"""TD1 验收：每个 §6.4 接口都能返回符合契约的 mock。"""
+"""TD1 acceptance: every §6.4 endpoint returns a mock that matches the contract."""
 import json
 from pathlib import Path
 

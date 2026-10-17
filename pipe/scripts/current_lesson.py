@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""确定要处理的那节课（pipe 第 1 步，负责人 B）。
+"""Determine which lesson to process (pipe step 1, owner B).
 
     python current_lesson.py [--now 2026-10-19T11:05:00+02:00] [--days 7] [--mock]
 
-读 config.json 的课表，从 --now 往回找最近一节**已经结束**的课（最多回看 --days 天），输出：
+Reads the timetable from config.json and searches back from --now for the most recent lesson that has **already ended** (looking back at most --days days). Output:
 
     {"lesson_id": "L-T1-20261019-1000", "teacher_id": "T1", "class_id": "4A", "date": "2026-10-19",
      "start": "2026-10-19T10:00:00+02:00", "end": "2026-10-19T11:00:00+02:00",
      "syllabus_id": "...", "outbox": ".../outbox/L-T1-20261019-1000", "ready": false,
-     "lesson_plan": ".../lesson_plans/4A/2026-10-19.json" 或 null}
+     "lesson_plan": ".../lesson_plans/4A/2026-10-19.json" or null}
 
-ready 为 true 表示这节课已经处理过，pipe 应直接结束（B 不修改已有 ready 的目录，§6.2）。
-往回找而不是只看“刚结束”，是为了让手动触发（demo 用录好的课）也能用。
-找不到任何课时退出码 2。
+ready = true means this lesson has already been processed and pipe should stop right away (B never modifies a directory that already has ready, §6.2).
+Searching back rather than only looking at "just ended" lets manual triggers work too (the demo uses a pre-recorded lesson).
+Exit code 2 when no lesson is found.
 
---mock（本地开发，配合 tools/seed_mock_home.py）：把“现在”固定为 MOCK_NOW。示例 config 的课表是周一 10:00–11:00，
-示例课（2026-10-17）已经有 ready 的 outbox，所以 mock 跑的是它之后的周一那节课（seed 也给它写了教案）。
-不固定的话，结果取决于运行那天是星期几，常常找到一节没有教案的课。
+--mock (local development, together with tools/seed_mock_home.py): pins "now" to MOCK_NOW. The example config's timetable is Monday 10:00–11:00,
+and the example lesson (2026-10-17) already has a ready outbox, so mock runs the Monday lesson after it (the seed also writes a lesson plan for it).
+Without pinning, the result depends on the weekday it runs on and often finds a lesson with no lesson plan.
 """
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def chalkback_home() -> Path:
 
 
 def paris() -> tzinfo:
-    """Europe/Paris。Windows 上 Python 没有自带时区库（需要 tzdata 包），退回本机时区。"""
+    """Europe/Paris. On Windows, Python has no bundled time zone database (it needs the tzdata package), so fall back to the local time zone."""
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo("Europe/Paris")
@@ -82,9 +82,9 @@ def describe(config: dict, found: dict, home: Path) -> dict:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--now", type=datetime.fromisoformat, help="ISO 8601 带时区；默认当前时间（Europe/Paris）")
-    ap.add_argument("--days", type=int, default=7, help="最多往回找几天")
-    ap.add_argument("--mock", action="store_true", help=f"本地开发：没给 --now 时把现在固定为 {MOCK_NOW}")
+    ap.add_argument("--now", type=datetime.fromisoformat, help="ISO 8601 with time zone; defaults to the current time (Europe/Paris)")
+    ap.add_argument("--days", type=int, default=7, help="maximum number of days to search back")
+    ap.add_argument("--mock", action="store_true", help=f"local development: pin now to {MOCK_NOW} when --now is not given")
     args = ap.parse_args(argv)
 
     home = chalkback_home()
@@ -92,13 +92,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.mock and args.now is None:
         args.now = datetime.fromisoformat(MOCK_NOW)
     if args.now and args.now.tzinfo is None:
-        ap.error("--now 必须带时区，例如 2026-10-19T11:05:00+02:00")
-    # 换到 Europe/Paris 再推算，往回找时跨过夏令时切换也对
+        ap.error("--now must include a time zone, e.g. 2026-10-19T11:05:00+02:00")
+    # convert to Europe/Paris before computing, so searching back across a DST change is correct
     now = (args.now or datetime.now(paris())).astimezone(paris())
 
     found = find_lesson(config, now, args.days)
     if found is None:
-        print(f"过去 {args.days} 天课表里没有已结束的课", file=sys.stderr)
+        print(f"no ended lesson in the timetable in the past {args.days} days", file=sys.stderr)
         return 2
     json.dump(describe(config, found, home), sys.stdout, ensure_ascii=False, indent=2)
     print()

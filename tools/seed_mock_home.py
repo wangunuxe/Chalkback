@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""用 contracts/examples 生成一个假的 ~/.chalkback/，供 console 在上游未完成时开发（§0“用 mock 先开工”）。
+"""Generate a fake ~/.chalkback/ from contracts/examples so the console can be developed before upstream is finished (§0 "start with mocks").
 
     python tools/seed_mock_home.py [--home .mock-home] [--hub-url http://hub:8000] [--if-empty]
     CHALKBACK_HOME=.mock-home uvicorn ...
 
-会清空 --home 目录的内容（保留目录本身，方便它是 Docker volume 挂载点）。
+Clears the contents of the --home directory (keeping the directory itself, so it can be a Docker volume mount point).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 EX = ROOT / "contracts" / "examples"
 
-# 和 pipe 第 7 步一样，用 build_game.py 把示例测验注入游戏模板
+# as in pipe step 7, use build_game.py to inject the example quiz into the game template
 sys.path.insert(0, str(ROOT / "pipe" / "scripts"))
 from build_game import TEMPLATE, render  # noqa: E402
 
@@ -34,8 +34,8 @@ def write(path: Path, data) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--home", type=Path, default=ROOT / ".mock-home")
-    ap.add_argument("--hub-url", help="覆盖 config.json 的 hub_url，例如容器里的 http://hub:8000")
-    ap.add_argument("--if-empty", action="store_true", help="目录里已有 config.json 就什么都不做")
+    ap.add_argument("--hub-url", help="override hub_url in config.json, e.g. http://hub:8000 inside a container")
+    ap.add_argument("--if-empty", action="store_true", help="do nothing if the directory already has a config.json")
     args = ap.parse_args()
     home = args.home
     if args.if_empty and (home / "config.json").exists():
@@ -55,7 +55,7 @@ def main() -> None:
     write(home / "config.json", config)
     write(home / "cache" / "syllabus.json", ex("syllabus"))
     write(home / "lesson_plans" / plan["class_id"] / f"{plan['date']}.json", plan)
-    # pipe 本地 mock 跑的是示例课之后的周一那节课（current_lesson.py --mock），给它也备一份教案
+    # the local pipe mock runs the Monday lesson after the example lesson (current_lesson.py --mock), so prepare a lesson plan for it too
     write(home / "lesson_plans" / plan["class_id"] / "2026-10-19.json", {**plan, "date": "2026-10-19"})
     write(out / "segments.json", [ex("segment")])
     for name in ("coverage", "alerts", "quiz"):

@@ -13,11 +13,11 @@ NOW = datetime.fromisoformat("2026-10-18T09:00:00+02:00")
 
 ITEMS = [
     ocr(4410, "Question 1 : Complétez : Je les ai ___ (voir)", "2026-10-15T14:20:00+02:00", app="Chrome", window="Kahoot! | Create"),
-    ocr(4411, "Question 1 : Complétez : Je les ai ___ (voir)", "2026-10-15T14:21:00+02:00", app="Chrome", window="Kahoot! | Create"),  # 同样文字
+    ocr(4411, "Question 1 : Complétez : Je les ai ___ (voir)", "2026-10-15T14:21:00+02:00", app="Chrome", window="Kahoot! | Create"),  # same text
     ocr(4500, "Vrai ou faux : on accorde avec le sujet", "2026-10-10T08:15:00Z", app="Chrome", window="Quizlet - Set"),
     ocr(4600, "Formulaire sans titre - question à choix", "2026-10-12T19:00:00+02:00", app="Chrome", window="Quiz 4A - Google Forms"),
-    ocr(4700, "Mail de la direction", "2026-10-15T15:00:00+02:00", app="Mail", window="Boîte de réception"),     # 不是出题平台
-    ocr(4800, "Kahoot ancien", "2026-09-01T10:00:00+02:00", app="Chrome", window="Kahoot! | Create"),           # 超过 30 天
+    ocr(4700, "Mail de la direction", "2026-10-15T15:00:00+02:00", app="Mail", window="Boîte de réception"),     # not a quiz platform
+    ocr(4800, "Kahoot ancien", "2026-09-01T10:00:00+02:00", app="Chrome", window="Kahoot! | Create"),           # older than 30 days
     {"type": "OCR", "content": {"frame_id": None, "text": "Quizlet sans frame", "timestamp": "2026-10-16T10:00:00+02:00",
                                 "app_name": "Chrome", "window_name": "Quizlet"}},
 ]
@@ -89,7 +89,7 @@ def test_new_edits_trigger_update(home, screenpipe):
     r = collect(home, NOW, 30, mock=False)
     assert r["reason"] == "new_edits" and r["next_version"] == 3
     assert [(e["edit_id"], e["changed"]) for e in r["edits"]] == [("E4", ["choices"]), ("E5", [])]
-    # 已有风格文件时只看它之后的屏幕
+    # when a style profile exists, only look at screens after it
     assert r["window"]["start"] == "2026-10-17T11:06:00+02:00"
     assert r["screen_history"] == []
 

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "quiz",
-  "description": "测验。B → C。outbox quiz.json（+ game.html）。只在本机使用；游戏页面不显示 source。§5",
+  "description": "Quiz. B → C. outbox quiz.json (+ game.html). Used locally only; the game page does not show source. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["quiz_id", "lesson_id", "class_id", "status", "style_profile_version", "questions"],

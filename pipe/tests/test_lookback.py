@@ -1,9 +1,9 @@
-"""TB4 验收场景：区分“未讲”和“上周讲过”。
+"""TB4 acceptance scenario: tell "not taught" apart from "taught last week".
 
-本节课：2026-10-19（周一）10:00–11:00，4A。教案计划 KP01–KP04，本节只讲了 KP03。
-- KP01：上周一（10-12）这个班的课已经处理过，outbox 里记为讲过 → 可靠证据
-- KP02：另一个班 4B 讲过、25 天前讲过（超出窗口）都不算；只在晚上备课时屏幕上出现过 → 只有不算数的命中
-- KP04：上周二（10-13）上课时段内老师亲口讲过（时间是 UTC 格式）→ 候选证据
+This lesson: 2026-10-19 (Monday) 10:00–11:00, 4A. The lesson plan covers KP01–KP04; only KP03 was taught in this lesson.
+- KP01: last Monday's (10-12) lesson for this class was already processed and the outbox records it as taught → reliable evidence
+- KP02: taught to another class (4B) and taught 25 days ago (outside the window), neither counts; it only appeared on screen during evening lesson prep → only hits that do not count
+- KP04: the teacher said it aloud during last Tuesday's (10-13) class slot (time in UTC format) → candidate evidence
 """
 import json
 
@@ -42,8 +42,8 @@ def home(tmp_path):
     plan = tmp_path / "lesson_plans" / "4A" / "2026-10-19.json"
     write(plan, {"class_id": "4A", "date": "2026-10-19", "syllabus_id": "fr-grammaire-4e", "kp_ids": ["KP01", "KP02", "KP03", "KP04"]})
     past_lesson(tmp_path, "L-T1-20261012-1000", "4A", "KP01", seg_start="2026-10-12T10:20:00+02:00")
-    past_lesson(tmp_path, "L-T1-20261013-1400", "4B", "KP02")      # 别的班
-    past_lesson(tmp_path, "L-T1-20260924-1000", "4A", "KP02")      # 超出 21 天
+    past_lesson(tmp_path, "L-T1-20261013-1400", "4B", "KP02")      # a different class
+    past_lesson(tmp_path, "L-T1-20260924-1000", "4A", "KP02")      # older than 21 days
     return tmp_path
 
 
@@ -63,8 +63,8 @@ def coverage():
 ITEMS = [
     ocr(4410, "Le passé composé avec être : je suis allé, elle est venue", "2026-10-14T20:30:00+02:00"),
     audio(700, "Aujourd'hui on voit l'imparfait, le temps de la description dans le passé", "2026-10-13T08:15:00Z"),
-    audio(701, "imparfait", "2026-10-13T10:20:00+02:00", device_type="output"),   # 电脑播放的声音
-    audio(900, "On reverra le passé composé avec être demain", "2026-10-19T10:30:00+02:00"),  # 本节课内，不算回查
+    audio(701, "imparfait", "2026-10-13T10:20:00+02:00", device_type="output"),   # sound played by the computer
+    audio(900, "On reverra le passé composé avec être demain", "2026-10-19T10:30:00+02:00"),  # inside this lesson, does not count as look-back
 ]
 
 
@@ -95,7 +95,7 @@ def test_outbox_of_same_class_is_reliable_evidence(lesson, coverage, home, scree
     kp01 = by_kp(run(lesson, coverage, home))["KP01"]
     assert kp01["from_outbox"] == {"lesson_id": "L-T1-20261012-1000", "last_covered_at": "2026-10-12T10:20:00+02:00", "minutes": 6.0}
     assert kp01["search_hits"] == []
-    # KP01 有可靠证据就不再搜索（"avoir" 是 KP01 独有的关键词）
+    # KP01 has reliable evidence so there is no search ("avoir" is a keyword unique to KP01)
     assert not any(r.get("q") == "avoir" for r in screenpipe.requests)
 
 
@@ -122,8 +122,8 @@ def test_mock_skips_screenpipe(lesson, coverage, home, screenpipe):
     result = run(lesson, coverage, home, mock=True)
     assert screenpipe.requests == []
     assert by_kp(result)["KP01"]["from_outbox"] is not None
-    assert by_kp(result)["KP01"]["search_error"] is None            # 有可靠证据，不需要查
-    assert "mock" in by_kp(result)["KP02"]["search_error"]          # 没查就要说没查
+    assert by_kp(result)["KP01"]["search_error"] is None            # reliable evidence, no search needed
+    assert "mock" in by_kp(result)["KP02"]["search_error"]          # if we did not search, say so
 
 
 def test_screenpipe_down_is_recorded_not_raised(lesson, coverage, home, monkeypatch):
@@ -139,7 +139,7 @@ def test_no_lesson_plan(lesson, coverage, home, screenpipe):
 
 
 def test_microphone_check_ignores_case(lesson, coverage, home, monkeypatch):
-    """screenpipe 的 device_type 可能是 "Input"（待 TA1 实测）：大小写不同也要算老师的麦克风。"""
+    """screenpipe's device_type may be "Input" (pending testing in TA1): a different case still counts as the teacher's microphone."""
     items = [audio(702, "L'imparfait sert à décrire", "2026-10-13T10:25:00+02:00", device_type="Input"),
              audio(703, "imparfait", "2026-10-13T10:26:00+02:00", device_type="Output")]
     with FakeScreenpipe(items) as fake:

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""按 contracts/ 校验契约文件（TB1，负责人 B）。
+"""Validate contract files against contracts/ (TB1, owner B).
 
-用法：
-    python validate.py <contract> <file>     # 例：validate.py coverage outbox/L-.../coverage.json
-    python validate.py --examples            # 校验 contracts/examples/ 全部示例
+Usage:
+    python validate.py <contract> <file>     # e.g. validate.py coverage outbox/L-.../coverage.json
+    python validate.py --examples            # validate every example in contracts/examples/
 
-文件可以是单个 JSON 对象、JSON 数组（如 segments.json）或 .jsonl（如 edits.jsonl），
-数组和 .jsonl 逐条校验。全部通过时退出码 0，否则打印每条错误并退出码 1。
+A file can be a single JSON object, a JSON array (e.g. segments.json) or .jsonl (e.g. edits.jsonl);
+arrays and .jsonl are validated record by record. Exit code 0 when everything passes, otherwise every error is printed and the exit code is 1.
 
-schema 查找顺序：$CHALKBACK_SCHEMAS → pipe/schemas/（随 pipe 安装）→ 仓库 contracts/。
+Schema lookup order: $CHALKBACK_SCHEMAS → pipe/schemas/ (installed with pipe) → the repo's contracts/.
 
-校验引擎：装了 jsonschema 就用它；没装（老师电脑上的常见情况）就用下面的 MiniValidator，
-只依赖标准库，支持 contracts/ 用到的关键字。schema 用了它不支持的关键字时直接报错，不会悄悄放行。
-CHALKBACK_VALIDATOR=builtin 强制使用 MiniValidator（测试两种引擎结果一致时用）。
+Validation engine: jsonschema if installed; otherwise (the usual case on a teacher's computer) the MiniValidator below,
+which depends only on the standard library and supports the keywords contracts/ uses. If a schema uses a keyword it does not support, it fails loudly instead of silently passing.
+CHALKBACK_VALIDATOR=builtin forces MiniValidator (used by tests checking both engines agree).
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
-# 只影响说明、不参与校验的关键字
+# keywords that are documentation only and take no part in validation
 ANNOTATIONS = {"$schema", "$id", "title", "description", "$comment", "$defs", "examples", "default"}
 SUPPORTED = ANNOTATIONS | {
     "type", "enum", "const", "properties", "required", "additionalProperties", "minProperties",
@@ -50,7 +50,7 @@ class SchemaError:
 
 
 def json_equal(a, b) -> bool:
-    """JSON 语义的相等：true 不等于 1。"""
+    """Equality with JSON semantics: true is not equal to 1."""
     if isinstance(a, bool) or isinstance(b, bool):
         return isinstance(a, bool) and isinstance(b, bool) and a == b
     if isinstance(a, dict) and isinstance(b, dict):
@@ -61,7 +61,7 @@ def json_equal(a, b) -> bool:
 
 
 class MiniValidator:
-    """JSON Schema 2020-12 的一个子集，够 contracts/ 用。接口与 jsonschema 的 iter_errors 一致。"""
+    """A subset of JSON Schema 2020-12, enough for contracts/. Same interface as jsonschema's iter_errors."""
 
     def __init__(self, schema: dict):
         self.root = schema
@@ -72,7 +72,7 @@ class MiniValidator:
             return
         unknown = set(node) - SUPPORTED
         if unknown:
-            raise ValueError(f"schema 在 {where} 用了内置校验器不支持的关键字 {sorted(unknown)}；请安装 jsonschema")
+            raise ValueError(f"schema uses keywords {sorted(unknown)} at {where} that the built-in validator does not support; please install jsonschema")
         for key in ("properties", "$defs"):
             for name, sub in node.get(key, {}).items():
                 self._check_keywords(sub, f"{where}/{key}/{name}")
@@ -153,7 +153,7 @@ class MiniValidator:
 
     def _resolve(self, ref: str):
         if not ref.startswith("#/"):
-            raise ValueError(f"内置校验器只支持本文件内的 $ref：{ref}")
+            raise ValueError(f"the built-in validator only supports $ref within the same file: {ref}")
         node = self.root
         for part in ref[2:].split("/"):
             node = node[part.replace("~1", "/").replace("~0", "~")]
@@ -179,14 +179,14 @@ def schema_dir() -> Path:
     for d in SCHEMA_DIRS:
         if d.is_dir() and any(d.glob("*.schema.json")):
             return d
-    sys.exit(f"找不到 schema 目录，已尝试：{', '.join(map(str, SCHEMA_DIRS))}")
+    sys.exit(f"schema directory not found, tried: {', '.join(map(str, SCHEMA_DIRS))}")
 
 
 def load_validator(contract: str):
     path = schema_dir() / f"{contract}.schema.json"
     if not path.exists():
         known = sorted(p.name.removesuffix(".schema.json") for p in schema_dir().glob("*.schema.json"))
-        sys.exit(f"未知契约 {contract!r}，可选：{', '.join(known)}")
+        sys.exit(f"unknown contract {contract!r}, choices: {', '.join(known)}")
     return validator_class()(json.loads(path.read_text(encoding="utf-8")))
 
 
@@ -218,18 +218,18 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("contract", nargs="?")
     ap.add_argument("file", nargs="?", type=Path)
-    ap.add_argument("--examples", action="store_true", help="校验仓库 contracts/examples/ 全部示例")
+    ap.add_argument("--examples", action="store_true", help="validate every example in the repo's contracts/examples/")
     args = ap.parse_args(argv)
 
     if args.examples:
         examples = HERE.parent.parent / "contracts" / "examples"
         targets = [(p.stem, p) for p in sorted(examples.glob("*.json"))]
         if not targets:
-            ap.error(f"{examples} 里没有示例")
+            ap.error(f"no examples in {examples}")
     elif args.contract and args.file:
         targets = [(args.contract, args.file)]
     else:
-        ap.error("需要 <contract> <file> 或 --examples")
+        ap.error("need <contract> <file> or --examples")
 
     failed = False
     for contract, path in targets:

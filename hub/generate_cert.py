@@ -1,7 +1,7 @@
-"""给 Hub 生成自签证书 key.pem / cert.pem（本地开发和 Docker 联调用 HTTPS）。
+"""Generate a self-signed certificate key.pem / cert.pem for the Hub (HTTPS for local development and Docker test mode).
 
-写在本文件所在的 hub/ 目录：宿主机（make hub）和 Docker（/app/hub）都适用。
-已有证书就不重新生成；加 --force 强制重新生成。公网部署请换成正式证书（见 docs/ADMIN.md）。
+Written to the hub/ directory containing this file: works both on the host (make hub) and in Docker (/app/hub).
+An existing certificate is not regenerated; use --force to regenerate. For public deployment use a real certificate (see docs/ADMIN.md).
 """
 from __future__ import annotations
 import datetime

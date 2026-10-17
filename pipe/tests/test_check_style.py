@@ -5,7 +5,7 @@ import pytest
 from check_style import check, main
 from conftest import example
 
-OLD = example("style_profile")  # version 2：frame 4410 @ 2026-10-15T14:20、edit E3
+OLD = example("style_profile")  # version 2: frame 4410 @ 2026-10-15T14:20, edit E3
 
 INPUTS = {
     "needs_update": True, "reason": "new_edits", "teacher_id": "T1", "now": "2026-10-18T09:00:00+02:00",
@@ -21,7 +21,7 @@ def profile():
     return {
         "teacher_id": "T1", "version": 3, "updated_at": "2026-10-18T09:00:00+02:00",
         "rules": [
-            # 沿用旧规则和旧证据
+            # keep the old rules and old evidence
             copy.deepcopy(OLD["rules"][0]),
             copy.deepcopy(OLD["rules"][1]),
             {"rule": "Énoncés courts, une seule phrase", "origin": "teacher_edit", "evidence": {"edit_ids": ["E4"]}},
@@ -53,7 +53,7 @@ def test_invented_frame_rejected(profile):
 
 
 def test_timestamp_must_belong_to_cited_frame(profile):
-    profile["rules"][3]["evidence"]["timestamp"] = "2026-10-15T14:20:00+02:00"   # 那是 4410 的时间
+    profile["rules"][3]["evidence"]["timestamp"] = "2026-10-15T14:20:00+02:00"   # that is 4410's time
     assert any("timestamp" in e for e in check(profile, INPUTS))
 
 
@@ -75,17 +75,17 @@ def test_wrong_evidence_kind(profile):
 def test_duplicate_rules(profile):
     profile["rules"][2]["rule"] = "  énoncés courts,  une seule phrase "
     profile["rules"][3]["rule"] = "Énoncés courts, une seule phrase"
-    assert any("重复" in e for e in check(profile, INPUTS))
+    assert any("is duplicated" in e for e in check(profile, INPUTS))
 
 
 def test_empty_rules(profile):
     profile["rules"] = []
-    assert any("至少" in e for e in check(profile, INPUTS))
+    assert any("at least one rule" in e for e in check(profile, INPUTS))
 
 
 def test_cli(write_json, profile):
     args = ["--profile", str(write_json("p.json", profile)), "--inputs", str(write_json("i.json", INPUTS))]
     assert main(args) == 0
-    profile["rules"][0]["origin"] = "guess"   # schema 先拦下
+    profile["rules"][0]["origin"] = "guess"   # the schema catches it first
     args[1] = str(write_json("bad.json", profile))
     assert main(args) == 1

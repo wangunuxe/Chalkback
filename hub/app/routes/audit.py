@@ -1,4 +1,4 @@
-"""GET /api/audit（TD5、TD6）：按角色过滤——老师看自己的，组长看本年级，管理员看全部（不含内容本身）。"""
+"""GET /api/audit (TD5, TD6): filtered by role -- teachers see their own, department heads see their grade, admins see everything (without the content itself)."""
 from contextlib import closing
 
 from fastapi import APIRouter, Depends
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["audit"])
 def audit(member: Member = Depends(current_member)):
     query = "SELECT * FROM audit_events WHERE workspace_id = ?"
     params = [member.workspace_id]
-    # 组长暂时看全校记录：班级→年级的对应关系待定
+    # A department head sees the whole school's records for now: class -> grade mapping TBD
     if member.role == "teacher":
         query += " AND actor_id = ?"
         params.append(member.id)

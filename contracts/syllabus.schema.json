@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "syllabus",
-  "description": "考纲知识点清单。D 产生（Hub），A/B/C 使用；本机缓存 ~/.chalkback/cache/syllabus.json。§5",
+  "description": "Syllabus knowledge point list. Produced by D (Hub), used by A/B/C; cached locally at ~/.chalkback/cache/syllabus.json. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["syllabus_id", "version", "status", "subject", "level", "knowledge_points"],

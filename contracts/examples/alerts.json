@@ -1,6 +1,6 @@
 {
   "lesson_id": "L-T1-20261017-1000",
-  "missed": [{"kp_id": "KP02", "note": "教案计划讲，本节和过去 21 天都未讲"}],
+  "missed": [{"kp_id": "KP02", "note": "Planned in the lesson plan, not covered in this lesson or the past 21 days"}],
   "covered_before": [{"kp_id": "KP01", "last_covered_at": "2026-10-14T10:20:00+02:00"}],
   "weak_from_reports": [{"kp_id": "KP03", "source": "kahoot_report", "seen_at": "2026-10-16T18:02:00+02:00"}]
 }

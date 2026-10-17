@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "segment",
-  "description": "讲解片段（转写 + 课件文字按时间戳对齐）。A → B。outbox segments.json 是 segment 数组。含原文和 screenpipe id，永不离开老师电脑。§5",
+  "description": "A teaching segment (transcript + slide text aligned by timestamp). A → B. outbox segments.json is an array of segments. Contains raw text and screenpipe ids; never leaves the teacher's computer. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["segment_id", "lesson_id", "start", "end", "speech", "slide_text", "app_name", "evidence"],

@@ -1,12 +1,12 @@
-"""往正在运行的 Hub 灌演示覆盖数据（TD6 彩排、截图用）。
+"""Load demo coverage data into a running Hub (for TD6 rehearsal and screenshots).
 
     python hub/scripts/seed_demo.py [https://localhost:8443]
 
-走真实的 POST /api/coverage（与 C 的控制台上传同一路径），用 mock token：
-- T1 → 4A：进度正常（与控制台的 mock 老师 T1 是同一个身份）
-- T2 → 4B：开学后只讲了 1 个知识点 → 触发“考前讲不完”
-- T2 → 4C：讲了 KP02，T1 的老师视图会看到“别的班讲了、你还没讲”
-知识点按 contracts/examples/syllabus.json（KP01–KP04）。演示考纲（H4）定稿后同步修改。
+Goes through the real POST /api/coverage (same path as C's console upload), using mock tokens:
+- T1 -> 4A: normal progress (same identity as the console's mock teacher T1)
+- T2 -> 4B: only 1 knowledge point covered since the start of term -> triggers "won't finish before the exam"
+- T2 -> 4C: covered KP02, so T1's teacher view shows "another class covered it, you haven't yet"
+Knowledge points follow contracts/examples/syllabus.json (KP01-KP04). Update together once the demo syllabus (H4) is finalized.
 """
 import sys
 
@@ -23,7 +23,7 @@ LESSONS = [
 
 
 def main(hub: str) -> None:
-    with httpx.Client(base_url=hub, verify=False) as client:  # 本地 Hub 用自签名证书
+    with httpx.Client(base_url=hub, verify=False) as client:  # the local Hub uses a self-signed certificate
         syllabus = client.get("/api/syllabus/current", headers={"Authorization": "Bearer mock-token-T1"}).json()
         for teacher, class_id, day, minutes in LESSONS:
             body = {

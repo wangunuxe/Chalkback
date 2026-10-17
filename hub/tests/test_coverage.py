@@ -1,4 +1,4 @@
-"""TD4、TD5 验收：接收批准的覆盖数据（A3）、按班级汇总、老师撤回（A5）、审计日志。"""
+"""TD4, TD5 acceptance: receive approved coverage data (A3), summarize by class, teacher withdrawal (A5), audit log."""
 import json
 from pathlib import Path
 
@@ -41,7 +41,7 @@ def test_sums_lessons_per_class():
     t = table("5A")
     assert t["KP01"] == (True, 5.5) and t["KP02"] == (False, 0) and t["KP03"] == (True, 4)
     kp_ids = [kp["kp_id"] for kp in client.get("/api/syllabus/current", headers=T1).json()["knowledge_points"]]
-    assert list(t) == kp_ids  # 考纲里每个知识点都列出，没讲的是 False
+    assert list(t) == kp_ids  # every knowledge point of the syllabus is listed; untaught ones are False
 
 
 def test_reshare_same_lesson_replaces():

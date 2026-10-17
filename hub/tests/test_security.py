@@ -1,7 +1,7 @@
-"""公网部署的安全默认值，以及上传内容检查（TD2、TD4）。
+"""Secure defaults for public deployment, and checks on uploaded content (TD2, TD4).
 
-- 默认是正式模式：不接受 mock token，公开的 DEMO-* 邀请码不能用；学校的邀请码用 HUB_INVITES 设置。
-- 老师只能上传自己的课；考纲版本必须已批准；知识点必须在那个版本里。
+- Production mode is the default: mock tokens are not accepted and the public DEMO-* invite codes do not work; the school's invite codes are set with HUB_INVITES.
+- Teachers can only upload their own lessons; the syllabus version must be approved; knowledge points must be in that version.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -58,7 +58,7 @@ def test_home_page_does_not_publish_codes():
 
 def test_member_ids_do_not_collide(monkeypatch):
     first = join("DEMO-TEACHER").json()["teacher_id"]
-    # 模拟另一个人同时加入：第一次算出的编号已被占用，要重算而不是返回 500
+    # Simulate someone else joining at the same time: the first computed ID is already taken, so it must recompute instead of returning 500
     calls = []
     real = join_route.next_member_id
 
@@ -85,7 +85,7 @@ def test_syllabus_version_must_be_approved():
     assert r.status_code == 422 and "not an approved version" in str(r.json())
     draft = {**example("syllabus"), "syllabus_id": "brouillon-4e"}
     version = client.post("/api/syllabus", json=draft, headers=HEAD).json()["version"]
-    r = share(syllabus_id="brouillon-4e", syllabus_version=version)  # 草稿还没批准
+    r = share(syllabus_id="brouillon-4e", syllabus_version=version)  # the draft is not approved yet
     assert r.status_code == 422
 
 

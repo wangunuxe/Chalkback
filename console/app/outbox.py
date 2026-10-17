@@ -1,4 +1,4 @@
-"""读取 outbox（B 写，C 读）。规则：只处理有 ready 文件的目录（§6.2）。"""
+"""Read the outbox (B writes, C reads). Rule: only process directories that have a ready file (§6.2)."""
 from __future__ import annotations
 
 import json
@@ -14,7 +14,7 @@ def ready_lessons() -> list[str]:
 
 
 def load(lesson_id: str, name: str) -> dict | list | None:
-    """name ∈ segments / coverage / alerts / quiz。目录未 ready 或文件不存在时返回 None。"""
+    """name in segments / coverage / alerts / quiz. Returns None if the directory is not ready or the file does not exist."""
     d = paths.outbox_dir(lesson_id)
     f = d / f"{name}.json"
     if not (d / "ready").exists() or not f.exists():

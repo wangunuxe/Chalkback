@@ -1,4 +1,4 @@
-"""审核（A2，TC3）：动作改写 quiz.json，edits.jsonl 符合 edit_event 契约，发布后才有游戏。"""
+"""Review (A2, TC3): actions rewrite quiz.json, edits.jsonl follows the edit_event contract, the game exists only after publishing."""
 import json
 
 from .conftest import LESSON, QUIZ, read_jsonl
@@ -17,7 +17,7 @@ def test_every_edit_event_matches_contract(client, home, schema):
     act(client, action="edit", q_id="Q2", changes={"answer": "vues", "prompt": "Je les ai ___ hier (voir)."})
     act(client, action="delete", q_id="Q3")
     edits = read_jsonl(home / "state" / "edits.jsonl")
-    assert len(edits) == 4  # 种子数据里的 E3 + 三条新的
+    assert len(edits) == 4  # E3 from the seed data + three new ones
     for e in edits:
         schema("edit_event").validate(e)
     assert [e["edit_id"] for e in edits[1:]] == ["E4", "E5", "E6"]
@@ -25,7 +25,7 @@ def test_every_edit_event_matches_contract(client, home, schema):
 
 
 def test_edits_feed_pipe_style_learning(client, home):
-    """pipe 第 6 步读 edits.jsonl：控制台写的记录必须能被 style_inputs.py 处理。"""
+    """pipe step 6 reads edits.jsonl: records written by the console must be processable by style_inputs.py."""
     import sys
     from .conftest import ROOT
     sys.path.insert(0, str(ROOT / "pipe" / "scripts"))
@@ -78,7 +78,7 @@ def test_publish_rebuilds_game_with_reviewed_questions(client, home):
     assert r.json() == {"status": "published", "play_url": f"/play/{QUIZ}"}
     html = (home / "outbox" / LESSON / "game.html").read_text(encoding="utf-8")
     assert "Question relue ___ ?" in html
-    assert "Avec avoir, le participe" not in html  # 删掉的 Q3
+    assert "Avec avoir, le participe" not in html  # the deleted Q3
     assert '"answer"' not in html and "les pommes que j'ai mangées" not in html
     assert quiz(home)["status"] == "published"
     assert act(client, action="approve", q_id="Q1").status_code == 409
