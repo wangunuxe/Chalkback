@@ -41,7 +41,7 @@ permissions:
 - 时间一律 ISO 8601 带时区（Europe/Paris），例如 `2026-10-19T10:12:05+02:00`。
 - 每个产出文件写完都要通过 `validate.py`，失败就按错误修改后重试，同一步最多 3 轮。
 - 不修改已经有 `ready` 文件的 outbox 目录。
-- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py` 和 `read_reports.py` 加 `--mock`。
+- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`read_reports.py` 和 `lookback.py` 加 `--mock`。
 
 ## 1. 确定要处理的课
 
@@ -76,7 +76,7 @@ python $PIPE_DIR/scripts/validate.py coverage $OUT/coverage.json
 python $PIPE_DIR/scripts/read_reports.py --days 7 > $WORK/reports.json
 ```
 
-失败时写 `[]`，不影响后面的步骤（只是加分项）。
+失败时把 `$WORK/reports.json` 写成 `[]`，不影响后面的步骤（只是加分项）。
 
 ## 5. 漏讲提醒（B）
 
@@ -84,12 +84,7 @@ python $PIPE_DIR/scripts/read_reports.py --days 7 > $WORK/reports.json
 python $PIPE_DIR/scripts/lookback.py --lesson $WORK/lesson.json --coverage $OUT/coverage.json --days 21 > $WORK/lookback.json
 ```
 
-按 `$PIPE_DIR/prompts/alerts.md` 写 `$OUT/alerts.json`，然后 `validate.py alerts`。
-
-<!-- TODO(TB4) 完成后删除下面这段临时做法 -->
-`lookback.py` 还不存在时：`missed` = 教案（`lesson_plan`）里有、本节 `covered` 不为真的知识点，`note` 写
-“本节未讲（尚未回查过去 21 天）”；`covered_before` 为空；`weak_from_reports` 取 `$WORK/reports.json`。
-没有教案时三项都只填 `weak_from_reports`。
+按 `$PIPE_DIR/prompts/alerts.md` 写 `$OUT/alerts.json`（其中已包含 `validate.py` 和 `check_alerts.py` 自检）。
 
 ## 6. 学老师风格（B）
 
