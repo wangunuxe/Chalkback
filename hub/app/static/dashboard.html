@@ -36,7 +36,8 @@
     <section class="card" id="audit"></section>
   </main>
 
-  <footer>ChalkBack Hub © 2026 · refreshes every 10 s</footer>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <footer>ChalkBack Hub © 2026 · live, refreshes every 3 s</footer>
 
 <script>
 const ROLE_LABEL = { teacher: "Teacher", head: "Department head", admin: "School admin" };
@@ -45,6 +46,8 @@ const ACTION_LABEL = {
   join: "Joined the school", consent: "Gave consent", publish_quiz: "Published a quiz",
   share_coverage: "Shared lesson coverage", revoke: "Revoked a share", approve_syllabus: "Approved a syllabus version",
 };
+// 老师控制台跑在老师自己的电脑上（只绑定本机），原话、截图、题目只在那里
+const CONSOLE_URL = "https://localhost:4000";
 
 function loadSessions() {
   try { return JSON.parse(localStorage.getItem("chalkback.sessions")) || {}; } catch { return {}; }
@@ -68,6 +71,25 @@ async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${sessions[role].token}` } });
   if (r.status === 401) { delete sessions[role]; store(sessions, null); location.href = "/"; }
   return r;
+}
+
+// 页面每 3 秒整体重绘，提示信息存在这里，重绘后仍然显示
+const notes = {};
+function note(id, text, ok) {
+  notes[id] = { text, ok };
+  const el = $(id);
+  if (el) { el.textContent = text; el.className = `msg ${ok ? "ok" : "err"}`; el.hidden = false; }
+}
+const noteHtml = (id) => notes[id]
+  ? `<div id="${id}" class="msg ${notes[id].ok ? "ok" : "err"}">${esc(notes[id].text)}</div>`
+  : `<div id="${id}" class="msg" hidden></div>`;
+
+function toast(text) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = text;
+  $("toasts").append(t);
+  setTimeout(() => t.remove(), 6000);
 }
 
 function renderRoles() {
@@ -114,16 +136,46 @@ function renderSummary(b) {
   </div>`;
 }
 
-// 老师控制台跑在老师自己的电脑上（只绑定本机），原话、截图、题目只在那里
-const CONSOLE_URL = "https://localhost:4000";
+// 隐私边界：Hub 收到的就只有这些字段；老师可以现场试着多发一个 transcript，看 Hub 拒收
+function samplePayload(b, classId) {
+  return {
+    lesson_id: "L-T1-20261017-1000", class_id: classId, date: "2026-10-17",
+    syllabus_id: b.syllabus.syllabus_id, syllabus_version: b.syllabus.version,
+    points: [{ kp_id: b.syllabus.knowledge_points[0]?.kp_id ?? "KP01", covered: true, minutes: 4.5 }],
+  };
+}
+
+function privacyCard(b, classId, canTest) {
+  return `<section class="card green">
+    <h2>🛡️ Privacy check</h2>
+    <p class="sub">This is <strong>everything</strong> the school receives about a lesson. No audio, no transcript, no screenshot, no screenpipe ID.</p>
+    <pre class="payload">${esc(JSON.stringify(samplePayload(b, classId), null, 2))}</pre>
+    ${canTest ? `<div class="row" style="margin-top:12px">
+        <span class="muted">Anything extra is refused by the Hub itself, not only by the teacher's computer.</span>
+        <button class="primary" id="leak-btn">Try to send a transcript</button>
+      </div>${noteHtml("leak-msg")}` : ""}
+  </section>`;
+}
+
+function bindPrivacy(b, classId) {
+  const btn = $("leak-btn");
+  if (!btn) return;
+  btn.onclick = async () => {
+    const body = { ...samplePayload(b, classId), transcript: "Aujourd'hui on révise le passé composé avec avoir…" };
+    const r = await api("/api/coverage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (r.status === 422) note("leak-msg", "🛡️ Rejected by the Hub (422): transcripts are not accepted. Nothing was stored.", true);
+    else note("leak-msg", `Unexpected answer from the Hub: ${r.status}`, false);
+  };
+}
 
 function renderTeacher(b, titles) {
   const consoleLink = `<section class="card green"><div class="row">
       <span><strong>Your ChalkBack console</strong><br><span class="muted">Review quizzes, approve or withdraw shares. Transcripts and screenshots stay there, on your computer.</span></span>
       <a class="btn" href="${CONSOLE_URL}/review" target="_blank" rel="noopener">Open my console →</a>
     </div></section>`;
+  const privacy = privacyCard(b, b.classes[0]?.class_id ?? "4A", true);
   if (!b.classes.length) {
-    return consoleLink + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>`;
+    return consoleLink + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` + privacy;
   }
   return consoleLink + b.classes.map((c) => `
     <section class="card">
@@ -133,14 +185,51 @@ function renderTeacher(b, titles) {
       ${riskText(c, b)}
       <div class="table-wrap" style="margin-top:16px"><table>
         <thead><tr><th>Knowledge point</th><th class="c">Covered</th></tr></thead>
-        <tbody>${c.points.map((p) => `<tr><td><span class="kp-title">${esc(titles[p.kp_id])}</span><span class="kp-id">${esc(p.kp_id)}</span></td><td class="c">${chip(p)}</td></tr>`).join("")}</tbody>
+        <tbody>${c.points.map((p) => `<tr><td><span class="kp-title">${esc(titles[p.kp_id])}</span><span class="kp-id">${esc(p.kp_id)}</span></td>
+          <td class="c" data-key="${esc(c.class_id)}:${esc(p.kp_id)}">${chip(p)}</td></tr>`).join("")}</tbody>
       </table></div>
     </section>
     ${c.peer_gaps.length ? `<section class="card amber">
       <h3>💡 Covered in other classes, not yet in ${esc(c.class_id)}</h3>
       <p class="sub">Only you see this comparison. Other classes are not named.</p>
       <div class="stats">${c.peer_gaps.map((k) => `<span class="chip risk">${esc(titles[k])}</span>`).join("")}</div>
-    </section>` : ""}`).join("");
+    </section>` : ""}`).join("") + privacy;
+}
+
+// 考前预测：按目前每周速度，剩余知识点要几周讲完，和考试日期比较
+function forecast(b) {
+  if (b.weeks_left == null || !b.classes.length) return "";
+  const fmt = (weeks) => new Date(Date.now() + weeks * 7 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const rows = b.classes.map((c) => {
+    const left = c.total - c.covered;
+    const weeks = left === 0 ? 0 : c.weekly_rate > 0 ? left / c.weekly_rate : Infinity;
+    return { c, left, weeks };
+  });
+  const finite = rows.map((r) => r.weeks).filter(Number.isFinite);
+  const horizon = Math.max(b.weeks_left * 1.6, Math.min(Math.max(0, ...finite), b.weeks_left * 3), 4);
+  const pct = (w) => `${Math.min(100, (100 * w) / horizon)}%`;
+  return `<section class="card">
+    <h2>Exam forecast 📅</h2>
+    <p class="sub">When each class will finish the syllabus at its current pace. The pink line is the exam (${esc(b.exam_date)}).</p>
+    <div class="forecast">
+      <div class="fc-axis"><span>Today</span><span class="fc-exam-label" style="left:${pct(b.weeks_left)}">Exam · ${esc(b.exam_date)}</span></div>
+      ${rows.map(({ c, left, weeks }) => {
+        const late = weeks > b.weeks_left;
+        const label = left === 0 ? "✓ syllabus finished"
+          : !Number.isFinite(weeks) ? "⚠️ no progress yet"
+          : `${late ? "⚠️" : "✓"} ~${fmt(weeks)}${late ? ", after the exam" : ""}`;
+        const tip = `Class ${c.class_id}: ${left} points left at ${c.weekly_rate}/week → ${Number.isFinite(weeks) ? `${weeks.toFixed(1)} weeks` : "never at this pace"}`;
+        return `<div class="fc-row" title="${esc(tip)}">
+          <span class="fc-class">${esc(c.class_id)}</span>
+          <div class="fc-track">
+            <span class="fc-fill ${late ? "late" : "ok"}" style="width:${Number.isFinite(weeks) ? pct(weeks) : "100%"}"></span>
+            <span class="fc-exam" style="left:${pct(b.weeks_left)}"></span>
+          </div>
+          <span class="fc-label ${late ? "late" : "ok"}">${esc(label)}</span>
+        </div>`;
+      }).join("")}
+    </div>
+  </section>`;
 }
 
 async function renderHead(b, titles) {
@@ -150,11 +239,12 @@ async function renderHead(b, titles) {
       <thead><tr><th>Knowledge point</th>${b.classes.map((c) => `<th class="c">Class ${esc(c.class_id)}</th>`).join("")}</tr></thead>
       <tbody>
         ${b.syllabus.knowledge_points.map((kp, i) => `<tr><td><span class="kp-title">${esc(kp.title)}</span><span class="kp-id">${esc(kp.kp_id)}</span></td>
-          ${b.classes.map((c) => `<td class="c">${chip(c.points[i])}</td>`).join("")}</tr>`).join("")}
+          ${b.classes.map((c) => `<td class="c" data-key="${esc(c.class_id)}:${esc(kp.kp_id)}">${chip(c.points[i])}</td>`).join("")}</tr>`).join("")}
         <tr><td><strong>Progress</strong></td>${b.classes.map((c) => `<td class="c"><strong>${c.covered}/${c.total}</strong><br>${status(c)}</td>`).join("")}</tr>
       </tbody></table></div>` : `<div class="empty">No class has shared coverage yet.</div>`;
   return `
     ${risky.length ? `<section class="card amber"><h3>⚠️ Exam alert</h3>${risky.map((c) => `<p style="margin:12px 0 0"><strong>Class ${esc(c.class_id)}</strong></p>${riskText(c, b)}`).join("")}</section>` : ""}
+    ${forecast(b)}
     <section class="card">
       <h2>Coverage matrix 📚</h2>
       <p class="sub">Knowledge points × classes, from approved shares only.</p>
@@ -173,29 +263,27 @@ async function renderHead(b, titles) {
         <textarea id="draft-json">${esc(JSON.stringify(current, null, 2))}</textarea>
         <div style="margin-top:10px"><button class="primary" id="upload-btn">Upload as draft</button></div>
       </details>
-      <div id="syllabus-msg" class="msg" hidden></div>
+      ${noteHtml("syllabus-msg")}
     </section>`;
 }
 
 function bindHead() {
-  const msg = $("syllabus-msg");
-  const say = (text, ok) => { msg.textContent = text; msg.className = `msg ${ok ? "ok" : "err"}`; msg.hidden = false; };
   for (const b of document.querySelectorAll("[data-approve]")) {
     b.onclick = async () => {
       b.disabled = true;
       const r = await api(`/api/syllabus/${encodeURIComponent(b.dataset.approve)}/approve`, { method: "POST" });
-      if (r.ok) { const s = await r.json(); await refresh(true); say(`Version ${s.version} approved. Teachers' consoles now use it.`, true); }
-      else { b.disabled = false; say(`Could not approve (${r.status}).`); }
+      if (r.ok) { const s = await r.json(); note("syllabus-msg", `Version ${s.version} approved. Teachers' consoles now use it.`, true); await refresh(true); }
+      else { b.disabled = false; note("syllabus-msg", `Could not approve (${r.status}).`); }
     };
   }
   const up = $("upload-btn");
   if (up) up.onclick = async () => {
     let body;
-    try { body = JSON.parse($("draft-json").value); } catch { return say("This is not valid JSON."); }
+    try { body = JSON.parse($("draft-json").value); } catch { return note("syllabus-msg", "This is not valid JSON."); }
     const r = await api("/api/syllabus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (r.ok) { const d = await r.json(); await refresh(true); say(`Draft v${d.version} uploaded. It takes effect only after approval.`, true); }
-    else if (r.status === 422) { const e = await r.json(); say(`Rejected: ${[].concat(e.detail).map((x) => x.msg || x).join("; ")}`); }
-    else say(`Could not upload (${r.status}).`);
+    if (r.ok) { const d = await r.json(); $("upload").open = false; note("syllabus-msg", `Draft v${d.version} uploaded. It takes effect only after approval.`, true); await refresh(true); }
+    else if (r.status === 422) { const e = await r.json(); note("syllabus-msg", `Rejected: ${[].concat(e.detail).map((x) => x.msg || x).join("; ")}`); }
+    else note("syllabus-msg", `Could not upload (${r.status}).`);
   };
 }
 
@@ -207,10 +295,11 @@ function renderAdmin(b) {
       <p class="sub">Progress per class. Per-lesson details stay with teachers and department heads.</p>
       ${b.classes.length ? `<div class="table-wrap"><table>
         <thead><tr><th>Class</th><th style="min-width:160px">Progress</th><th class="c">Covered</th><th class="c">Pace / week</th><th>Status</th></tr></thead>
-        <tbody>${b.classes.map((c) => `<tr><td><strong>${esc(c.class_id)}</strong></td><td>${bar(c)}</td>
+        <tbody>${b.classes.map((c) => `<tr data-key="${esc(c.class_id)}"><td><strong>${esc(c.class_id)}</strong></td><td>${bar(c)}</td>
           <td class="c">${c.covered}/${c.total}</td><td class="c">${c.weekly_rate}</td><td>${status(c)}</td></tr>`).join("")}</tbody>
       </table></div>` : `<div class="empty">No class has shared coverage yet.</div>`}
     </section>
+    ${privacyCard(b, b.classes[0]?.class_id ?? "4A", false)}
     <section class="card green">
       <h2>Workspace & invite codes</h2>
       <p class="sub">One code per role. A code used with the wrong role is rejected.</p>
@@ -228,28 +317,64 @@ function renderAudit(events) {
   $("audit").innerHTML = `<h2>Audit log 🧾</h2><p class="sub">${scope}</p>
     ${rows.length ? `<div class="table-wrap"><table>
       <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
-      <tbody>${rows.map((e) => `<tr><td class="muted">${esc(new Date(e.at).toLocaleString())}</td>
+      <tbody>${rows.map((e) => `<tr data-event="${esc(e.event_id)}"><td class="muted">${esc(new Date(e.at).toLocaleString())}</td>
         <td>${ROLE_ICON[e.actor.role] || ""} ${esc(e.actor.id)}</td><td>${esc(ACTION_LABEL[e.action] || e.action)}</td>
         <td class="mono">${esc(e.target_id)}</td></tr>`).join("")}</tbody>
     </table></div>` : `<div class="empty">No actions yet.</div>`}`;
 }
 
-async function refresh(force = false) {
-  // 正在编辑考纲草稿时不自动刷新，免得内容被覆盖
-  if (!force && ($("upload")?.open || document.activeElement?.tagName === "TEXTAREA")) return;
-  renderRoles();
-  const [r, a] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit")]);
-  if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
-  const b = await r.json();
-  const titles = Object.fromEntries(b.syllabus.knowledge_points.map((kp) => [kp.kp_id, kp.title]));
-  renderSummary(b);
-  if (role === "teacher") $("view").innerHTML = renderTeacher(b, titles);
-  else if (role === "head") { $("view").innerHTML = await renderHead(b, titles); bindHead(); }
-  else $("view").innerHTML = renderAdmin(b);
-  if (a.ok) renderAudit(await a.json());
+// 实时提示：和上一次刷新比较，变化的格子闪一下，新的审计记录弹出提示（切换角色时不提示）
+let previous = null;
+function snapshot(b, events) {
+  const cells = {};
+  for (const c of b.classes) {
+    cells[c.class_id] = c.covered;
+    for (const p of c.points || []) cells[`${c.class_id}:${p.kp_id}`] = `${p.covered}|${p.minutes}`;
+  }
+  return { role, cells, events: new Set(events.map((e) => e.event_id)) };
+}
+function announce(prev, now, events) {
+  if (!prev || prev.role !== now.role) return;
+  for (const [key, value] of Object.entries(now.cells)) {
+    if (prev.cells[key] !== value) document.querySelectorAll(`[data-key="${CSS.escape(key)}"]`).forEach((el) => el.classList.add("flash"));
+  }
+  for (const e of events) {
+    if (prev.events.has(e.event_id)) continue;
+    document.querySelector(`[data-event="${CSS.escape(e.event_id)}"]`)?.classList.add("flash");
+    if (e.action === "share_coverage") toast(`📥 ${e.actor.id} shared a lesson. The board is updated.`);
+    else if (e.action === "revoke") toast(`↩️ ${e.actor.id} withdrew a share. It is gone from the board.`);
+    else if (e.action === "approve_syllabus") toast(`✅ Syllabus ${e.target_id} approved.`);
+    else if (e.action === "join") toast(`👋 ${ROLE_LABEL[e.actor.role] || e.actor.role} ${e.actor.id} joined the school.`);
+  }
 }
 
-if (role) { refresh(true); setInterval(refresh, 10000); }
+let busy = false;
+async function refresh(force = false) {
+  // 正在编辑考纲草稿时不自动刷新，免得内容被覆盖
+  if (busy || (!force && ($("upload")?.open || document.activeElement?.tagName === "TEXTAREA"))) return;
+  busy = true;
+  try {
+    renderRoles();
+    const [r, a] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit")]);
+    if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
+    const b = await r.json();
+    const events = a.ok ? await a.json() : [];
+    const titles = Object.fromEntries(b.syllabus.knowledge_points.map((kp) => [kp.kp_id, kp.title]));
+    renderSummary(b);
+    const firstClass = b.classes[0]?.class_id ?? "4A";
+    if (role === "teacher") { $("view").innerHTML = renderTeacher(b, titles); bindPrivacy(b, firstClass); }
+    else if (role === "head") { $("view").innerHTML = await renderHead(b, titles); bindHead(); }
+    else $("view").innerHTML = renderAdmin(b);
+    renderAudit(events);
+    const now = snapshot(b, events);
+    announce(previous, now, events);
+    previous = now;
+  } finally {
+    busy = false;
+  }
+}
+
+if (role) { refresh(true); setInterval(refresh, 3000); }
 </script>
 </body>
 </html>
