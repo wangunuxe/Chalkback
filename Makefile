@@ -36,6 +36,7 @@ console: seed-mock
 	cd console && $(PY) generate_cert.py && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 hub:
+	set -a; [ -f .env ] && . ./.env; set +a; \
 	cd hub && $(PY) generate_cert.py && HUB_MOCK_AUTH=1 $(PY) -m uvicorn app.main:app --port 8000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 test:
