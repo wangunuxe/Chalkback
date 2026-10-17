@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChalkBack - Teacher Console (TC1)</title>
+  <title>ChalkBack - Teacher Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
@@ -39,13 +39,13 @@
       <p class="text-sm text-slate-500">Teacher: {{ data.teacher_name }} | Timestamp: {{ data.timestamp }}</p>
     </section>
 
-    <!-- Omission Alerts (漏讲提醒) -->
+    <!-- Omission Alerts -->
     {% if data.missed_kps %}
     <section class="bg-gradient-to-r from-amber-50 to-pink-50 rounded-3xl p-6 border-4 border-amber-300 shadow-xl space-y-3">
       <div class="flex items-center space-x-3">
         <span class="text-3xl animate-bounce">⚠️</span>
         <div>
-          <h3 class="text-xl font-bold text-amber-800">Rappel Omission (Omission Alerts)</h3>
+          <h3 class="text-xl font-bold text-amber-800">Omission Alerts</h3>
           <p class="text-xs text-amber-700">Concepts not covered in this session</p>
         </div>
       </div>
@@ -57,25 +57,25 @@
     </section>
     {% endif %}
 
-    <!-- Knowledge Point Coverages (知识点覆盖卡片) -->
+    <!-- Knowledge Point Coverages -->
     <section class="bg-white rounded-3xl p-6 border-4 border-emerald-200 shadow-xl space-y-4">
       <h3 class="text-xl font-bold text-emerald-700 flex items-center space-x-2">
-        <span>📋</span><span>Knowledge Point Coverages (知识点覆盖)</span>
+        <span>📋</span><span>Knowledge Point Coverages</span>
       </h3>
       <div class="space-y-4">
         {% for cov in data.coverages %}
         <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-200 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-800">{{ cov.kp_title }}</span>
+            <span class="font-bold text-slate-800">{{ cov.kp_title or cov.kp_id }}</span>
             {% if cov.covered %}
-            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-xs">🟢 Covered ({{ cov.duration_minutes }}m)</span>
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-xs">🟢 Covered ({{ cov.duration_minutes or cov.minutes or 0 }}m)</span>
             {% else %}
             <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold text-xs">🔴 Not Covered</span>
             {% endif %}
           </div>
           {% if cov.screenpipe_timestamp %}
           <div class="font-mono text-xs bg-white px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 inline-block shadow-inner">
-            [Timestamp: <span class="font-bold text-pink-600">{{ cov.screenpipe_timestamp }}</span> | Frame <span class="font-bold text-sky-600">{{ cov.frame_id }}</span>]
+            [Timestamp: <span class="font-bold text-pink-600">{{ cov.screenpipe_timestamp }}</span> | Frame <span class="font-bold text-sky-600">{{ cov.frame_id or 'N/A' }}</span>]
           </div>
           {% endif %}
           {% if cov.raw_quote %}
@@ -83,39 +83,44 @@
             "{{ cov.raw_quote }}"
           </p>
           {% endif %}
-          {% if cov.historical_note %}
-          <p class="text-xs text-amber-700 font-medium bg-amber-50 p-3 rounded-xl border border-amber-200">
-            {{ cov.historical_note }}
-          </p>
-          {% endif %}
         </div>
         {% endfor %}
       </div>
     </section>
 
-    <!-- Generated Questions (待审核题目列表) -->
+    <!-- Generated Questions -->
     <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl space-y-4">
       <h3 class="text-xl font-bold text-sky-700 flex items-center space-x-2">
-        <span>⭐</span><span>Generated Questions (待审核题目列表)</span>
+        <span>⭐</span><span>Generated Questions for Review</span>
       </h3>
       <div class="space-y-4">
         {% for q in data.generated_questions %}
         <div class="bg-sky-50 rounded-2xl p-4 border-2 border-sky-200 space-y-3">
           <div class="flex items-center justify-between">
-            <span class="px-2.5 py-1 bg-sky-200 text-sky-900 rounded-lg font-bold text-xs">{{ q.id }} (KP: {{ q.kp_id }})</span>
-            <span class="text-xs font-semibold text-emerald-700">Correct: Option {{ q.correct_index + 1 }}</span>
+            <span class="px-2.5 py-1 bg-sky-200 text-sky-900 rounded-lg font-bold text-xs">{{ q.id or q.q_id }} (KP: {{ q.kp_id }})</span>
+            <span class="text-xs font-semibold text-emerald-700">
+              {% if q.correct_index is defined %}Correct: Option {{ q.correct_index + 1 }}
+              {% elif q.answer is defined %}Answer: {{ q.answer }}
+              {% endif %}
+            </span>
           </div>
-          <h4 class="font-bold text-slate-800 text-lg">{{ q.stem }}</h4>
+          <h4 class="font-bold text-slate-800 text-lg">{{ q.stem or q.prompt }}</h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {% for opt in q.options %}
+            {% for opt in (q.options or q.choices) %}
             <div class="bg-white p-2.5 rounded-xl border border-sky-100 text-sm font-medium text-slate-700 shadow-sm">
               {{ opt }}
             </div>
             {% endfor %}
           </div>
+          {% if q.explanation %}
           <p class="text-xs text-slate-500 bg-white/60 p-2 rounded-lg">
             💡 Explanation: {{ q.explanation }}
           </p>
+          {% elif q.source %}
+          <p class="text-xs text-slate-500 bg-white/60 p-2 rounded-lg italic">
+            💬 Source Quote: "{{ q.source.quote }}" (Frame: {{ q.source.frame_ids }})
+          </p>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
