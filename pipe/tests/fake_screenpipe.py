@@ -23,6 +23,11 @@ def ocr(frame_id: int, text: str, ts: str, app: str = "PowerPoint", window: str 
                                        "app_name": app, "window_name": window}}
 
 
+def ui(text: str, ts: str, app: str = "Keynote", window: str = "cours.key") -> dict:
+    """accessibility 文字（字段名待 TA1 实测；没有 frame_id）。"""
+    return {"type": "UI", "content": {"text": text, "timestamp": ts, "app_name": app, "window_name": window}}
+
+
 class FakeScreenpipe:
     def __init__(self, items: list[dict]):
         self.items = items
@@ -47,14 +52,14 @@ class FakeScreenpipe:
         self.url = f"http://127.0.0.1:{self.server.server_port}"
 
     def search(self, p: dict) -> dict:
-        kind = {"audio": "Audio", "ocr": "OCR"}.get(p.get("content_type"))
+        kind = {"audio": "Audio", "ocr": "OCR", "accessibility": "UI"}.get(p.get("content_type"))
         start = datetime.fromisoformat(p["start_time"]) if "start_time" in p else None
         end = datetime.fromisoformat(p["end_time"]) if "end_time" in p else None
         out = []
         for item in self.items:
             c = item["content"]
             text = c.get("transcription") or c.get("text") or ""
-            at = datetime.fromisoformat(c["timestamp"])
+            at = datetime.fromisoformat(c["timestamp"].replace("Z", "+00:00"))
             if kind and item["type"] != kind:
                 continue
             if "q" in p and p["q"].casefold() not in text.casefold():

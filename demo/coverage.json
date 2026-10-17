@@ -9,26 +9,26 @@
     {
       "kp_id": "KP01",
       "covered": true,
-      "minutes": 8.2,
-      "segment_ids": ["S-L-T1-20261017-1000-001", "S-L-T1-20261017-1000-002"]
+      "minutes": 4.5,
+      "segment_ids": ["S-L-T1-20261017-1000-001"]
     },
     {
       "kp_id": "KP02",
       "covered": false,
-      "minutes": 0.0,
+      "minutes": 0,
       "segment_ids": []
     },
     {
       "kp_id": "KP03",
       "covered": true,
-      "minutes": 4.5,
-      "segment_ids": ["S-L-T1-20261017-1000-003"]
+      "minutes": 6.0,
+      "segment_ids": ["S-L-T1-20261017-1000-002"]
     },
     {
       "kp_id": "KP04",
-      "covered": true,
-      "minutes": 6.0,
-      "segment_ids": ["S-L-T1-20261017-1000-004"]
+      "covered": false,
+      "minutes": 0,
+      "segment_ids": []
     }
   ]
 }

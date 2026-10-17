@@ -523,20 +523,28 @@ chalkback/
 - [x] **超时作答被判为正确**：现在一律算错；`mcq` 也不再把 `true` 当作下标 1。（C）
 - [x] **审核只记日志**：通过、修改、删除、拒绝都会改写 `quiz.json`；发布时重新生成 `game.html`；只有已发布的测验才能在 `/play` 打开（A2）；审核页有审核、发布、共享、撤回按钮。（C）
 - [x] **共享失败时显示成功**：Hub 不通或拒绝时返回 502，本机不记录；撤回时 Hub 删除成功才删本机记录。（C）
-- [ ] **`read_reports.py` 编造薄弱点**：找不到 Kahoot 报告时固定返回 KP03（`pipe/scripts/read_reports.py:127-134`），应返回 `[]`。（A）
+- [x] **`read_reports.py` 编造薄弱点**：现在找不到报告输出 `[]`，出错写 `[]` 并退出 1。（A）
 - [ ] **公网 Hub 的安全**：`HUB_MOCK_AUTH` 默认开启，任何人用 `mock-token-ADM1` 就是管理员；首页公开 `DEMO-ADMIN`、`DEMO-HEAD` 邀请码；第一个真实加入的老师 id 是 `T1`，和 mock 的 T1 是同一身份。上公网前处理。（D）控制台已不再回落到 `mock-token-T1`（C，已修）。
-- [ ] **mock 端到端不一致**：mock 课表是周一，mock 课是 2026-10-17（周六），`current_lesson.py` 选错课且 `lesson_plan` 为空（B）；`extract_segments.py --mock` 忽略 `--lesson-id`，outbox 目录名和文件里的 `lesson_id` 不一致（A）。
+- [x] **mock 片段的 lesson_id**：`extract_segments.py --mock` 现在用 `--lesson-id` 和 `--start`，outbox 目录名和文件里的 `lesson_id` 一致。（A）
+- [ ] **mock 课表不一致**：mock 课表是周一，mock 课是 2026-10-17（周六），`current_lesson.py` 选错课且 `lesson_plan` 为空。（B）
 
 ### 13.3 角色 A
 
-- [ ] TA1 实测记录不完整：只测了音频；ocr、accessibility、`/notify`、`Api(...)` 权限规则、溯源截图接口都没测；`demo/screenpipe_probe/README.md` 还是空模板。
-- [ ] 确认 screenpipe 音频结果的字段（`device_type` 大小写等），否则可能把所有转写都过滤掉。
-- [ ] TA2 `extract_segments.py`：片段最短 1 分钟（应约 2–5 分钟）；没有按 app 或窗口过滤，浏览器、邮件画面也会被切成片段、写进 `slide_text`；缺 `app_name` 时编成 `"PowerPoint"`；时区没统一成 Europe/Paris；没有讲话的片段也会写出，第 2 步“片段为空就失败”永远不触发；不取 accessibility 文字；没有单元测试。
-- [ ] TA3 `prompts/map_kp.md` 缺映射规则：怎么判定知识点、`minutes` 怎么算、什么算 `covered`、关键词兜底、校验失败怎么办；`class_id` 应来自 `$WORK/lesson.json`。`demo/coverage.json` 是手写的，和 `demo/segments.json` 对不上。
+已修（pipe 测试从 117 个增加到 150 个）：
+
+- [x] TA2 `extract_segments.py`：短于 2 分钟的页并进相邻片段，长于 5 分钟的平均切开；邮件、聊天、密码管理器等窗口的文字一律丢弃，别的 app 的短暂画面不进 `slide_text`；不再编造 `app_name`（不知道就是空字符串）；时间统一为 Europe/Paris；没有讲话的片段不输出，整节课没讲话时输出 `[]`；同时读 accessibility 文字（旧版 screenpipe 不支持时只用 ocr）；每段保留最多 5 个截图 id；`device_type` 大小写不敏感；`--mock` 用本节课的 `lesson_id` 和时间；补了单元测试。
+- [x] TA3 `prompts/map_kp.md` 写明判断规则（以老师原话为准、顺口提到不算、每段最多 2 个知识点、关键词兜底）、分钟数和 `covered` 的算法、`lesson_id` / `teacher_id` / `class_id` 只从 `$WORK/lesson.json` 取；新增 `scripts/check_coverage.py` 检查这些规则。`demo/coverage.json` 改为和 `demo/segments.json` 一致。
+- [x] TA5 `read_reports.py`：不再编造薄弱点（找不到报告输出 `[]`；读不到考纲或连不上 screenpipe 写 `[]` 并退出 1）；按窗口标题找 Kahoot 页并分页；按行找正确率 < 50% 的题，同分的知识点不标；整词匹配；不内置学科关键词；Windows 缺 `tzdata` 不再崩；新增 `--mock`；补了单元测试。
+- [x] TA6 教案移到 `demo/lesson_plans/4A/2026-10-17.json`（`current_lesson.py` 找的位置）。
+- [x] `demo/screenpipe_test_record.md` 补上没闭合的代码块，列出还没实测的项目。
+
+还没做：
+
+- [ ] TA1 实测：ocr、accessibility 的真实返回，`device_type` 大小写，`window_name` 是否按子串匹配，`Api(...)` 权限、`/notify`、溯源截图接口，以及 `deny` 规则到底作用在采集还是读取（清单见 `demo/screenpipe_test_record.md` 第 3 节）。实测后回来确认 `extract_segments.py`、`read_reports.py` 的解析。
+- [ ] TA2 验收“在只读权限下运行”：要在演示电脑上用真实 pipe 跑一次。
 - [ ] TA4 没有人工标注，也没有准确率数字。
-- [ ] TA5 `read_reports.py` 其余问题：搜的是 OCR 文字而不是窗口标题；按整页匹配，一页会误报多个知识点；Windows 上缺 `tzdata` 时一启动就崩（T2 是 Windows）；吞掉错误；没有单元测试。
-- [ ] TA6 演示数据：教案应放在 `lesson_plans/{class_id}/{date}.json`（现在是 `demo/lesson_plans/lesson_plan_T1_20261017.json`）；缺 T2 的教案和“上周”的课；录课、出题画面、Kahoot 报告页无法从仓库确认。
-- [ ] TA7 `docs/DEMO.md` 只有骨架（步骤、备用方案、彩排记录都是空的）；备用录屏；两次彩排。
+- [ ] TA6 演示数据：T2 的教案和“上周”的课；录课、出题画面、Kahoot 报告页无法从仓库确认。
+- [ ] TA7 `docs/DEMO.md` 的步骤、备用方案、彩排记录还是空的；备用录屏；两次彩排。
 
 ### 13.4 角色 B
 
@@ -547,6 +555,8 @@ chalkback/
 - [ ] TB6 实测：安装后 pipe 的名字（`chalkback` 还是 `pipe`）、`tree/main/pipe` 地址能否安装、`/notify` 的端口和请求体（`pipe/pipe.md:25-26,150`）；`docs/SETUP.md:90` 控制台启动说明（现在是 `make teacher`，见 `console/README.md`）。
 - [ ] TB7 新人测试没做，计时结果为空；`SETUP.md` 写“约 15 分钟”，测试卡写 30–40 分钟。
 - [ ] 实测一次 pipe 运行时间低于 `timeout: 900`。
+- [ ] `lookback.py`、`style_inputs.py` 判断麦克风用的是 `device_type == "input"`（区分大小写）；如果实测是 `Input` 会漏掉所有转写。A 的 `extract_segments.is_mic()` 已经兼容，可以直接复用。
+- [ ] A 改了 `pipe.md` 的 mock 说明一行：`read_reports.py` 现在有 `--mock`，不再自己返回演示数据（B 确认）。
 - [ ] 改 `pipe/scripts/build_game.py` 或 `check_quiz.normalize_answer` 时先告诉 C：控制台发布游戏和判分直接复用这两个函数（`console/app/contracts.py`）。
 
 ### 13.5 角色 C
@@ -588,7 +598,7 @@ chalkback/
 - [x] 控制台代码、测试、`Makefile`、`console/README.md`、`README.md`、`docker-compose.yml` 已改。（C）
 - [x] 本文档已改为本机游戏和 HTTPS：第 2 节、第 3 节第 7–8 步、第 6.3 节、第 6.4 节、第 8 节 TB3 / TC4 / TD1、第 10 节第 3 条、第 11 节 0:00 和 1:10 两行、第 12 节对应风险。（全员）
 - [ ] `docs/SETUP.md:129,145`（二维码、手机、热点）；`pipe/prompts/gen_quiz.md:5,47`（“用手机作答”“手机一屏”）；`pipe/templates/game.html:14`（不引用外部资源的规则保留，理由改为离线可用）。（B）
-- [ ] `docs/DEMO.md:8` 手机连接检查项。（A）
+- [x] `docs/DEMO.md` 的手机连接检查项改为本机游戏和全班作答数据。（A）
 - [ ] http 改 https：`pipe/pipe.md:140`、`pipe/scripts/doctor.py:96,101,107`、`docs/SETUP.md` 多处仍写 `http://localhost:4000`。（B）
 
 ### 13.8 本文档自身

@@ -1,163 +1,129 @@
 #!/usr/bin/env python3
 """从屏幕文字读出 Kahoot 报告页的薄弱题目并对到知识点（TA5，负责人 A）。
 
-用法:
-    python read_reports.py --days 7 --syllabus ~/.chalkback/cache/syllabus.json --out ~/.chalkback/outbox/weak_reports.json
+    python read_reports.py --days 7 --syllabus ~/.chalkback/cache/syllabus.json --out $WORK/reports.json [--mock]
 
-输出:
-    符合 contracts/alerts 中 weak_from_reports 字段定义的列表:
-    [
-      {
-        "kp_id": "KP03",
-        "source": "kahoot_report",
-        "seen_at": "2026-10-16T18:02:00+02:00"
-      }
-    ]
-约束:
-    只使用 screenpipe GET /search (OCR)；时间带 Europe/Paris 偏移；
-    未匹配到真实报告时提供兜底 mock，保证下游 B (TB4) 联调不阻断。
+输出（写到 --out）：alerts 里 weak_from_reports 的列表，例如
+    [{"kp_id": "KP03", "source": "kahoot_report", "seen_at": "2026-10-16T18:02:00+02:00"}]
+
+做法：
+- 只用 screenpipe GET /search（复用 extract_segments.search）：窗口标题含 Kahoot 的 OCR 文字，分页拉取。
+- 按行找薄弱题：正确率低于 50% 的行（如 “23%”），或 “difficult questions / questions difficiles / need help /
+  à revoir” 之后的几行。把薄弱行和它上一行（通常是题干）对到考纲知识点。
+- 对知识点打分（标题命中 2 分，每个关键词 1 分），只取唯一最高分；平分就跳过，不同时标多个知识点。
+- 知识点和关键词只来自考纲文件，不内置任何学科的词。
+
+退出码：0 = 成功（找不到报告时输出 []）；1 = 读不到考纲或连不上 screenpipe（同样写 []，并在 stderr 说明原因）。
+这一步只是加分项（§12），失败不影响后面的步骤，但绝不编造薄弱点。
 """
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta, timezone
 import json
-import os
+import re
+import sys
+import unicodedata
+from datetime import datetime, timedelta
 from pathlib import Path
-import urllib.parse
-import urllib.request
-import zoneinfo
 
-SCREENPIPE_URL = os.environ.get("SCREENPIPE_URL", "http://localhost:3030")
-PARIS_TZ = zoneinfo.ZoneInfo("Europe/Paris")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import extract_segments  # noqa: E402  A 的 screenpipe 客户端（含 SCREENPIPE_URL 和认证）
+from extract_segments import paris, parse_iso  # noqa: E402
 
-
-def parse_to_paris_iso(ts_str: str) -> str:
-    """统一转换为 Europe/Paris 带时区的 ISO-8601 字符串。"""
-    if not ts_str:
-        return datetime.now(PARIS_TZ).isoformat()
-    clean_ts = ts_str.replace("Z", "+00:00")
-    dt = datetime.fromisoformat(clean_ts)
-    return dt.astimezone(PARIS_TZ).isoformat()
+MOCK = Path(__file__).resolve().parents[2] / "contracts" / "examples" / "alerts.json"
+WINDOW = "kahoot"
+PAGE_LIMIT = 100
+MAX_PAGES = 20
+WEAK_ACCURACY = 50
+HEADER_LOOKAHEAD = 5
+HEADERS = ("difficult question", "questions difficiles", "question difficile", "need help", "à revoir", "besoin d'aide")
+PERCENT = re.compile(r"(?<![\d.,])(\d{1,3})\s?%")
 
 
-def search(**params) -> dict:
-    """GET /search 的封装，带环境变量认证。"""
-    url = f"{SCREENPIPE_URL}/search?{urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})}"
-    api_key = os.environ.get("SCREENPIPE_LOCAL_API_KEY", "")
-    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            return json.load(resp)
-    except Exception as e:
-        # 网络或本地 API 未就绪时返回空数据，由下游兜底
-        return {"data": []}
+def norm(s: str) -> str:
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", s).casefold()).strip()
 
 
-def load_syllabus_keywords(syllabus_path: Path) -> dict[str, list[str]]:
-    """从考纲提取 kp_id 与关键词的映射字典。"""
-    if not syllabus_path.exists():
-        # 默认回退：法语语法考纲
-        return {
-            "KP01": ["passé composé", "avoir"],
-            "KP02": ["passé composé", "être", "accord"],
-            "KP03": ["participe passé", "accord", "cod", "direct"],
-            "KP04": ["imparfait", "description"],
-        }
-    try:
-        data = json.loads(syllabus_path.read_text(encoding="utf-8"))
-        mapping = {}
-        for kp in data.get("knowledge_points", []):
-            k_list = [k.lower() for k in kp.get("keywords", [])]
-            k_list.append(kp.get("title", "").lower())
-            mapping[kp["kp_id"]] = k_list
-        return mapping
-    except Exception:
-        return {}
+def contains(text: str, phrase: str) -> bool:
+    """整词匹配（“cod” 不能命中 “code”）。"""
+    return bool(phrase) and re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", text) is not None
 
 
-def read_reports(days: int, syllabus_path: Path) -> list[dict]:
-    """搜索窗口含 Kahoot/Report 的 OCR 文字，对齐到薄弱考点。"""
-    now_utc = datetime.now(timezone.utc)
-    start_utc = (now_utc - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    
-    kp_keywords = load_syllabus_keywords(syllabus_path)
+def load_kps(syllabus_path: Path) -> list[dict]:
+    data = json.loads(syllabus_path.read_text(encoding="utf-8"))
+    return [{"kp_id": kp["kp_id"], "title": norm(kp.get("title", "")), "keywords": [norm(k) for k in kp.get("keywords", [])]}
+            for kp in data["knowledge_points"]]
 
-    # 1. 查询过去 7 天内含有 Kahoot、Report 或 Quiz 的屏幕文字
-    res = search(
-        content_type="ocr",
-        q="Kahoot",
-        start_time=start_utc,
-        limit=100
-    )
 
-    weak_points: list[dict] = []
-    seen_kps: set[str] = set()
+def best_kp(text: str, kps: list[dict]) -> str | None:
+    scores = {kp["kp_id"]: 2 * contains(text, kp["title"]) + sum(contains(text, k) for k in kp["keywords"]) for kp in kps}
+    top = max(scores.values(), default=0)
+    winners = [k for k, s in scores.items() if s == top]
+    return winners[0] if top > 0 and len(winners) == 1 else None
 
-    # Kahoot 报告中表示“错误率高 / 薄弱”的常见页面特征词（英文与法文）
-    alert_triggers = [
-        "difficult question", "need help", "lowest score", "précision faible",
-        "questions difficiles", "à revoir", "accuracy <", "correct: 0", "correct: 1",
-        "correct: 2", "correct: 3", "correct: 4"
-    ]
 
-    for item in res.get("data", []):
-        content = item.get("content", {})
-        text = content.get("text", "").lower()
-        ts = content.get("timestamp")
+def weak_lines(text: str) -> list[str]:
+    """报告页里表示“这题很多人错”的行，连同上一行（题干）。"""
+    lines = [norm(line) for line in text.splitlines() if line.strip()]
+    flagged: set[int] = set()
+    for i, line in enumerate(lines):
+        if any(int(p) < WEAK_ACCURACY for p in PERCENT.findall(line)):
+            flagged.add(i)
+        if any(h in line for h in HEADERS):
+            flagged.update(range(i + 1, min(len(lines), i + 1 + HEADER_LOOKAHEAD)))
+    return [" ".join(lines[max(0, i - 1):i + 1]) for i in sorted(flagged)]
 
-        # 判断是否包含薄弱题目的特征词
-        has_weak_signal = any(trigger in text for trigger in alert_triggers)
-        if not has_weak_signal:
+
+def fetch_report_frames(since: datetime, until: datetime) -> list[dict]:
+    frames: list[dict] = []
+    for page in range(MAX_PAGES):
+        batch = extract_segments.search(content_type="ocr", window_name=WINDOW, start_time=since.isoformat(timespec="seconds"),
+                                        end_time=until.isoformat(timespec="seconds"), limit=PAGE_LIMIT,
+                                        offset=page * PAGE_LIMIT).get("data", [])
+        frames.extend(batch)
+        if len(batch) < PAGE_LIMIT:
+            break
+    # window_name 是否按子串匹配还没实测（TA1），这里再过滤一遍
+    return [f for f in frames if f.get("type") == "OCR" and WINDOW in (f.get("content", {}).get("window_name") or "").casefold()]
+
+
+def read_reports(days: int, kps: list[dict], now: datetime | None = None) -> list[dict]:
+    now = now or datetime.now(paris())
+    latest: dict[str, datetime] = {}
+    for frame in fetch_report_frames(now - timedelta(days=days), now):
+        c = frame["content"]
+        if not c.get("timestamp"):
             continue
-
-        # 将报告中的错误题目文字匹配到考纲知识点
-        for kp_id, kw_list in kp_keywords.items():
-            if kp_id in seen_kps:
-                continue
-            if any(kw in text for kw in kw_list):
-                weak_points.append({
-                    "kp_id": kp_id,
-                    "source": "kahoot_report",
-                    "seen_at": parse_to_paris_iso(ts)
-                })
-                seen_kps.add(kp_id)
-
-    # 2. 兜底保护：若本地未打开过真实 Kahoot 页面，返回演示预设薄弱点（第 5 节契约中的 KP03）
-    if not weak_points:
-        fallback_time = datetime.now(PARIS_TZ) - timedelta(hours=18)
-        weak_points.append({
-            "kp_id": "KP03",
-            "source": "kahoot_report",
-            "seen_at": fallback_time.replace(microsecond=0).isoformat()
-        })
-
-    return weak_points
+        seen = parse_iso(c["timestamp"])
+        for line in weak_lines(c.get("text") or ""):
+            kp_id = best_kp(line, kps)
+            if kp_id and (kp_id not in latest or seen > latest[kp_id]):
+                latest[kp_id] = seen
+    return [{"kp_id": k, "source": "kahoot_report", "seen_at": latest[k].isoformat(timespec="seconds")} for k in sorted(latest)]
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Extract weak knowledge points from Kahoot reports.")
-    ap.add_argument("--days", type=int, default=7, help="回溯天数，默认 7 天")
-    ap.add_argument(
-        "--syllabus",
-        type=Path,
-        default=Path("~/.chalkback/cache/syllabus.json").expanduser(),
-        help="考纲路径",
-    )
-    ap.add_argument(
-        "--out",
-        type=Path,
-        default=Path("~/.chalkback/outbox/weak_reports.json").expanduser(),
-        help="输出路径",
-    )
-    args = ap.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Extract weak knowledge points from Kahoot report pages.")
+    ap.add_argument("--days", type=int, default=7, help="回看天数，默认 7")
+    ap.add_argument("--syllabus", type=Path, required=True, help="考纲文件（cache/syllabus.json）")
+    ap.add_argument("--out", type=Path, required=True, help="输出文件")
+    ap.add_argument("--mock", action="store_true", help="本地开发：输出 contracts/examples/alerts.json 里的 weak_from_reports")
+    args = ap.parse_args(argv)
 
+    code, results = 0, []
+    try:
+        if args.mock:
+            results = json.loads(MOCK.read_text(encoding="utf-8"))["weak_from_reports"]
+        else:
+            results = read_reports(args.days, load_kps(args.syllabus))
+    except Exception as e:  # 读不到考纲、连不上 screenpipe：写 []，不编造
+        print(f"[read_reports] 失败，输出 []：{e}", file=sys.stderr)
+        code = 1
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    results = read_reports(args.days, args.syllabus)
     args.out.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[read_reports] 成功输出 {len(results)} 条薄弱点记录 -> {args.out}")
+    print(f"[read_reports] {len(results)} 个薄弱知识点 -> {args.out}")
+    return code
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
