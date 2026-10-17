@@ -72,3 +72,19 @@
     "total": 2
   }
 }
+```
+
+---
+
+## 3. 还没测（TA1 未完成，结果填到 `screenpipe_probe/README.md`）
+
+上面只有音频一项，下面这些 A 的脚本目前按宽松方式解析，实测后要回来确认：
+
+- [ ] `content_type=ocr` 的真实返回（`frame_id`、`app_name`、`window_name` 字段名）
+- [ ] `content_type=accessibility` 是否支持、`type` 和字段名（`extract_segments.py` 接受 `UI` / `Accessibility`）
+- [ ] `device_type` 的大小写（`input` 还是 `Input`）；没有 `device_type` 时 `device_name` 是否以 `(input)` 结尾
+- [ ] `window_name` 参数是否按子串匹配（`read_reports.py` 用它找 Kahoot 窗口）
+- [ ] 时间戳是 UTC（`Z`）还是本地偏移（脚本两种都能处理，统一转成 Europe/Paris）
+- [ ] pipe 权限：`Api(GET /search)`、`Api(POST /notify)` 是否放行；`/raw_sql` 是否拒绝
+- [ ] 溯源截图接口（控制台显示出处截图要用）
+- [ ] 第 1 节第 3 条要重新确认：`deny` 规则限制的是 pipe 能读到什么，还是 screenpipe 根本不采集。两者对隐私说明的写法不同。
