@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from app import db
 from app.main import app
+from app.mock import example
 
 client = TestClient(app)
 
@@ -35,8 +36,8 @@ def test_token_carries_role():
     head = join("DEMO-HEAD", "head").json()["token"]
     admin = join("DEMO-ADMIN", "admin").json()["token"]
     assert client.get("/api/syllabus/current", headers=auth(teacher)).status_code == 200
-    assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=auth(teacher)).status_code == 403
-    assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=auth(head)).status_code == 200
+    assert client.post("/api/syllabus", json=example("syllabus"), headers=auth(teacher)).status_code == 403
+    assert client.post("/api/syllabus", json=example("syllabus"), headers=auth(head)).status_code == 200
     assert client.get("/api/dashboard?view=admin", headers=auth(admin)).status_code == 200
     assert client.get("/api/dashboard?view=admin", headers=auth(teacher)).status_code == 403
 

@@ -8,7 +8,9 @@ uvicorn app.main:app --port 8000 --reload        # API 文档：http://localhost
 pytest
 ```
 
-除 `/api/join` 外，接口仍返回 `contracts/examples` 的 mock（TD1），C 可以直接对接。
+`/api/join` 和 `/api/syllabus*` 已是真实实现，其余接口仍返回 `contracts/examples` 的 mock（TD1），C 可以直接对接。
+
+考纲（TD3，审批 A4）：组长 `POST /api/syllabus` 上传，Hub 校验格式后存为草稿，版本号自动 +1（上传者填的 `version`、`status` 会被忽略）；组长 `POST /api/syllabus/{id}/approve` 批准最新草稿，并写审计 `approve_syllabus`。`GET /api/syllabus/current` 只返回已批准的最新版本，草稿不生效。Hub 启动时预装 `contracts/examples/syllabus.json` 作为 v1 已批准版本。
 
 加入（TD2）：Hub 启动时自动建好演示工作区 `W1` 和三个邀请码，每种角色一个，码和角色不符会被拒绝：
 

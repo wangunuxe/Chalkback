@@ -41,6 +41,7 @@ def test_share_and_revoke():
 
 
 def test_only_head_approves_syllabus():
+    client.post("/api/syllabus", json=example("syllabus"), headers=HEAD)
     assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=TEACHER).status_code == 403
     assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=HEAD).status_code == 200
 

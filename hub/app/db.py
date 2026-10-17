@@ -4,9 +4,12 @@ HUB_DB 环境变量指定数据库文件，默认 hub/chalkback.db（已 gitigno
 """
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from pathlib import Path
+
+from .mock import EXAMPLES
 
 DB_PATH = Path(os.environ.get("HUB_DB", Path(__file__).resolve().parents[1] / "chalkback.db"))
 
@@ -29,10 +32,12 @@ CREATE TABLE IF NOT EXISTS members (
   token        TEXT NOT NULL UNIQUE
 );
 CREATE TABLE IF NOT EXISTS syllabi (
+  workspace_id TEXT NOT NULL REFERENCES workspaces,
   syllabus_id  TEXT NOT NULL,
   version      INTEGER NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('draft', 'approved')),
   body         TEXT NOT NULL,              -- syllabus JSON
+  approved_at  TEXT,                       -- 组长批准时间（A4）
   PRIMARY KEY (syllabus_id, version)
 );
 CREATE TABLE IF NOT EXISTS coverage_shares (
@@ -58,6 +63,8 @@ CREATE TABLE IF NOT EXISTS audit_events (
 # 演示工作区：§6.4 没有“创建工作区”的接口，Hub 启动时自动建好（TD2）。
 DEMO_WORKSPACE = ("W1", "Collège Démo")
 DEMO_INVITES = {"DEMO-TEACHER": "teacher", "DEMO-HEAD": "head", "DEMO-ADMIN": "admin"}
+# 演示考纲 v1（已批准），在组长上传新版本之前供 A/B/C 使用。H4 定稿后换成 demo/syllabus/ 里的文件。
+DEMO_SYLLABUS = EXAMPLES / "syllabus.json"
 
 
 def connect() -> sqlite3.Connection:
@@ -69,5 +76,11 @@ def connect() -> sqlite3.Connection:
         conn.executemany(
             "INSERT OR IGNORE INTO invites (invite_code, workspace_id, role) VALUES (?, ?, ?)",
             [(code, DEMO_WORKSPACE[0], role) for code, role in DEMO_INVITES.items()],
+        )
+        syllabus = json.loads(DEMO_SYLLABUS.read_text(encoding="utf-8"))
+        conn.execute(
+            "INSERT OR IGNORE INTO syllabi (workspace_id, syllabus_id, version, status, body, approved_at)"
+            " VALUES (?, ?, ?, 'approved', ?, '2026-10-17T00:00:00+00:00')",
+            (DEMO_WORKSPACE[0], syllabus["syllabus_id"], syllabus["version"], json.dumps(syllabus, ensure_ascii=False)),
         )
     return conn
