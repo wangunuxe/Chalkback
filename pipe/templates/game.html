@@ -1,35 +1,219 @@
 <!doctype html>
 <!--
-  学生游戏页面模板（TB3，负责人 B）。agent 据此为每节课生成 outbox/{lesson_id}/game.html，
-  控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
+  学生游戏页面模板（TB3，负责人 B）。scripts/build_game.py 把 quiz.json 去掉 answer / source / kp_id 后
+  注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
 
-  约束：
-  - 不显示任何题目的 source（原话、截图 id）。
-  - 支持 mcq / fill_blank / true_false 三种题型，逐题计时（time_limit_s），手机可用。
-  - 学生只输入昵称。
-  - 每题作答提交到控制台，由控制台写入 attempts.jsonl（attempt 契约）。
+  作答接口（H9，控制台判分）：
+    POST /play/{quiz_id}/attempt
+    请求 {nickname, q_id, response, time_ms}
+    返回 {correct, answer}（answer 是正确答案，用于显示反馈）
+  response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
 
-  TODO(B+C): 作答提交的接口（路径、请求体、correct 由谁判定）技术文档没有写，
-  B 和 C 需在 H9 之前约定并补进 §6.3。下面的 /play/{quiz_id}/attempt 只是占位。
+  约束：不引用任何外部资源（校园网可能没有外网）；所有题目文字用 textContent 插入。
 -->
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ChalkBack</title>
+  <style>
+    :root {
+      --bg: #f6f5f1; --card: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #dddbd3;
+      --accent: #2f5d50; --accent-ink: #ffffff; --ok: #1f7a4a; --ko: #b3261e;
+      --c0: #2f5d50; --c1: #8a4b2a; --c2: #3f4f8c; --c3: #7a6420;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #161614; --card: #22221f; --ink: #f0efe9; --muted: #a3a29b; --line: #3a3934;
+        --accent: #6fb39c; --accent-ink: #10201b; --ok: #5cc48a; --ko: #f08a80;
+        --c0: #3d7a68; --c1: #a3613d; --c2: #5566ad; --c3: #94792b;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: var(--bg); color: var(--ink);
+      font: 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    main { max-width: 560px; margin: 0 auto; padding: 16px; min-height: 100%; display: flex; flex-direction: column; gap: 16px; }
+    h1 { font-size: 1.6rem; margin: 24px 0 0; }
+    p { margin: 0; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+    .prompt { font-size: 1.3rem; font-weight: 600; overflow-wrap: anywhere; }
+    input[type=text] {
+      width: 100%; font: inherit; font-size: 1.2rem; padding: 14px; border-radius: 10px;
+      border: 2px solid var(--line); background: var(--bg); color: var(--ink);
+    }
+    input[type=text]:focus { outline: none; border-color: var(--accent); }
+    button {
+      font: inherit; font-weight: 600; border: 0; border-radius: 12px; padding: 16px; min-height: 56px;
+      background: var(--accent); color: var(--accent-ink); cursor: pointer; width: 100%;
+      touch-action: manipulation;
+    }
+    button:disabled { opacity: .5; }
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .choices button { color: #fff; min-height: 88px; overflow-wrap: anywhere; }
+    .choices button:nth-child(4n+1) { background: var(--c0); }
+    .choices button:nth-child(4n+2) { background: var(--c1); }
+    .choices button:nth-child(4n+3) { background: var(--c2); }
+    .choices button:nth-child(4n+4) { background: var(--c3); }
+    .choices.single { grid-template-columns: 1fr; }
+    .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+    .bar > div { height: 100%; background: var(--accent); transform-origin: left; }
+    .top { display: flex; justify-content: space-between; align-items: center; }
+    .feedback { text-align: center; font-size: 1.4rem; font-weight: 700; }
+    .feedback.ok { color: var(--ok); }
+    .feedback.ko { color: var(--ko); }
+    .score { font-size: 3rem; font-weight: 800; text-align: center; }
+    form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+  </style>
 </head>
 <body>
-  <main id="app">
-    <form id="join">
-      <label>Pseudo <input name="nickname" required maxlength="20" autocomplete="off"></label>
-      <button>Jouer</button>
-    </form>
-  </main>
+  <main id="app" aria-live="polite"></main>
   <script>
-    // agent 生成时把 quiz.json 去掉 source 后注入这里
     const QUIZ = /*QUIZ_JSON*/ null;
-    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
-    // TODO(TB3): 渲染题目、计时、提交作答
+
+    const app = document.getElementById("app");
+    const state = { nickname: "", index: 0, score: 0 };
+    let timer = null;
+
+    function el(tag, attrs = {}, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === "class") node.className = v;
+        else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+      }
+      for (const c of children) node.append(c);
+      return node;
+    }
+
+    function show(...children) {
+      clearInterval(timer);
+      app.replaceChildren(...children);
+    }
+
+    function joinScreen() {
+      const input = el("input", { type: "text", name: "nickname", maxlength: "20", required: "",
+        autocomplete: "off", autocapitalize: "off", placeholder: "Ton pseudo" });
+      show(
+        el("h1", {}, "ChalkBack"),
+        el("p", { class: "muted" }, `${QUIZ.questions.length} questions · pas de nom, juste un pseudo`),
+        el("form", { class: "card", onsubmit: (e) => {
+          e.preventDefault();
+          state.nickname = input.value.trim();
+          if (state.nickname) questionScreen();
+        } }, input, el("button", {}, "Jouer")),
+      );
+      input.focus();
+    }
+
+    function questionScreen() {
+      const q = QUIZ.questions[state.index];
+      const started = performance.now();
+      const limitMs = q.time_limit_s * 1000;
+      let done = false;
+      const bar = el("div");
+      const left = el("span", { class: "muted" });
+
+      const submit = (response) => {
+        if (done) return;
+        done = true;
+        clearInterval(timer);
+        const elapsed = Math.min(Math.round(performance.now() - started), limitMs);
+        app.querySelectorAll("button, input").forEach((n) => (n.disabled = true));
+        sendAttempt(q, response, elapsed);
+      };
+
+      let body;
+      if (q.type === "mcq") {
+        body = el("div", { class: "choices" + (q.choices.some((c) => c.length > 40) ? " single" : "") },
+          ...q.choices.map((c, i) => el("button", { type: "button", onclick: () => submit(i) }, c)));
+      } else if (q.type === "true_false") {
+        body = el("div", { class: "choices" },
+          el("button", { type: "button", onclick: () => submit(true) }, "Vrai"),
+          el("button", { type: "button", onclick: () => submit(false) }, "Faux"));
+      } else {
+        const input = el("input", { type: "text", autocomplete: "off", autocapitalize: "off",
+          autocorrect: "off", spellcheck: "false", placeholder: "Ta réponse" });
+        body = el("form", { onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) submit(input.value.trim()); } },
+          input, el("button", {}, "Valider"));
+        setTimeout(() => input.focus(), 0);
+      }
+
+      show(
+        el("div", { class: "top" },
+          el("span", { class: "muted" }, `Question ${state.index + 1} / ${QUIZ.questions.length}`), left),
+        el("div", { class: "bar" }, bar),
+        el("div", { class: "card" }, el("p", { class: "prompt" }, q.prompt)),
+        body,
+      );
+
+      const tick = () => {
+        const remaining = Math.max(0, limitMs - (performance.now() - started));
+        bar.style.transform = `scaleX(${remaining / limitMs})`;
+        left.textContent = `${Math.ceil(remaining / 1000)} s`;
+        if (remaining <= 0) submit(null);
+      };
+      tick();
+      timer = setInterval(tick, 100);
+    }
+
+    async function post(payload) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(`/play/${encodeURIComponent(QUIZ.quiz_id)}/attempt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) return await res.json();
+        } catch (_) { /* 网络抖动，重试 */ }
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      return null;
+    }
+
+    function answerText(q, answer) {
+      if (q.type === "mcq") return q.choices[answer];
+      if (q.type === "true_false") return answer ? "Vrai" : "Faux";
+      return String(answer);
+    }
+
+    async function sendAttempt(q, response, timeMs) {
+      const result = await post({ nickname: state.nickname, q_id: q.q_id, response, time_ms: timeMs });
+      let feedback;
+      if (result === null) {
+        feedback = el("p", { class: "feedback" }, "Réponse non envoyée (réseau)");
+      } else if (result.correct) {
+        state.score++;
+        feedback = el("p", { class: "feedback ok" }, "Bravo !");
+      } else {
+        feedback = el("div", {},
+          el("p", { class: "feedback ko" }, response === null ? "Temps écoulé" : "Raté"),
+          el("p", { class: "muted", style: "text-align:center" }, `Bonne réponse : ${answerText(q, result.answer)}`));
+      }
+      const last = state.index === QUIZ.questions.length - 1;
+      app.append(feedback, el("button", { onclick: () => { state.index++; last ? endScreen() : questionScreen(); } },
+        last ? "Voir mon score" : "Question suivante"));
+    }
+
+    function endScreen() {
+      show(
+        el("h1", {}, `Bien joué, ${state.nickname} !`),
+        el("div", { class: "card" },
+          el("p", { class: "score" }, `${state.score} / ${QUIZ.questions.length}`),
+          el("p", { class: "muted", style: "text-align:center" }, "Tes réponses aident ton professeur à préparer le prochain cours.")),
+      );
+    }
+
+    if (!QUIZ) {
+      show(el("h1", {}, "ChalkBack"), el("p", { class: "muted" }, "Modèle vide : générez la page avec scripts/build_game.py."));
+    } else {
+      joinScreen();
+    }
   </script>
 </body>
 </html>
