@@ -29,11 +29,14 @@ reset-mock: reset  # old name
 
 # Demo data only exists if you ask for it. The scripts run inside the containers, so nothing needs installing on this computer.
 # Safe to run again: the Hub keeps what it has and adds what is missing; the console's data is replaced by the mock.
+# No absolute paths on these command lines: on Windows, MSYS2 / Git Bash rewrite arguments starting with "/" into Windows paths
+# (/app/... -> C:/msys64/app/...) before docker sees them. Paths are relative to the container's working directory, and
+# /data and the Hub URL come from the container's own CHALKBACK_HOME and HUB_URL (single quotes: expanded inside the container).
 mock:
 	@for s in hub console; do docker compose ps --status running --services 2>/dev/null | grep -qx $$s \
 	  || { echo "The $$s container is not running: start the servers with 'make up' first."; exit 1; }; done
 	docker compose exec -T hub python scripts/seed_demo.py https://127.0.0.1:8000
-	docker compose exec -T console python /app/tools/seed_mock_home.py --home /data --hub-url https://hub:8000
+	docker compose exec -T console sh -c 'python ../tools/seed_mock_home.py --home "$$CHALKBACK_HOME" --hub-url "$$HUB_URL"'
 	@echo "Demo data loaded: Hub https://localhost:8443, console https://localhost:4000/console"
 
 mock-local:
