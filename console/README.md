@@ -23,6 +23,7 @@ pytest              # from console/
 | `app/routes/play.py` | Student game, answers | TC4/5 |
 | `app/routes/shares.py` | Share records and withdrawal (A5) | TC6 |
 | `app/routes/style.py` | Style profile (read-only) | TC6 |
+| `app/screenpipe.py`, `app/routes/recorder.py` | Recording panel: screenpipe status, start/stop recording, latest voice and screen text, run the pipe now | — |
 
 ## API
 
@@ -46,3 +47,25 @@ pytest              # from console/
 - `response: null` for timed-out answers doesn't match the `attempt` contract; waiting for a team decision.
 - Recording `consent` and `publish_quiz` on the Hub needs an API from D.
 - HTML wizard for `/setup`, scheduling the pipe from the timetable (waiting for B to confirm the pipe's installed name), source screenshots (waiting for A to test the screenshot API), lesson plan entry, merging Hub audit into `/shares`, `/style` page.
+
+## Recording panel (screenpipe)
+
+The top of `/console` controls screenpipe on this computer. It uses the screenpipe local API, with the same settings as pipe's scripts:
+
+```bash
+export SCREENPIPE_LOCAL_API_KEY=...   # screenpipe Settings > Privacy (or: npx -y screenpipe@latest auth token)
+export SCREENPIPE_URL=http://localhost:3030   # default
+make teacher
+```
+
+| Method | Path | screenpipe API used |
+| --- | --- | --- |
+| GET | `/screenpipe/status` | `/health`, `/audio/device/status`, `/vision/device/status`. `app_open: false` when screenpipe was quit and only serves history |
+| POST | `/screenpipe/recording/start` | `/audio/start`, then `/vision/device/start` for every monitor in `/vision/list`. 409 if the screenpipe app is closed |
+| POST | `/screenpipe/recording/stop` | `/audio/stop`, `/vision/device/stop` for running monitors |
+| GET | `/screenpipe/recent?minutes=10` | `/search` (audio from the microphone only, plus OCR), newest first, 1–120 minutes |
+| POST | `/screenpipe/process` | Runs `npx -y screenpipe@latest pipe run pipe` in the background (the installed pipe is named after its folder, `pipe`) (change with `CHALKBACK_PIPE_RUN`); results arrive in the outbox |
+
+Privacy: the transcript and screen text are only shown on this page. They are not stored and never sent to the Hub (`tests/test_screenpipe.py` fails if any of these calls reaches the Hub client).
+
+WSL on Windows: screenpipe runs on Windows, so WSL needs `networkingMode=mirrored` in `%UserProfile%\.wslconfig` (then `wsl --shutdown`) to reach `localhost:3030`.

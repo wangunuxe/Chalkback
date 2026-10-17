@@ -52,6 +52,11 @@
     #message { display: none; padding: 10px 14px; border-radius: 12px; font-weight: 600; }
     #message.ok { display: block; background: var(--green-soft); color: var(--green); }
     #message.error { display: block; background: var(--pink-soft); color: var(--red); }
+    .rec-items { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; max-height: 360px; overflow-y: auto; }
+    .rec-items li { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 6px 10px; border-radius: 10px; background: #f8fafc; font-size: 14px; }
+    .rec-items li.screen { background: var(--sky-soft); }
+    .rec-items .when { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+    .rec-items .app { color: var(--muted); font-size: 12px; }
   </style>
 </head>
 <body>
@@ -67,6 +72,22 @@
 
   <main>
     <div id="message" role="status"></div>
+
+    <section id="recorder">
+      <div class="row spread">
+        <h2>🎙️ Recording</h2>
+        <span id="rec-state" class="badge">checking…</span>
+      </div>
+      <p class="muted">screenpipe on this computer records your voice and screen text. What you see here stays on this computer: nothing is sent to the school Hub.</p>
+      <div class="row">
+        <button class="primary" id="rec-start">⏺ Start recording</button>
+        <button class="danger" id="rec-stop">⏹ Stop recording</button>
+        <button id="rec-recent">📝 Last 10 minutes</button>
+        <button id="rec-process">⚡ Prepare this lesson now</button>
+      </div>
+      <p id="rec-devices" class="muted"></p>
+      <ul id="rec-items" class="rec-items"></ul>
+    </section>
 
     {% if not lesson_id %}
     <section>
@@ -274,6 +295,76 @@
             { action: "edit", q_id: q.q_id, changes });
       });
     });
+
+    // Recording panel: talks to /screenpipe/* (this console only, never the Hub)
+    const recState = document.getElementById("rec-state");
+    const recDevices = document.getElementById("rec-devices");
+    const recItems = document.getElementById("rec-items");
+
+    function renderStatus(s) {
+      if (!s.app_open) {
+        recState.textContent = "screenpipe closed";
+        recState.className = "badge pink";
+      } else {
+        recState.textContent = s.recording ? "● Recording" : "Not recording";
+        recState.className = `badge ${s.recording ? "green" : "amber"}`;
+      }
+      const mics = s.microphones.map((m) => `${m.running ? "🎤" : "🔇"} ${m.name}`).join(" · ");
+      recDevices.textContent = s.app_open ? `${mics || "No microphone found"} · 🖥️ ${s.screens} screen(s) recording` : "Open the screenpipe app to record.";
+    }
+
+    async function refreshRecorder() {
+      try {
+        renderStatus(await call("GET", "/screenpipe/status"));
+      } catch (e) {
+        recState.textContent = "screenpipe unavailable";
+        recState.className = "badge pink";
+        recDevices.textContent = e.message;
+      }
+    }
+
+    async function recorderAction(button, method, url, done) {
+      button.disabled = true;
+      try {
+        done(await call(method, url));
+      } catch (e) {
+        show(e.message, false);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    document.getElementById("rec-start").addEventListener("click", (e) =>
+      recorderAction(e.currentTarget, "POST", "/screenpipe/recording/start", (s) => { renderStatus(s); show("Recording started.", true); }));
+    document.getElementById("rec-stop").addEventListener("click", (e) =>
+      recorderAction(e.currentTarget, "POST", "/screenpipe/recording/stop", (s) => { renderStatus(s); show("Recording stopped.", true); }));
+    document.getElementById("rec-process").addEventListener("click", (e) =>
+      recorderAction(e.currentTarget, "POST", "/screenpipe/process", () =>
+        show("ChalkBack is preparing this lesson (1–5 minutes). Reload this page when it is ready.", true)));
+    document.getElementById("rec-recent").addEventListener("click", (e) =>
+      recorderAction(e.currentTarget, "GET", "/screenpipe/recent?minutes=10", (data) => {
+        recItems.replaceChildren(...data.items.map((item) => {
+          const li = document.createElement("li");
+          li.className = item.kind;
+          const when = document.createElement("span");
+          when.className = "when";
+          when.textContent = item.time ? new Date(item.time).toLocaleTimeString() : "";
+          const text = document.createElement("span");
+          text.textContent = `${item.kind === "speech" ? "🎤" : "🖥️"} ${item.text}`;
+          if (item.app) {
+            const app = document.createElement("div");
+            app.className = "app";
+            app.textContent = item.app;
+            text.append(app);
+          }
+          li.append(when, text);
+          return li;
+        }));
+        if (!data.items.length) show("Nothing recorded in the last 10 minutes.", false);
+      }));
+
+    refreshRecorder();
+    setInterval(refreshRecorder, 10000);
   </script>
 </body>
 </html>
