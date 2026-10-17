@@ -2,7 +2,7 @@
 #
 #   docker compose up --build
 #   Hub      https://localhost:8443      （API 文档 /docs）
-#   控制台   http://localhost:4000      （只绑定本机）
+#   控制台   https://localhost:4000      （只绑定本机）
 #
 # 不在这里的：screenpipe（桌面程序，要录老师的麦克风和屏幕）和 chalkback-pipe（由 screenpipe 启动）。
 # 它们只能跑在老师电脑上，见 docs/SETUP.md。

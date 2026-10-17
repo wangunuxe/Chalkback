@@ -129,6 +129,7 @@
   <main id="app" aria-live="polite"></main>
   <script>
     const QUIZ = /*QUIZ_JSON*/ null;
+    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`;
 
     const app = document.getElementById("app");
     const state = { nickname: "", index: 0, score: 0 };
