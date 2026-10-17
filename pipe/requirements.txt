@@ -1,1 +1,5 @@
+# 老师电脑上运行 pipe 不需要安装任何依赖：脚本只用 Python 3.11+ 标准库。
+# validate.py 装了 jsonschema 就用它，否则用内置校验器（两者结果一致，见 tests/test_validate_engines.py）。
+# 下面是开发和测试用的：
 jsonschema>=4.18
+pytest>=8

@@ -9,9 +9,10 @@ WORKDIR /app
 COPY console/requirements.txt console/requirements.txt
 RUN pip install --no-cache-dir -r console/requirements.txt
 
-# seed_mock_home.py 需要 contracts/examples 和 game.html 模板
+# seed_mock_home.py 需要 contracts/examples、game.html 模板和 build_game.py
 COPY contracts contracts
 COPY pipe/templates pipe/templates
+COPY pipe/scripts pipe/scripts
 COPY tools tools
 COPY console console
 

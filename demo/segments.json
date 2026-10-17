@@ -1,0 +1,28 @@
+[
+  {
+    "segment_id": "S-L-T1-20261017-1000-001",
+    "lesson_id": "L-T1-20261017-1000",
+    "start": "2026-10-17T10:05:00+02:00",
+    "end": "2026-10-17T10:09:30+02:00",
+    "speech": "Bonjour à tous, asseyez-vous s'il vous plaît. Aujourd'hui nous allons réviser le passé composé avec l'auxiliaire avoir. La règle de base est simple : le participe passé ne s'accorde généralement pas avec le sujet. Par exemple, on écrit 'ils ont mangé' avec é, sans s. L'auxiliaire avoir sert ici à situer l'action terminée dans le passé.",
+    "slide_text": "Chapitre 3 : Le passé composé\n1. Règle générale avec l'auxiliaire AVOIR\n- Sujet + AVOIR au présent + Participe passé\n- Le participe passé reste invariable avec le sujet.\nExemples :\n- J'ai parlé toute la soirée.\n- Ils ont mangé une pomme.",
+    "app_name": "PowerPoint",
+    "evidence": {
+      "transcription_ids": [812, 813, 814],
+      "frame_ids": [5531]
+    }
+  },
+  {
+    "segment_id": "S-L-T1-20261017-1000-002",
+    "lesson_id": "L-T1-20261017-1000",
+    "start": "2026-10-17T10:15:00+02:00",
+    "end": "2026-10-17T10:21:00+02:00",
+    "speech": "Regardez bien l'écran, voici le point crucial du chapitre : l'accord du participe passé quand l'auxiliaire est avoir. Dès que le complément d'objet direct, le COD, est placé AVANT le verbe, le participe passé s'accorde obligatoirement en genre et en nombre avec ce COD. Regardez notre exemple : 'Les fleurs que tu as cueillies' — qu'est-ce que tu as cueilli ? Les fleurs, féminin pluriel, placé avant 'que', donc cueillies prend 'i-e-s'.",
+    "slide_text": "2. L'accord du participe passé (Cas particulier AVOIR)\nRègle d'or : Accord en genre et en nombre avec le COD si celui-ci est placé AVANT le verbe.\nStructure : COD antéposé (que, l', les) + avoir + participe passé accordé\nExemple :\n- Les fleurs que tu as cueillies. (COD = les fleurs, fém. pluriel)",
+    "app_name": "PowerPoint",
+    "evidence": {
+      "transcription_ids": [840, 841, 842, 843],
+      "frame_ids": [5545]
+    }
+  }
+]

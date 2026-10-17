@@ -22,7 +22,7 @@ def example(name):
 
 
 def test_join():
-    r = client.post("/api/join", json={"invite_code": "X", "display_name": "Mme Martin", "role": "teacher"})
+    r = client.post("/api/join", json={"invite_code": "DEMO-TEACHER","display_name": "Mme Martin", "role": "teacher"})
     assert r.status_code == 200 and set(r.json()) == {"teacher_id", "token", "workspace_id"}
 
 
@@ -41,6 +41,7 @@ def test_share_and_revoke():
 
 
 def test_only_head_approves_syllabus():
+    client.post("/api/syllabus", json=example("syllabus"), headers=HEAD)
     assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=TEACHER).status_code == 403
     assert client.post("/api/syllabus/fr-grammaire-4e/approve", headers=HEAD).status_code == 200
 

@@ -40,6 +40,7 @@ hub:
 
 test:
 	$(PY) -m pytest -q tests
+	cd pipe && $(PY) -m pytest -q
 	cd console && $(PY) -m pytest -q
 	cd hub && $(PY) -m pytest -q
 

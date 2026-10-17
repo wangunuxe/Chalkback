@@ -9,21 +9,167 @@
 数组和 .jsonl 逐条校验。全部通过时退出码 0，否则打印每条错误并退出码 1。
 
 schema 查找顺序：$CHALKBACK_SCHEMAS → pipe/schemas/（随 pipe 安装）→ 仓库 contracts/。
+
+校验引擎：装了 jsonschema 就用它；没装（老师电脑上的常见情况）就用下面的 MiniValidator，
+只依赖标准库，支持 contracts/ 用到的关键字。schema 用了它不支持的关键字时直接报错，不会悄悄放行。
+CHALKBACK_VALIDATOR=builtin 强制使用 MiniValidator（测试两种引擎结果一致时用）。
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
-try:
-    from jsonschema import Draft202012Validator
-except ImportError:  # pragma: no cover
-    sys.exit("validate.py 需要 jsonschema：pip install jsonschema")
-
 HERE = Path(__file__).resolve().parent
+
+# 只影响说明、不参与校验的关键字
+ANNOTATIONS = {"$schema", "$id", "title", "description", "$comment", "$defs", "examples", "default"}
+SUPPORTED = ANNOTATIONS | {
+    "type", "enum", "const", "properties", "required", "additionalProperties", "minProperties",
+    "items", "minItems", "minLength", "pattern", "minimum", "maximum", "allOf", "if", "then", "$ref",
+}
+TYPES = {
+    "object": lambda v: isinstance(v, dict),
+    "array": lambda v: isinstance(v, list),
+    "string": lambda v: isinstance(v, str),
+    "boolean": lambda v: isinstance(v, bool),
+    "null": lambda v: v is None,
+    "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+    "integer": lambda v: (isinstance(v, int) and not isinstance(v, bool)) or (isinstance(v, float) and v.is_integer()),
+}
+
+
+@dataclass
+class SchemaError:
+    message: str
+    absolute_path: list = field(default_factory=list)
+
+
+def json_equal(a, b) -> bool:
+    """JSON 语义的相等：true 不等于 1。"""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return isinstance(a, bool) and isinstance(b, bool) and a == b
+    if isinstance(a, dict) and isinstance(b, dict):
+        return a.keys() == b.keys() and all(json_equal(a[k], b[k]) for k in a)
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(json_equal(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+class MiniValidator:
+    """JSON Schema 2020-12 的一个子集，够 contracts/ 用。接口与 jsonschema 的 iter_errors 一致。"""
+
+    def __init__(self, schema: dict):
+        self.root = schema
+        self._check_keywords(schema, "#")
+
+    def _check_keywords(self, node, where: str) -> None:
+        if not isinstance(node, dict):
+            return
+        unknown = set(node) - SUPPORTED
+        if unknown:
+            raise ValueError(f"schema 在 {where} 用了内置校验器不支持的关键字 {sorted(unknown)}；请安装 jsonschema")
+        for key in ("properties", "$defs"):
+            for name, sub in node.get(key, {}).items():
+                self._check_keywords(sub, f"{where}/{key}/{name}")
+        for key in ("items", "additionalProperties", "if", "then"):
+            if isinstance(node.get(key), dict):
+                self._check_keywords(node[key], f"{where}/{key}")
+        for i, sub in enumerate(node.get("allOf", [])):
+            self._check_keywords(sub, f"{where}/allOf/{i}")
+
+    def is_valid(self, instance) -> bool:
+        return next(self.iter_errors(instance), None) is None
+
+    def validate(self, instance) -> None:
+        err = next(self.iter_errors(instance), None)
+        if err is not None:
+            raise ValueError(err.message)
+
+    def iter_errors(self, instance, schema=None, path=()):
+        schema = self.root if schema is None else schema
+        s = schema
+        p = list(path)
+
+        if "$ref" in s:
+            yield from self.iter_errors(instance, self._resolve(s["$ref"]), path)
+        if "type" in s:
+            types = s["type"] if isinstance(s["type"], list) else [s["type"]]
+            if not any(TYPES[t](instance) for t in types):
+                yield SchemaError(f"{instance!r} is not of type {', '.join(map(repr, types))}", p)
+                return
+        if "enum" in s and not any(json_equal(instance, e) for e in s["enum"]):
+            yield SchemaError(f"{instance!r} is not one of {s['enum']!r}", p)
+        if "const" in s and not json_equal(instance, s["const"]):
+            yield SchemaError(f"{s['const']!r} was expected", p)
+
+        if isinstance(instance, dict):
+            for name in s.get("required", []):
+                if name not in instance:
+                    yield SchemaError(f"{name!r} is a required property", p)
+            if "minProperties" in s and len(instance) < s["minProperties"]:
+                yield SchemaError(f"{instance!r} does not have enough properties", p)
+            props = s.get("properties", {})
+            for name, value in instance.items():
+                if name in props:
+                    yield from self.iter_errors(value, props[name], (*path, name))
+            extra = [k for k in instance if k not in props]
+            if extra and "additionalProperties" in s:
+                ap = s["additionalProperties"]
+                if ap is False:
+                    yield SchemaError(f"Additional properties are not allowed ({', '.join(map(repr, extra))} was unexpected)", p)
+                elif isinstance(ap, dict):
+                    for name in extra:
+                        yield from self.iter_errors(instance[name], ap, (*path, name))
+
+        if isinstance(instance, list):
+            if "minItems" in s and len(instance) < s["minItems"]:
+                yield SchemaError(f"{instance!r} should have at least {s['minItems']} items", p)
+            if isinstance(s.get("items"), dict):
+                for i, item in enumerate(instance):
+                    yield from self.iter_errors(item, s["items"], (*path, i))
+
+        if isinstance(instance, str):
+            if "minLength" in s and len(instance) < s["minLength"]:
+                yield SchemaError(f"{instance!r} should be non-empty" if s["minLength"] == 1 else f"{instance!r} is too short", p)
+            if "pattern" in s and not re.search(s["pattern"], instance):
+                yield SchemaError(f"{instance!r} does not match {s['pattern']!r}", p)
+
+        if TYPES["number"](instance):
+            if "minimum" in s and instance < s["minimum"]:
+                yield SchemaError(f"{instance!r} is less than the minimum of {s['minimum']!r}", p)
+            if "maximum" in s and instance > s["maximum"]:
+                yield SchemaError(f"{instance!r} is greater than the maximum of {s['maximum']!r}", p)
+
+        for sub in s.get("allOf", []):
+            yield from self.iter_errors(instance, sub, path)
+        if "if" in s and "then" in s:
+            if next(self.iter_errors(instance, s["if"], path), None) is None:
+                yield from self.iter_errors(instance, s["then"], path)
+
+    def _resolve(self, ref: str):
+        if not ref.startswith("#/"):
+            raise ValueError(f"内置校验器只支持本文件内的 $ref：{ref}")
+        node = self.root
+        for part in ref[2:].split("/"):
+            node = node[part.replace("~1", "/").replace("~0", "~")]
+        return node
+
+
+def validator_class():
+    if os.environ.get("CHALKBACK_VALIDATOR") == "builtin":
+        return MiniValidator
+    try:
+        from jsonschema import Draft202012Validator
+        return Draft202012Validator
+    except ImportError:
+        return MiniValidator
+
+
 SCHEMA_DIRS = [
     Path(p) for p in [os.environ.get("CHALKBACK_SCHEMAS", "")] if p
 ] + [HERE.parent / "schemas", HERE.parent.parent / "contracts"]
@@ -36,12 +182,12 @@ def schema_dir() -> Path:
     sys.exit(f"找不到 schema 目录，已尝试：{', '.join(map(str, SCHEMA_DIRS))}")
 
 
-def load_validator(contract: str) -> Draft202012Validator:
+def load_validator(contract: str):
     path = schema_dir() / f"{contract}.schema.json"
     if not path.exists():
         known = sorted(p.name.removesuffix(".schema.json") for p in schema_dir().glob("*.schema.json"))
         sys.exit(f"未知契约 {contract!r}，可选：{', '.join(known)}")
-    return Draft202012Validator(json.loads(path.read_text(encoding="utf-8")))
+    return validator_class()(json.loads(path.read_text(encoding="utf-8")))
 
 
 def load_records(path: Path) -> list[tuple[str, object]]:

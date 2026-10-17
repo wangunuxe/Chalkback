@@ -1,8 +1,131 @@
 <!doctype html>
-<html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ChalkBack Hub</title></head>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChalkBack Hub — Sign in</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
 <body>
-  <!-- TODO(TD6): 看板三种视图（老师 / 组长 / 管理员）、考前预警、审计列表 -->
-  <h1>ChalkBack Hub</h1>
+
+  <header class="top">
+    <div class="brand">
+      <span class="logo">🖍️</span>
+      <div>
+        <h1>ChalkBack Hub</h1>
+        <p>Shared syllabus progress for the whole school 📋✨</p>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width: 560px">
+
+    <section class="card" id="sessions" hidden>
+      <h2>Continue</h2>
+      <p class="sub">Roles already signed in on this computer.</p>
+      <div class="roles" id="session-list"></div>
+    </section>
+
+    <section class="card pink">
+      <h2>Join your school</h2>
+      <p class="sub">Ask your school admin for the invite code that matches your role.</p>
+      <form id="join">
+        <label for="code">Invite code</label>
+        <input id="code" required autocomplete="off" placeholder="e.g. DEMO-TEACHER">
+        <label for="name">Your name</label>
+        <input id="name" required placeholder="e.g. Mme Martin">
+        <label for="role">Role</label>
+        <select id="role">
+          <option value="teacher">Teacher</option>
+          <option value="head">Department head</option>
+          <option value="admin">School admin</option>
+        </select>
+        <div style="margin-top:16px"><button class="primary" type="submit">Join →</button></div>
+        <div id="join-msg" class="msg err" hidden></div>
+      </form>
+      <details>
+        <summary>I already have a token</summary>
+        <form id="link">
+          <label for="token">Token (from <span class="mono">config.json</span> in your ChalkBack console)</label>
+          <input id="token" required autocomplete="off" class="mono">
+          <div style="margin-top:12px"><button type="submit">Use this token</button></div>
+          <div id="link-msg" class="msg err" hidden></div>
+        </form>
+      </details>
+      <p class="muted" style="margin-top:16px">Demo codes: <span class="mono">DEMO-TEACHER</span> · <span class="mono">DEMO-HEAD</span> · <span class="mono">DEMO-ADMIN</span></p>
+    </section>
+
+    <section class="card banner">
+      <span class="icon">🔒</span>
+      <div>
+        <strong>Only approved coverage reaches the Hub</strong>
+        <p>Recordings, transcripts, screenshots and screenpipe IDs never leave the teacher's computer.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>ChalkBack Hub © 2026</footer>
+
+<script>
+const ROLE_LABEL = { teacher: "Teacher", head: "Department head", admin: "School admin" };
+
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem("chalkback.sessions")) || {}; } catch { return {}; }
+}
+function saveSession(role, session) {
+  const all = loadSessions();
+  all[role] = session;
+  try {
+    localStorage.setItem("chalkback.sessions", JSON.stringify(all));
+    localStorage.setItem("chalkback.active", role);
+  } catch {}
+  location.href = "/dashboard.html";
+}
+function show(el, text) { el.textContent = text; el.hidden = false; }
+
+const sessions = loadSessions();
+const list = document.getElementById("session-list");
+for (const role of ["teacher", "head", "admin"]) {
+  if (!sessions[role]) continue;
+  const b = document.createElement("button");
+  b.className = "btn";
+  b.textContent = `${ROLE_LABEL[role]} · ${sessions[role].name}`;
+  b.onclick = () => { try { localStorage.setItem("chalkback.active", role); } catch {} location.href = "/dashboard.html"; };
+  list.append(b);
+  document.getElementById("sessions").hidden = false;
+}
+
+document.getElementById("join").onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("join-msg");
+  msg.hidden = true;
+  const role = document.getElementById("role").value;
+  const name = document.getElementById("name").value.trim();
+  const r = await fetch("/api/join", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ invite_code: document.getElementById("code").value.trim(), display_name: name, role }),
+  });
+  if (r.status === 404) return show(msg, "Unknown invite code.");
+  if (r.status === 403) return show(msg, `This invite code is not for the "${ROLE_LABEL[role]}" role.`);
+  if (!r.ok) return show(msg, `Could not join (${r.status}).`);
+  const body = await r.json();
+  saveSession(role, { token: body.token, id: body.teacher_id, name });
+};
+
+document.getElementById("link").onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("link-msg");
+  msg.hidden = true;
+  const token = document.getElementById("token").value.trim();
+  for (const role of ["teacher", "head", "admin"]) {
+    const r = await fetch(`/api/dashboard?view=${role}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 401) break;
+    if (r.ok) return saveSession(role, { token, id: null, name: token.startsWith("mock-token-") ? token.slice(11) : "linked token" });
+  }
+  show(msg, "This token is not valid on this Hub.");
+};
+</script>
 </body>
 </html>

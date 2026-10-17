@@ -1,49 +1,135 @@
 <!doctype html>
 <!--
-  学生游戏页面模板（TB3，负责人 B）。agent 据此为每节课生成 outbox/{lesson_id}/game.html，
+  学生游戏页面模板（TB3，负责人 B；视觉设计来自前端 PR #3）。scripts/build_game.py 把 quiz.json 去掉
+  answer / source / kp_id 后注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；
   控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
 
-  约束：
-  - 不显示任何题目的 source（原话、截图 id）。
-  - 支持 mcq / fill_blank / true_false 三种题型，逐题计时（time_limit_s），手机可用。
-  - 学生只输入昵称。
-  - 每题作答提交到控制台，由控制台写入 attempts.jsonl（attempt 契约）。
+  作答接口（H9，控制台判分）：
+    POST /play/{quiz_id}/attempt
+    请求 {nickname, q_id, response, time_ms}
+    返回 {correct, answer}（answer 是正确答案，用于显示反馈）
+  response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
 
-  TODO(B+C): 作答提交的接口（路径、请求体、correct 由谁判定）技术文档没有写，
-  B 和 C 需在 H9 之前约定并补进 §6.3。下面的 /play/{quiz_id}/attempt 只是占位。
+  约束：
+  - 不引用任何外部资源（CDN、网络字体都不行）：学生手机连的是老师电脑，校园网可能没有外网。
+    PR #3 的 Tailwind 样式已翻译成下面的内联 CSS，颜色取 Tailwind 同名色值。
+  - 所有题目文字用 textContent 插入。
+  - tests/test_build_game.py 会检查这两条，以及页面确实使用 QUIZ 并提交作答。
 -->
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChalkBack</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ChalkBack - Classroom Quiz Game 🖍️✨</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0; --slate-500: #64748b; --slate-700: #334155; --slate-800: #1e293b;
+      --sky-50: #f0f9ff; --sky-100: #e0f2fe; --sky-200: #bae6fd; --sky-600: #0284c7; --sky-900: #0c4a6e;
+      --yellow-50: #fefce8; --yellow-200: #fef08a; --yellow-300: #fde047; --yellow-400: #facc15; --yellow-500: #eab308; --yellow-900: #713f12;
+      --pink-50: #fdf2f8; --pink-100: #fce7f3; --pink-200: #fbcfe8; --pink-400: #f472b6; --pink-500: #ec4899; --pink-600: #db2777; --pink-800: #9d174d; --pink-900: #831843;
+      --emerald-100: #d1fae5; --emerald-200: #a7f3d0; --emerald-300: #6ee7b7; --emerald-400: #34d399; --emerald-800: #065f46; --emerald-900: #064e3b;
+      --shadow: 0 25px 50px -12px rgb(0 0 0 / .25);
+      --shadow-sm: 0 1px 3px rgb(0 0 0 / .1), 0 1px 2px rgb(0 0 0 / .06);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px;
+      background: linear-gradient(to bottom right, var(--sky-100), var(--yellow-50), var(--pink-100));
+      color: var(--slate-700);
+      font-family: "Fredoka", ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px; line-height: 1.4; -webkit-text-size-adjust: 100%;
+    }
+    main { width: 100%; max-width: 28rem; margin: 0 auto; }
+    p, h1, h2 { margin: 0; }
+    button { font: inherit; cursor: pointer; touch-action: manipulation; }
+    button:disabled { cursor: default; }
+
+    .card {
+      position: relative; overflow: hidden; background: #fff; border-radius: 24px; padding: 24px;
+      border: 4px solid var(--emerald-300); box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .card.join { border-color: var(--yellow-300); padding: 32px; text-align: center; }
+    .deco { position: absolute; top: -24px; right: -24px; font-size: 72px; opacity: .2; pointer-events: none; }
+    .hero { display: flex; flex-direction: column; gap: 8px; }
+    .bounce { font-size: 48px; display: inline-block; animation: bounce 1s infinite; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(.8, 0, 1, 1); }
+      50% { transform: none; animation-timing-function: cubic-bezier(0, 0, .2, 1); }
+    }
+    h1 { font-size: 30px; font-weight: 700; color: var(--sky-600); }
+    .subtitle { font-size: 14px; font-weight: 600; color: var(--pink-500); }
+
+    form { display: flex; flex-direction: column; gap: 16px; margin: 0; text-align: left; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--slate-500);
+            text-transform: uppercase; letter-spacing: .05em; }
+    input[type=text] {
+      width: 100%; padding: 12px 16px; border-radius: 16px; border: 2px solid var(--yellow-200);
+      background: rgb(254 252 232 / .5); color: var(--slate-800); font: inherit; font-size: 18px; font-weight: 700;
+      text-transform: none; letter-spacing: normal; box-shadow: inset 0 2px 4px rgb(0 0 0 / .05);
+    }
+    input[type=text]:focus { outline: none; border-color: var(--pink-400); }
+
+    .cta {
+      width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #fff; color: #fff; font-size: 20px; font-weight: 700;
+      background: linear-gradient(to right, var(--pink-500), var(--yellow-400)); box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1);
+      transition: transform .15s;
+    }
+    .cta:hover:not(:disabled) { background: linear-gradient(to right, var(--pink-600), var(--yellow-500)); transform: translateY(-4px); }
+    .cta:active:not(:disabled) { transform: translateY(2px); }
+    .cta:disabled { opacity: .6; }
+
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .chip { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .chip.score { background: var(--emerald-100); color: var(--emerald-800); }
+    .chip.time { background: var(--pink-100); color: var(--pink-800); font-variant-numeric: tabular-nums; }
+    .chip.time.low { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: .5; } }
+    .bar { width: 100%; height: 12px; border-radius: 999px; overflow: hidden; background: var(--slate-100); border: 1px solid var(--slate-200); }
+    .bar > div { height: 100%; border-radius: 999px; background: var(--emerald-400); transform-origin: left; }
+
+    .question { background: var(--sky-50); border: 2px solid var(--sky-200); border-radius: 16px; padding: 24px; text-align: center;
+                display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .question .chip { background: var(--sky-100); color: var(--sky-600); }
+    .prompt { font-size: 24px; font-weight: 700; color: var(--slate-800); overflow-wrap: anywhere; }
+
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .choices.single { grid-template-columns: 1fr; }
+    .choice {
+      padding: 16px; min-height: 72px; border-radius: 16px; border: 2px solid; font-weight: 700; font-size: 17px;
+      box-shadow: var(--shadow-sm); overflow-wrap: anywhere; transition: transform .15s, background-color .15s;
+    }
+    .choice:hover:not(:disabled) { transform: translateY(-4px); }
+    .choice:active:not(:disabled) { transform: translateY(2px); }
+    .choice:nth-child(4n+1) { background: var(--emerald-100); color: var(--emerald-900); border-color: var(--emerald-300); }
+    .choice:nth-child(4n+2) { background: var(--pink-50); color: var(--pink-900); border-color: var(--pink-200); }
+    .choice:nth-child(4n+3) { background: var(--yellow-50); color: var(--yellow-900); border-color: var(--yellow-200); }
+    .choice:nth-child(4n+4) { background: var(--sky-50); color: var(--sky-900); border-color: var(--sky-200); }
+    .choice:disabled { opacity: .55; }
+    .choice.picked { opacity: 1; outline: 4px solid var(--pink-400); outline-offset: 2px; }
+
+    .feedback { border-radius: 16px; padding: 16px; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+    .feedback strong { font-size: 22px; }
+    .feedback.ok { background: var(--emerald-100); color: var(--emerald-900); border: 2px solid var(--emerald-300); }
+    .feedback.ko { background: var(--pink-50); color: var(--pink-900); border: 2px solid var(--pink-200); }
+    .feedback.net { background: var(--slate-50); color: var(--slate-700); border: 2px solid var(--slate-200); }
+
+    .final { font-size: 56px; font-weight: 700; color: var(--pink-500); text-align: center; }
+    .center { text-align: center; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bounce, .chip.time.low { animation: none; }
+      .cta, .choice { transition: none; }
+    }
+  </style>
 </head>
 <body>
-  <main id="app">
-    <form id="join">
-      <label>Pseudo <input name="nickname" required maxlength="20" autocomplete="off"></label>
-      <button>Jouer</button>
-    </form>
-  </main>
+  <main id="app" aria-live="polite"></main>
   <script>
-    // agent 生成时把 quiz.json 去掉 source 后注入这里
     const QUIZ = /*QUIZ_JSON*/ null;
-<<<<<<< Updated upstream
-    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
-    // TODO(TB3): 渲染题目、计时、提交作答
-=======
-
-    const FALLBACK_QUIZ = {
-      quiz_id: "Q-DEMO",
-      questions: [
-        { q_id: "q1", type: "mcq", prompt: "Comment dit-on 'Riz' en chinois ?", choices: ["Mǐfàn (米饭)", "Jiāozǐ (饺子)", "Miàntiáo (面条)", "Bāozǐ (包子)"], time_limit_s: 20 },
-        { q_id: "q2", type: "mcq", prompt: "Que signifie 'Jiāozǐ (饺子)' en français ?", choices: ["Les nouilles", "Les raviolis chinois", "Le riz", "Les baguettes"], time_limit_s: 20 },
-        { q_id: "q3", type: "true_false", prompt: "« Kuàizi » (筷子) signifie 'Baguettes' en français ?", choices: ["True", "False"], time_limit_s: 15 }
-      ]
-    };
-
-    const activeQuiz = QUIZ || FALLBACK_QUIZ;
-    const ATTEMPT_URL = `/play/${activeQuiz?.quiz_id}/attempt`;
+    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`;
 
     const app = document.getElementById("app");
     const state = { nickname: "", index: 0, score: 0 };
@@ -74,7 +160,7 @@
         el("div", { class: "hero" },
           el("span", { class: "bounce", "aria-hidden": "true" }, "🖍️"),
           el("h1", {}, "ChalkBack Quiz"),
-          el("p", { class: "subtitle" }, `${activeQuiz.questions.length} questions · Classroom Review 📋✨`)),
+          el("p", { class: "subtitle" }, `${QUIZ.questions.length} questions · Classroom Review 📋✨`)),
         el("form", { onsubmit: (e) => {
           e.preventDefault();
           state.nickname = input.value.trim();
@@ -87,8 +173,8 @@
     }
 
     function questionScreen() {
-      const q = activeQuiz.questions[state.index];
-      const total = activeQuiz.questions.length;
+      const q = QUIZ.questions[state.index];
+      const total = QUIZ.questions.length;
       const started = performance.now();
       const limitMs = q.time_limit_s * 1000;
       let done = false;
@@ -151,7 +237,7 @@
     async function post(payload) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const res = await fetch(ATTEMPT_URL, {
+          const res = await fetch(`/play/${encodeURIComponent(QUIZ.quiz_id)}/attempt`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -182,7 +268,7 @@
           el("strong", {}, response === null ? "⏰ Time's up!" : "❌ Not quite"),
           el("span", {}, `Correct answer: ${answerText(q, result.answer)}`));
       }
-      const last = state.index === activeQuiz.questions.length - 1;
+      const last = state.index === QUIZ.questions.length - 1;
       card.append(feedback, el("button", { class: "cta", onclick: () => { state.index++; last ? endScreen() : questionScreen(); } },
         last ? "🏁 See my score" : "➡️ Next question"));
     }
@@ -191,13 +277,17 @@
       show(el("div", { class: "card join" },
         el("div", { class: "deco", "aria-hidden": "true" }, "🏆"),
         el("h1", {}, `Well done, ${state.nickname}!`),
-        el("p", { class: "final" }, `${state.score} / ${activeQuiz.questions.length}`),
+        el("p", { class: "final" }, `${state.score} / ${QUIZ.questions.length}`),
         el("p", { class: "subtitle" }, "Your answers help your teacher prepare the next lesson ✨"),
       ));
     }
 
-    joinScreen();
->>>>>>> Stashed changes
+    if (!QUIZ) {
+      show(el("div", { class: "card join" }, el("h1", {}, "ChalkBack Quiz"),
+        el("p", { class: "center" }, "Empty template: generate this page with scripts/build_game.py.")));
+    } else {
+      joinScreen();
+    }
   </script>
 </body>
 </html>

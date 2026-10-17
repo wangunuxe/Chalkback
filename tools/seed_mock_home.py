@@ -11,10 +11,15 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EX = ROOT / "contracts" / "examples"
+
+# 和 pipe 第 7 步一样，用 build_game.py 把示例测验注入游戏模板
+sys.path.insert(0, str(ROOT / "pipe" / "scripts"))
+from build_game import TEMPLATE, render  # noqa: E402
 
 
 def ex(name: str):
@@ -53,7 +58,7 @@ def main() -> None:
     write(out / "segments.json", [ex("segment")])
     for name in ("coverage", "alerts", "quiz"):
         write(out / f"{name}.json", ex(name))
-    shutil.copy(ROOT / "pipe" / "templates" / "game.html", out / "game.html")
+    (out / "game.html").write_text(render(TEMPLATE.read_text(encoding="utf-8"), quiz), encoding="utf-8")
     (out / "ready").touch()
 
     state = home / "state"
