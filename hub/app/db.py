@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS syllabi (
 );
 CREATE TABLE IF NOT EXISTS coverage_shares (
   share_id     TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces,
   teacher_id   TEXT NOT NULL REFERENCES members(member_id),
   lesson_id    TEXT NOT NULL,
   class_id     TEXT NOT NULL,
