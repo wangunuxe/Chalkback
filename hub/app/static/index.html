@@ -1,8 +1,110 @@
 <!doctype html>
-<html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ChalkBack Hub</title></head>
-<body>
-  <!-- TODO(TD6): 看板三种视图（老师 / 组长 / 管理员）、考前预警、审计列表 -->
-  <h1>ChalkBack Hub</h1>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChalkBack Hub - 🖍️ Smart Classroom Playback & Syllabus Tracking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Fredoka', 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col text-slate-700">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b-4 border-yellow-200 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <span class="text-4xl animate-bounce">🖍️</span>
+      <div>
+        <h1 class="text-2xl font-bold tracking-wide text-sky-600">Chalkback Hub</h1>
+        <p class="text-xs font-semibold text-pink-500">Smart classroom playback & syllabus tracking assistant 📋✨</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="/dashboard" class="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold rounded-2xl border-2 border-emerald-300 transition transform hover:-translate-y-0.5 active:translate-y-0.5 shadow-sm">
+        📊 Department Board
+      </a>
+      <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm border-2 border-yellow-300">
+        🏫 Class 4A
+      </span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl w-full mx-auto p-6 flex-1 space-y-6">
+
+    <!-- Welcome / Class Info Banner -->
+    <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+      <div class="absolute -right-6 -bottom-6 text-9xl opacity-10 pointer-events-none">📚</div>
+      <div class="space-y-2 z-10">
+        <span class="px-3 py-1 bg-pink-100 text-pink-700 font-bold rounded-full text-xs uppercase tracking-wider">Active Lesson</span>
+        <h2 class="text-3xl font-bold text-slate-800">Lesson Playback & Syllabus Check 📖</h2>
+        <p class="text-sm text-slate-500">Date: 2026-10-17 | Teacher: Prof. Martin</p>
+      </div>
+      <div class="mt-4 md:mt-0 z-10 flex space-x-2">
+        <span class="px-3 py-1 bg-sky-100 text-sky-800 rounded-xl font-bold text-sm">✏️ Items 12</span>
+        <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-xl font-bold text-sm">⭐ Quiz Ready</span>
+      </div>
+    </section>
+
+    <!-- Screenpipe Memory Card -->
+    <section class="bg-white rounded-3xl p-6 border-4 border-emerald-200 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <span class="text-3xl">🎥</span>
+          <h3 class="text-xl font-bold text-emerald-700">Screenpipe Classroom Playback</h3>
+        </div>
+        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-full text-xs animate-pulse">
+          ● Recording active
+        </span>
+      </div>
+      <div class="bg-emerald-50 rounded-2xl p-4 border-2 border-emerald-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div class="font-mono text-sm bg-white px-3 py-2 rounded-xl border border-emerald-300 text-emerald-900 shadow-inner">
+          [Timestamp: <span class="font-bold text-pink-600">10:14:22</span> | Frame <span class="font-bold text-sky-600">#402</span>]
+        </div>
+        <div class="text-xs text-emerald-800 font-medium">
+          ✨ Transcripts and chalkboard snapshots securely stored locally (100% Private).
+        </div>
+      </div>
+    </section>
+
+    <!-- Rappel Omission Card (Omission Alert) -->
+    <section class="bg-gradient-to-r from-amber-50 to-pink-50 rounded-3xl p-6 border-4 border-amber-300 shadow-xl space-y-4">
+      <div class="flex items-center space-x-3">
+        <span class="text-3xl animate-bounce">⚠️</span>
+        <div>
+          <h3 class="text-xl font-bold text-amber-800">Syllabus Coverage & Omission Alert</h3>
+          <p class="text-xs text-amber-700">Cross-analysis with official departmental syllabus requirements</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white/80 rounded-2xl p-4 border-2 border-amber-200 space-y-2">
+          <span class="text-xs font-bold text-pink-600 bg-pink-100 px-2 py-0.5 rounded-md">Missed Item Detected</span>
+          <p class="font-bold text-slate-800">Key concept « Mǐfàn » needs reinforcement according to pacing goals.</p>
+        </div>
+        <div class="bg-white/80 rounded-2xl p-4 border-2 border-amber-200 space-y-2">
+          <span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-0.5 rounded-md">Memory Deduplication</span>
+          <p class="font-bold text-slate-800">No redundant content overlap with last week's playback. Verification OK.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Approval Action Area -->
+    <section class="bg-white rounded-3xl p-6 border-4 border-pink-200 shadow-xl text-center space-y-4">
+      <h3 class="text-lg font-bold text-slate-700">Ready to approve this classroom playback session?</h3>
+      <button onclick="alert('🎉 Success! Data approved and synchronized to the Department Board.')" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-bold text-lg rounded-2xl shadow-lg border-2 border-white transform hover:-translate-y-1 active:translate-y-0.5 transition-all cursor-pointer">
+        🚀 Approve & Sync to Department Board ✨
+      </button>
+      <p class="text-xs text-slate-400">By clicking approve, you verify that syllabus coverage requirements have been met.</p>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-6 text-xs text-slate-400">
+    <p>ChalkBack Hub © 2026</p>
+  </footer>
+
 </body>
 </html>

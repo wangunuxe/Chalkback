@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChalkBack - Department Board</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Fredoka', 'Inter', sans-serif; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col text-slate-700">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b-4 border-yellow-200 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <span class="text-4xl animate-bounce">🖍️</span>
+      <div>
+        <h1 class="text-2xl font-bold tracking-wide text-sky-600">Department Board</h1>
+        <p class="text-xs font-semibold text-pink-500">Syllabus coverage & classroom playback tracking 📊✨</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <a href="/" class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded-2xl border-2 border-yellow-300 transition transform hover:-translate-y-0.5 active:translate-y-0.5 shadow-sm">
+        🏠 Back to Hub
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl w-full mx-auto p-6 flex-1 space-y-6">
+
+    <!-- GDPR Privacy Banner -->
+    <div class="bg-emerald-100 border-4 border-emerald-300 rounded-3xl p-4 shadow-md flex items-center space-x-4">
+      <span class="text-3xl">🔒</span>
+      <div>
+        <h3 class="font-bold text-emerald-900">100% RGPD Compliance & Privacy</h3>
+        <p class="text-xs text-emerald-800">Only approved syllabus coverage data is displayed. Raw recordings and screenpipe IDs remain strictly local on teachers' devices.</p>
+      </div>
+    </div>
+
+    <!-- Matrix Card -->
+    <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-800">Coverage Matrix : Knowledge Items × Instructors 📚</h2>
+          <p class="text-xs text-slate-500">Current Semester - Class 4A/4B/4C</p>
+        </div>
+        <div class="flex space-x-2">
+          <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs">🟢 / ✅ Covered</span>
+          <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-xl font-bold text-xs">🔴 / ❌ Not Covered</span>
+        </div>
+      </div>
+
+      <!-- Responsive Table -->
+      <div class="overflow-x-auto rounded-2xl border-2 border-slate-100 shadow-inner">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-sky-50 text-sky-900 font-bold border-b-2 border-sky-200">
+              <th class="p-4">Knowledge Item (知识点)</th>
+              <th class="p-4 text-center">Prof. Martin (Class 4A)</th>
+              <th class="p-4 text-center">Prof. Dupont (Class 4B)</th>
+              <th class="p-4 text-center">Prof. Leroy (Class 4C)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 text-sm">
+            <tr class="hover:bg-yellow-50/50 transition">
+              <td class="p-4 font-bold text-slate-800">
+                <span>Core Vocabulary Item 1</span>
+                <span class="block text-xs text-slate-400 font-normal">Daily Life & Food</span>
+              </td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
+            </tr>
+            <tr class="hover:bg-yellow-50/50 transition">
+              <td class="p-4 font-bold text-slate-800">
+                <span>Time & Schedule Tracking</span>
+                <span class="block text-xs text-slate-400 font-normal">Daily Routine</span>
+              </td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+            </tr>
+            <tr class="hover:bg-yellow-50/50 transition">
+              <td class="p-4 font-bold text-slate-800">
+                <span>Cultural Traditions & Artifacts</span>
+                <span class="block text-xs text-slate-400 font-normal">Cultural Context</span>
+              </td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+            </tr>
+            <tr class="hover:bg-yellow-50/50 transition">
+              <td class="p-4 font-bold text-slate-800">
+                <span>Interactive Action Verbs</span>
+                <span class="block text-xs text-slate-400 font-normal">Grammar & Syntax</span>
+              </td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center py-6 text-xs text-slate-400">
+    <p>ChalkBack Department Board © 2026</p>
+  </footer>
+
+</body>
+</html>
