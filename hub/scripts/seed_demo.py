@@ -6,38 +6,116 @@ Goes through the real POST /api/coverage (same path as C's console upload), usin
 - T1 -> 4A: normal progress (same identity as the console's mock teacher T1)
 - T2 -> 4B: only 1 knowledge point covered since the start of term -> triggers "won't finish before the exam"
 - T2 -> 4C: covered KP02, so T1's teacher view shows "another class covered it, you haven't yet"
-Knowledge points follow contracts/examples/syllabus.json (KP01-KP04). Update together once the demo syllabus (H4) is finalized.
+French knowledge points follow contracts/examples/syllabus.json (KP01-KP04). Update together once the demo syllabus (H4) is finalized.
+A second subject (maths, taught by T3 to 4A and 4B) is approved by the department head H1, so classes have several courses.
+Courses: 5 courses in 3 classes; T1, T2 and T3 each sent one summary (demo text standing in for the screenpipe summary).
+Running the script again does not duplicate anything: lessons replace themselves, existing syllabi and courses are skipped.
 """
 import sys
 
 import httpx
 
+HEAD = {"Authorization": "Bearer mock-token-H1"}
+FRENCH = "fr-grammaire-4e"
+MATHS = {
+    "syllabus_id": "maths-4e", "version": 1, "status": "draft", "subject": "mathématiques", "level": "4e",
+    "knowledge_points": [
+        {"kp_id": "M01", "title": "Les fractions", "keywords": ["fraction", "numérateur", "dénominateur"]},
+        {"kp_id": "M02", "title": "Le théorème de Pythagore", "keywords": ["Pythagore", "hypoténuse", "triangle rectangle"]},
+        {"kp_id": "M03", "title": "Les équations du premier degré", "keywords": ["équation", "inconnue"]},
+        {"kp_id": "M04", "title": "Le calcul littéral", "keywords": ["développer", "factoriser"]},
+    ],
+}
+
 LESSONS = [
-    ("T1", "4A", "2026-09-14", {"KP01": 6.0}),
-    ("T1", "4A", "2026-10-17", {"KP03": 4.5}),
-    ("T2", "4B", "2026-09-01", {"KP01": 5.0}),
-    ("T2", "4C", "2026-09-03", {"KP01": 4.0}),
-    ("T2", "4C", "2026-09-24", {"KP02": 7.5}),
-    ("T2", "4C", "2026-10-15", {"KP04": 3.0}),
+    ("T1", "4A", FRENCH, "2026-09-14", {"KP01": 6.0}),
+    ("T1", "4A", FRENCH, "2026-10-17", {"KP03": 4.5}),
+    ("T2", "4B", FRENCH, "2026-09-01", {"KP01": 5.0}),
+    ("T2", "4C", FRENCH, "2026-09-03", {"KP01": 4.0}),
+    ("T2", "4C", FRENCH, "2026-09-24", {"KP02": 7.5}),
+    ("T2", "4C", FRENCH, "2026-10-15", {"KP04": 3.0}),
+    ("T3", "4A", "maths-4e", "2026-09-15", {"M01": 8.0}),
+    ("T3", "4A", "maths-4e", "2026-10-06", {"M02": 10.0}),
+    ("T3", "4B", "maths-4e", "2026-09-16", {"M01": 7.0}),
 ]
+
+# (teacher, name, class, syllabus, description, summary sent to the department head or None)
+COURSES = [
+    ("T1", "Grammaire — 4A", "4A", FRENCH, "Les temps du passé, trimestre 1",
+     "Grammaire — 4A, class 4A: 2 lessons recorded between 14 September and 17 October.\n"
+     "Taught so far (10.5 min in total): Le passé composé avec avoir (6 min), L'accord du participe passé (4.5 min).\n"
+     "Still to teach: Le passé composé avec être, L'imparfait.\n"
+     "Several students still forget the agreement with a COD placed before the verb; a short review is planned next lesson.\n"
+     "Next: Le passé composé avec être."),
+    ("T2", "Grammaire — 4B", "4B", FRENCH, "", None),
+    ("T2", "Soutien grammaire — 4C", "4C", FRENCH, "Groupe de soutien du jeudi",
+     "Soutien grammaire — 4C, class 4C: 3 lessons recorded between 3 September and 15 October.\n"
+     "Taught so far (14.5 min in total): Le passé composé avec avoir (4 min), Le passé composé avec être (7.5 min), L'imparfait (3 min).\n"
+     "Still to teach: L'accord du participe passé.\n"
+     "The group is more confident with être verbs after the extra exercises.\n"
+     "Next: L'accord du participe passé."),
+    ("T3", "Mathématiques — 4A", "4A", "maths-4e", "Nombres et géométrie",
+     "Mathématiques — 4A, class 4A: 2 lessons recorded between 15 September and 6 October.\n"
+     "Taught so far (18 min in total): Les fractions (8 min), Le théorème de Pythagore (10 min).\n"
+     "Still to teach: Les équations du premier degré, Le calcul littéral.\n"
+     "Most students apply Pythagoras correctly; identifying the hypotenuse still needs practice.\n"
+     "Next: Les équations du premier degré."),
+    ("T3", "Mathématiques — 4B", "4B", "maths-4e", "", None),
+]
+
+
+def auth(teacher: str) -> dict:
+    return {"Authorization": f"Bearer mock-token-{teacher}"}
+
+
+def seed_maths(client) -> None:
+    if any(s["syllabus_id"] == MATHS["syllabus_id"] for s in client.get("/api/syllabus", headers=HEAD).json()):
+        print("syllabus maths-4e: already approved")
+        return
+    client.post("/api/syllabus", json=MATHS, headers=HEAD).raise_for_status()
+    client.post(f"/api/syllabus/{MATHS['syllabus_id']}/approve", headers=HEAD).raise_for_status()
+    print("syllabus maths-4e: uploaded and approved by H1")
+
+
+def seed_lessons(client) -> None:
+    syllabi = {s["syllabus_id"]: s for s in client.get("/api/syllabus", headers=HEAD).json()}
+    for teacher, class_id, syllabus_id, day, minutes in LESSONS:
+        syllabus = syllabi[syllabus_id]
+        body = {
+            "lesson_id": f"L-{teacher}-{day.replace('-', '')}-1000",
+            "class_id": class_id,
+            "date": day,
+            "syllabus_id": syllabus_id,
+            "syllabus_version": syllabus["version"],
+            "points": [{"kp_id": kp["kp_id"], "covered": kp["kp_id"] in minutes,
+                        "minutes": minutes.get(kp["kp_id"], 0)} for kp in syllabus["knowledge_points"]],
+        }
+        r = client.post("/api/coverage", json=body, headers=auth(teacher))
+        r.raise_for_status()
+        print(f"{teacher} {class_id} {day}: {r.json()['share_id']}")
+
+
+def seed_courses(client) -> None:
+    for teacher, name, class_id, syllabus_id, description, summary in COURSES:
+        existing = [c for c in client.get("/api/courses", headers=auth(teacher)).json()
+                    if c["class_id"] == class_id and c["syllabus"]["syllabus_id"] == syllabus_id]
+        if existing:
+            print(f"{teacher} course {name!r}: already there")
+            continue
+        r = client.post("/api/courses", headers=auth(teacher), json={
+            "name": name, "class_id": class_id, "syllabus_id": syllabus_id, "description": description})
+        r.raise_for_status()
+        course_id = r.json()["course_id"]
+        if summary:
+            client.put(f"/api/courses/{course_id}/summary", headers=auth(teacher), json={"text": summary}).raise_for_status()
+        print(f"{teacher} course {name!r}: {course_id}{' (summary sent)' if summary else ''}")
 
 
 def main(hub: str) -> None:
     with httpx.Client(base_url=hub, verify=False) as client:  # the local Hub uses a self-signed certificate
-        syllabus = client.get("/api/syllabus/current", headers={"Authorization": "Bearer mock-token-T1"}).json()
-        for teacher, class_id, day, minutes in LESSONS:
-            body = {
-                "lesson_id": f"L-{teacher}-{day.replace('-', '')}-1000",
-                "class_id": class_id,
-                "date": day,
-                "syllabus_id": syllabus["syllabus_id"],
-                "syllabus_version": syllabus["version"],
-                "points": [{"kp_id": kp["kp_id"], "covered": kp["kp_id"] in minutes,
-                            "minutes": minutes.get(kp["kp_id"], 0)} for kp in syllabus["knowledge_points"]],
-            }
-            r = client.post("/api/coverage", json=body, headers={"Authorization": f"Bearer mock-token-{teacher}"})
-            r.raise_for_status()
-            print(f"{teacher} {class_id} {day}: {r.json()['share_id']}")
+        seed_maths(client)
+        seed_lessons(client)
+        seed_courses(client)
 
 
 if __name__ == "__main__":

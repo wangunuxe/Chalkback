@@ -14,6 +14,7 @@ progress board for the school.
 | Workspace, invite codes, members (name, role, token) | Audio, transcripts, screenshots |
 | Syllabus versions (drafts and approved) | Lesson text, quiz questions, student answers |
 | Per lesson: class, date, syllabus point, covered yes/no, minutes | screenpipe IDs, segment IDs, timestamps |
+| Courses (teacher, class, syllabus) and the course summaries teachers chose to send | Anything a teacher did not send |
 | Audit log: who did what, and when | The content of anything that was approved |
 
 A syllabus file used for AI import (section 3) is not stored: the Hub reads it, sends it to the AI service and discards it.
@@ -115,6 +116,8 @@ refreshes every 3 seconds.
 | | Teacher | Department head | School admin |
 | --- | --- | --- | --- |
 | Class syllabus progress | Own classes, per knowledge point | All classes, knowledge point × class matrix | All classes, totals only |
+| Classes and courses | Own courses | Every class → its courses → knowledge points covered | Every class → its courses, progress only |
+| Course summaries | Review, send, withdraw their own | The ones teachers sent | No |
 | "Covered elsewhere, not yet in your class" | Yes, without naming the other class | No | No |
 | Exam alert | Own classes | All classes | All classes |
 | Syllabus | Read | Upload drafts and approve | Read |
@@ -134,6 +137,19 @@ A teacher "owns" a class once they have shared coverage for it.
 - The teacher can withdraw a share at any time in the console (`/shares`). The Hub deletes it, the dashboard
   updates within 3 seconds, and the audit log records `revoke`. Only the teacher who shared it can withdraw it.
 
+### Classes and courses (department head)
+
+The "Classes and courses" card lists every class (a group of students) with the courses taught to it. A course is
+one teacher teaching one syllabus to one class, e.g. *Grammaire — 4A* (French, T1) and *Mathématiques — 4A* (maths, T3).
+- Each class shows its overall progress: knowledge points taught across all its courses.
+- Open a course to see which knowledge points were covered (with minutes), how many lessons were shared,
+  and the summary the teacher sent.
+- A summary is written by screenpipe on the teacher's laptop. The teacher reads it, can edit it, and only then sends
+  it; they can withdraw it at any time, and it disappears from your board within 3 seconds.
+
+A new subject needs its own syllabus: upload and approve it like the first one. The coverage matrix and the exam
+forecast stay on the school's main syllabus (the first one approved); other subjects appear per course.
+
 ## 6. Exam alert
 
 For each class:
@@ -147,7 +163,7 @@ Set the exam date with `HUB_EXAM_DATE`.
 
 ## 7. Audit log
 
-The Hub logs every join, approval and withdrawal: `join`, `share_coverage`, `revoke`, `approve_syllabus`.
+The Hub logs every join, approval and withdrawal: `join`, `share_coverage`, `revoke`, `approve_syllabus`, and `share_summary` / `withdraw_summary` when a teacher sends a course summary to the department head or withdraws it.
 Each entry has who (role and id), the action, the target id and the
 time. **It never contains the content itself.** Read it on the dashboard or with `GET /api/audit`.
 
@@ -158,7 +174,11 @@ All requests except `join` need `Authorization: Bearer <token>`.
 | Method | Path | Who | Purpose |
 | --- | --- | --- | --- |
 | POST | `/api/join` | anyone with a code | `{invite_code, display_name, role}` → `{teacher_id, token, workspace_id}` |
-| GET | `/api/syllabus/current` | all | Latest approved syllabus |
+| GET | `/api/syllabus/current` | all | Latest approved version of the main syllabus (`?syllabus_id=` for another) |
+| GET | `/api/syllabus` | all | Latest approved version of every syllabus |
+| GET | `/api/courses` | by role | Courses by class with progress (head: plus knowledge points and summaries) |
+| POST | `/api/courses` | teacher | Create a course `{name, class_id, syllabus_id, description?}` |
+| PUT / DELETE | `/api/courses/{id}/summary` | that teacher | Send or withdraw the course summary |
 | POST | `/api/syllabus` | head | Upload a draft → `{syllabus_id, version}` |
 | POST | `/api/syllabus/{id}/approve` | head | Approve the latest draft |
 | POST | `/api/syllabus/extract` | head | AI suggestion from a file `{filename, content_base64}` → `{syllabus, kept, new, dropped}`; saves nothing |

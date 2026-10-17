@@ -249,7 +249,7 @@ Weight rules: default 1.0; accuracy below 50% sets it to 2.0; weak points from K
  "action": "share_coverage", "target_id": "L-T1-20261017-1000", "at": "2026-10-17T12:01:00+02:00"}
 ```
 
-`action`: `join` | `consent` | `publish_quiz` | `share_coverage` | `revoke` | `approve_syllabus`.
+`action`: `join` | `consent` | `publish_quiz` | `share_coverage` | `revoke` | `approve_syllabus` | `share_summary` | `withdraw_summary`.
 
 ## 6. Interfaces
 
@@ -327,13 +327,19 @@ All endpoints use HTTPS (Docker deployment is `https://<hub>:8443`, certificate 
 | Method | Path | Role | Input | Output |
 | --- | --- | --- | --- | --- |
 | POST | `/api/join` | Anyone | `{invite_code, display_name, role}` | `{teacher_id, token, workspace_id}` |
-| GET | `/api/syllabus/current` | All | — | `syllabus` |
+| GET | `/api/syllabus/current[?syllabus_id=]` | All | — | `syllabus` (default: the school's main syllabus) |
 | POST | `/api/syllabus` | Head | `syllabus` (draft) | `{syllabus_id, version}` |
 | POST | `/api/syllabus/{id}/approve` | Head | — | `syllabus` (A4) |
 | POST | `/api/syllabus/extract` | Head | `{filename, content_base64, syllabus_id?}` (PDF / DOCX / PPTX / TXT / MD, ≤ 5 MB) | `{syllabus, chunks, kept, new, dropped}`: an AI-suggested draft; saves nothing. Existing kp_ids are kept for the same points. `503` if neither `ANTHROPIC_API_KEY` nor `GEMINI_API_KEY` is set |
 | POST | `/api/coverage` | Teacher | `coverage_share` | `{share_id}` (A3) |
 | DELETE | `/api/coverage/{share_id}` | The teacher themself | — | `204` (A5) |
 | GET | `/api/coverage?class_id=` | Per §4 permissions | — | Knowledge point coverage table (KPs covered / not covered for that class, with durations) |
+| GET | `/api/syllabus` | All | — | Latest approved version of each syllabus |
+| GET | `/api/courses` | Teacher: own; head: all with KPs and summaries; admin: all, progress only | — | Courses by class, with progress |
+| POST | `/api/courses` | Teacher | `{name, class_id, syllabus_id, description?}` (one per class and syllabus) | Course |
+| PUT | `/api/courses/{id}/summary` | The teacher themself | `{text}` (summary written by screenpipe, reviewed by the teacher) | Course (audited) |
+| DELETE | `/api/courses/{id}/summary` | The teacher themself | — | Course (audited) |
+| DELETE | `/api/courses/{id}` | The teacher themself, not while a summary is sent | — | `204` |
 | GET | `/api/dashboard?view=teacher\|head\|admin` | Matching role | — | Syllabus progress and warnings |
 | GET | `/api/audit` | All, filtered by role | — | `audit_event[]` |
 

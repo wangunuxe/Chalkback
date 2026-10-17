@@ -206,3 +206,49 @@ details summary { cursor: pointer; font-weight: 700; color: var(--sky); margin-t
 .protected p { margin: 6px 0 0; font-size: 14px; }
 .protected blockquote { margin: 8px 0 0; padding: 6px 12px; border-left: 4px solid #10b981; background: #fff; border-radius: 8px; font-style: italic; text-decoration: line-through; color: var(--ink-soft); }
 @keyframes protected-in { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Courses. Teacher: one card per course with the summary to send. Head and admin: classes -> courses -> knowledge points */
+.courses { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); margin-top: 12px; }
+.course { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; border: 2px dashed var(--sky-line); background: #fff; }
+.course.sent { border-style: solid; border-color: var(--green-line); }
+.course-head { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: flex-start; }
+.course-head > div { flex: 1 1 160px; }
+.course-head h3 { margin: 0 0 2px; font-size: 17px; }
+.course .desc { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.course-progress { display: grid; gap: 4px; }
+.course-progress .bar, .class-progress .bar { height: 10px; }
+.kp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.kp-chips .chip { font-size: 12px; padding: 3px 10px; white-space: normal; }
+.summary-box { padding: 12px 14px; border-radius: 14px; background: var(--green-bg); border: 2px solid var(--green-line); }
+.summary-box p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; white-space: pre-line; color: #1e293b; }
+.summary-label { font-size: 12px; font-weight: 700; color: var(--green); }
+.summary-edit { display: grid; gap: 4px; padding: 12px; border-radius: 14px; background: var(--sky-bg); border: 2px solid var(--sky-line); }
+.summary-edit label { margin: 0 0 4px; }
+.summary-edit textarea { font-family: var(--font); font-size: 14px; line-height: 1.5; min-height: 160px; }
+.new-course { margin: 4px 0 6px; padding: 8px 14px; border-radius: 14px; border: 2px dashed var(--sky-line); }
+.new-course[open] { background: var(--sky-bg); }
+.mat-form { display: grid; gap: 4px; }
+.mat-form label { margin: 8px 0 4px; }
+.course-actions { padding-top: 10px; border-top: 2px solid #f1f5f9; }
+.chip.draft { background: #f1f5f9; color: var(--ink-soft); border-color: #e2e8f0; }
+button.ghost { background: transparent; border-color: #e2e8f0; color: var(--ink-soft); }
+button.danger { background: var(--pink-bg); border-color: var(--pink); color: var(--pink); }
+
+.class-block { margin-top: 14px; padding: 14px; border-radius: 18px; border: 2px solid #f1f5f9; background: #fff; }
+.group-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.group-head > div:not(.class-progress) { flex: 1 1 180px; }
+.class-progress { flex: 0 1 240px; display: grid; gap: 4px; min-width: 160px; }
+.avatar { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: linear-gradient(135deg, #6ee7b7, #fde68a); color: #064e3b; font-weight: 700; font-size: 15px; }
+.course-list { display: grid; gap: 8px; margin-top: 12px; padding-left: 20px; border-left: 3px solid var(--sky-line); margin-left: 22px; }
+.course-row { border-radius: 14px; background: #f8fafc; }
+.cr-summary { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 10px 14px; margin: 0; color: var(--ink); font-weight: 400; }
+details.course-row > summary { list-style: none; }
+details.course-row > summary::-webkit-details-marker { display: none; }
+details.course-row > summary::before { content: "▸"; color: var(--sky); font-weight: 700; transition: transform .15s; }
+details.course-row[open] > summary::before { transform: rotate(90deg); }
+.cr-name { font-weight: 700; color: #1e293b; }
+.cr-meta { flex: 1 1 160px; }
+.cr-progress { display: inline-flex; gap: 8px; align-items: center; }
+.mini-bar { display: inline-block; width: 90px; height: 8px; border-radius: 999px; background: var(--pink-bg); overflow: hidden; }
+.mini-bar span { display: block; height: 100%; background: #10b981; border-radius: 999px; }
+.cr-body { display: grid; gap: 10px; padding: 0 14px 14px 34px; }

@@ -24,8 +24,9 @@ def class_summary(conn, workspace_id: str, class_id: str, syllabus: dict, weeks_
     points = class_points(conn, workspace_id, class_id, syllabus)
     covered = sum(p["covered"] for p in points)
     first = conn.execute(
-        "SELECT MIN(json_extract(body, '$.date')) FROM coverage_shares WHERE workspace_id = ? AND class_id = ?",
-        (workspace_id, class_id),
+        "SELECT MIN(json_extract(body, '$.date')) FROM coverage_shares WHERE workspace_id = ? AND class_id = ?"
+        " AND json_extract(body, '$.syllabus_id') = ?",
+        (workspace_id, class_id, syllabus["syllabus_id"]),
     ).fetchone()[0]
     weeks_taught = max(1.0, (today - date.fromisoformat(first)).days / 7) if first else 1.0
     rate = covered / weeks_taught
@@ -48,11 +49,15 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
         exam_date = os.environ.get("HUB_EXAM_DATE") or (workspace["exam_date"] if workspace else None)
         weeks_left = max(0.0, (date.fromisoformat(exam_date) - today).days / 7) if exam_date else None
 
+        # Only lessons of the board's syllabus; other subjects show up per course (GET /api/courses)
+        of_syllabus = " AND json_extract(body, '$.syllabus_id') = ?"
         all_classes = [r[0] for r in conn.execute(
-            "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? ORDER BY class_id", (ws,))]
+            "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ?" + of_syllabus + " ORDER BY class_id",
+            (ws, syllabus["syllabus_id"]))]
         if view == "teacher":
             mine = {r[0] for r in conn.execute(
-                "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? AND teacher_id = ?", (ws, member.id))}
+                "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? AND teacher_id = ?" + of_syllabus,
+                (ws, member.id, syllabus["syllabus_id"]))}
             shown = [c for c in all_classes if c in mine]
         else:
             shown = all_classes

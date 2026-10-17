@@ -3,6 +3,8 @@
 Input must first be validated against the coverage_share schema -- this is the Hub-side second check of the privacy boundary.
 Then the content is checked: the teacher in lesson_id must be the uploader; the syllabus version must be an approved version in this workspace; the knowledge points must be in that version.
 """
+from __future__ import annotations
+
 import json
 import uuid
 from contextlib import closing
@@ -95,22 +97,37 @@ def revoke(share_id: str, member: Member = Depends(require("teacher"))):
     return Response(status_code=204)
 
 
-def current_syllabus(conn, workspace_id: str) -> dict | None:
+def current_syllabus(conn, workspace_id: str, syllabus_id: str | None = None) -> dict | None:
+    """Latest approved version of a syllabus. Without syllabus_id: the school's main syllabus, i.e. the one approved first,
+    so approving a syllabus for another subject does not switch the board (and teachers' consoles) over to it."""
+    if syllabus_id is None:
+        first = conn.execute(
+            "SELECT syllabus_id FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
+            " ORDER BY approved_at, syllabus_id LIMIT 1",
+            (workspace_id,),
+        ).fetchone()
+        if first is None:
+            return None
+        syllabus_id = first["syllabus_id"]
     row = conn.execute(
-        "SELECT body FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
-        " ORDER BY version DESC, approved_at DESC LIMIT 1",
-        (workspace_id,),
+        "SELECT body FROM syllabi WHERE workspace_id = ? AND syllabus_id = ? AND status = 'approved'"
+        " ORDER BY version DESC LIMIT 1",
+        (workspace_id, syllabus_id),
     ).fetchone()
     return None if row is None else json.loads(row["body"])
 
 
-def class_points(conn, workspace_id: str, class_id: str, syllabus: dict) -> list[dict]:
-    """List every knowledge point of the syllabus: covered means "taught in any lesson", minutes are summed."""
+def class_points(conn, workspace_id: str, class_id: str, syllabus: dict, teacher_id: str | None = None) -> list[dict]:
+    """List every knowledge point of the syllabus: covered means "taught in any lesson", minutes are summed.
+    With teacher_id, only that teacher's lessons count (a course's progress)."""
     covered = {kp["kp_id"]: False for kp in syllabus["knowledge_points"]}
     minutes = dict.fromkeys(covered, 0.0)
-    for row in conn.execute(
-        "SELECT body FROM coverage_shares WHERE workspace_id = ? AND class_id = ?", (workspace_id, class_id)
-    ):
+    query = "SELECT body FROM coverage_shares WHERE workspace_id = ? AND class_id = ?"
+    params = [workspace_id, class_id]
+    if teacher_id is not None:
+        query += " AND teacher_id = ?"
+        params.append(teacher_id)
+    for row in conn.execute(query, params):
         body = json.loads(row["body"])
         if body["syllabus_id"] != syllabus["syllabus_id"]:
             continue
