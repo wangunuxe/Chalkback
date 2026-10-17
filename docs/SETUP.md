@@ -72,7 +72,7 @@ Check that it is there:
 npx -y screenpipe@latest pipe list
 ```
 
-You should see **chalkback** in the list. *(to verify: the pipe may be listed as `pipe` — if so, use that name below.)*
+You should see **pipe** in the list: screenpipe names the pipe after its folder. Use that name in the commands below.
 
 <details>
 <summary>If the install command fails</summary>
@@ -140,11 +140,11 @@ Follow the four screens:
 ## Step 6 — Check everything (1 min)
 
 ```bash
-python ~/.screenpipe/pipes/chalkback/scripts/doctor.py
+python ~/.screenpipe/pipes/pipe/scripts/doctor.py
 ```
 
-On Windows: `python %USERPROFILE%\.screenpipe\pipes\chalkback\scripts\doctor.py`
-(on macOS use `python3` if `python` is not found). *(to verify: install folder and name.)*
+On Windows: `python %USERPROFILE%\.screenpipe\pipes\pipe\scripts\doctor.py`
+(on macOS use `python3` if `python` is not found).
 
 Every line should start with `[ok]` (a `[warn]` is fine). For each `[FAIL]`, do what its `fix:` line says
 and run the check again. The last line must read **All required checks passed.**
@@ -154,7 +154,7 @@ and run the check again. The last line must read **All required checks passed.**
 After a lesson — or after talking for a few minutes with a slide open — run:
 
 ```bash
-npx -y screenpipe@latest pipe run chalkback
+npx -y screenpipe@latest pipe run pipe
 ```
 
 You will get a notification when it is done (1–5 minutes). Open <https://localhost:4000/console>.
@@ -181,7 +181,7 @@ The more you edit questions, the more ChalkBack writes them your way (see <https
 | doctor: `[FAIL] screenpipe ... not reachable` | Start the screenpipe app and wait until it shows it is recording. |
 | doctor: `[FAIL] Teacher config` or `Syllabus` | Finish the setup wizard at <https://localhost:4000/setup>, then open the console once. |
 | doctor: `[warn] Time zone` | Fine if your laptop is set to Paris time. Otherwise run `python -m pip install tzdata`. |
-| No notification after a lesson | Check the timetable in the setup wizard. Run step 7 by hand and look at `npx -y screenpipe@latest pipe logs chalkback`. |
+| No notification after a lesson | Check the timetable in the setup wizard. Run step 7 by hand and look at `npx -y screenpipe@latest pipe logs pipe`. |
 | "Failed to extract accountId" in the logs | Your AI preset is not set: redo step 2. |
 | The browser says the connection is not private | Expected: the console uses a certificate made by your own laptop. Click *Advanced → Proceed to localhost*. |
 | The game page says *Not Found* | Publish the quiz first in the console; only published quizzes can be played. |
@@ -191,7 +191,7 @@ The more you edit questions, the more ChalkBack writes them your way (see <https
 ## Uninstall
 
 ```bash
-npx -y screenpipe@latest pipe delete chalkback
+npx -y screenpipe@latest pipe delete pipe
 ```
 
 Your ChalkBack data is in the `.chalkback` folder in your home folder; delete it to remove everything.

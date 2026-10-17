@@ -14,7 +14,7 @@ import os
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
-from .routes import play, review, setup, shares, style
+from .routes import play, recorder, review, setup, shares, style
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
 TRUSTED_NETS = [ipaddress.ip_network(n.strip()) for n in os.environ.get("CONSOLE_TRUSTED_NETS", "").split(",") if n.strip()]
@@ -44,5 +44,5 @@ def index():
     return RedirectResponse("/console")
 
 
-for module in (setup, review, play, shares, style):
+for module in (setup, review, play, shares, style, recorder):
     app.include_router(module.router)
