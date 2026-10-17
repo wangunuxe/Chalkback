@@ -1,70 +1,53 @@
-"""/play/{quiz_id}：在校园网内提供 agent 生成的 game.html，记录作答（TC4），统计 kp_stats / weights.json（TC5）。
+"""/play/{quiz_id}：在本机提供已发布（A2）的 game.html，记录作答（TC4），统计 kp_stats / weights.json（TC5）。
 
-对校园网开放（见 main.local_only）。quiz_id = Q-{lesson_id}。
+学生在老师电脑的浏览器里作答，和其它页面一样只允许本机访问。quiz_id = Q-{lesson_id}。
+作答接口（H9）：POST /play/{quiz_id}/attempt {nickname, q_id, response, time_ms} → {correct, answer}。
 """
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr
 
-from .. import outbox, paths
+from .. import outbox, paths, quizzes, stats
+from ..contracts import append_jsonl, now_iso
 
 router = APIRouter(prefix="/play", tags=["play"])
 
 
 class AttemptRequest(BaseModel):
-    nickname: str
+    nickname: str = Field(min_length=1, max_length=40)
     q_id: str
-    response: int | str | bool | None = None
-    time_ms: int = 0
+    # 超时为 null（game.html），按答错记录；null 是否写进 attempt 契约待全员确认
+    response: StrictBool | StrictInt | StrictStr | None = None
+    time_ms: int = Field(default=0, ge=0)
 
 
 @router.get("/{quiz_id}")
 def game(quiz_id: str):
-    f = outbox.game_html(quiz_id.removeprefix("Q-"))
+    lesson_id, _ = quizzes.published(quiz_id)
+    f = outbox.game_html(lesson_id)
     if f is None:
-        # Fallback to default game template or mock outbox if available
-        pass
-    return FileResponse(f, media_type="text/html") if f else FileResponse(Path(__file__).parents[2] / "pipe" / "templates" / "game.html", media_type="text/html")
+        raise HTTPException(404, "Game not found")
+    return FileResponse(f, media_type="text/html")
 
 
 @router.post("/{quiz_id}/attempt")
 def submit_attempt(quiz_id: str, payload: AttemptRequest):
-    lesson_id = quiz_id.removeprefix("Q-")
-    quiz = outbox.load(lesson_id, "quiz")
-    if not quiz:
-        questions = outbox.get_latest_outbox().get("generated_questions", [])
-    else:
-        questions = quiz.get("questions", [])
+    lesson_id, quiz = quizzes.published(quiz_id)
+    question = next((q for q in quiz["questions"] if q["q_id"] == payload.q_id), None)
+    if question is None:
+        raise HTTPException(404, f"Question {payload.q_id} not found")
 
-    target_q = next((q for q in questions if q.get("id") == payload.q_id or q.get("q_id") == payload.q_id), None)
-
-    correct = False
-    answer = None
-    if target_q:
-        correct_idx = target_q.get("correct_index")
-        answer = correct_idx if correct_idx is not None else target_q.get("answer")
-        if payload.response == correct_idx or payload.response == answer:
-            correct = True
-
-    attempt_record = {
+    correct = stats.is_correct(question, payload.response)
+    append_jsonl(paths.ATTEMPTS, {
         "quiz_id": quiz_id,
-        "nickname": payload.nickname,
+        "nickname": payload.nickname.strip() or "?",
         "q_id": payload.q_id,
         "response": payload.response,
         "correct": correct,
         "time_ms": payload.time_ms,
-        "at": datetime.now(timezone.utc).isoformat()
-    }
-
-    try:
-        paths.ATTEMPTS.parent.mkdir(parents=True, exist_ok=True)
-        with open(paths.ATTEMPTS, "a", encoding="utf-8") as f:
-            f.write(json.dumps(attempt_record, ensure_ascii=False) + "\n")
-    except Exception as e:
-        print(f"Error writing attempt: {e}")
-
-    return {"correct": correct, "answer": answer}
+        "at": now_iso(),
+    })
+    stats.refresh(lesson_id, quiz)
+    return {"correct": correct, "answer": question["answer"]}

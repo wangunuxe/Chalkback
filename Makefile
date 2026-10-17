@@ -33,7 +33,7 @@ seed-mock:
 	$(PY) tools/seed_mock_home.py
 
 console: seed-mock
-	cd console && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
+	cd console && $(PY) generate_cert.py && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 hub:
 	cd hub && $(PY) -m uvicorn app.main:app --port 8000 --reload
@@ -47,7 +47,7 @@ test:
 check: validate-examples test
 
 teacher: seed-mock
-	cd console && $(PY) generate_cert.py && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 0.0.0.0 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
+	cd console && $(PY) generate_cert.py && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 school:
 	@echo "Starting School Hub & Console via Docker Compose..."

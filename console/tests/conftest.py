@@ -20,3 +20,40 @@ def schema():
         return Draft202012Validator(json.loads((ROOT / "contracts" / f"{name}.schema.json").read_text(encoding="utf-8")))
 
     return _get
+
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    """用 contracts/examples 生成的假 ~/.chalkback/。"""
+    import subprocess
+    import sys
+
+    subprocess.run([sys.executable, str(ROOT / "tools" / "seed_mock_home.py"), "--home", str(tmp_path)], check=True,
+                   capture_output=True)
+    monkeypatch.setenv("CHALKBACK_HOME", str(tmp_path))
+    return tmp_path
+
+
+@pytest.fixture
+def app(home):
+    import importlib
+
+    from app import main, outbox, paths
+    for m in (paths, outbox):
+        importlib.reload(m)
+    return main.app
+
+
+@pytest.fixture
+def client(app):
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, client=("127.0.0.1", 50000))
+
+
+LESSON = "L-T1-20261017-1000"
+QUIZ = "Q-L-T1-20261017-1000"
+
+
+def read_jsonl(path):
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]

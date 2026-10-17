@@ -26,7 +26,6 @@ services:
       dockerfile: console/Dockerfile
     # 必须只绑定 127.0.0.1：下面的 CONSOLE_TRUSTED_NETS 让老师页面信任容器网段，
     # 如果端口对局域网开放，等于把老师页面开放给所有人。
-    # 因此容器里的 /play 也只能从本机打开；手机作答测试请直接在宿主机运行控制台（make console）。
     ports:
       - "127.0.0.1:4000:4000"
     environment:
