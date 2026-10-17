@@ -1,6 +1,7 @@
 """极简的假 screenpipe：GET /search，返回格式按 demo/screenpipe_test_record.md（H2 实测）。
 
-支持 content_type、q（不区分大小写的子串）、start_time、end_time、limit、offset；记录收到的每个请求的参数。
+支持 content_type、q 和 window_name（都是不区分大小写的子串）、start_time、end_time、limit、offset；
+记录收到的每个请求的参数。
 """
 from __future__ import annotations
 
@@ -57,6 +58,8 @@ class FakeScreenpipe:
             if kind and item["type"] != kind:
                 continue
             if "q" in p and p["q"].casefold() not in text.casefold():
+                continue
+            if "window_name" in p and p["window_name"].casefold() not in (c.get("window_name") or "").casefold():
                 continue
             if (start and at < start) or (end and at > end):
                 continue
