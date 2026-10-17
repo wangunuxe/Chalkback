@@ -114,11 +114,18 @@ function renderSummary(b) {
   </div>`;
 }
 
+// 老师控制台跑在老师自己的电脑上（只绑定本机），原话、截图、题目只在那里
+const CONSOLE_URL = "https://localhost:4000";
+
 function renderTeacher(b, titles) {
+  const consoleLink = `<section class="card green"><div class="row">
+      <span><strong>Your ChalkBack console</strong><br><span class="muted">Review quizzes, approve or withdraw shares. Transcripts and screenshots stay there, on your computer.</span></span>
+      <a class="btn" href="${CONSOLE_URL}/review" target="_blank" rel="noopener">Open my console →</a>
+    </div></section>`;
   if (!b.classes.length) {
-    return `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>`;
+    return consoleLink + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>`;
   }
-  return b.classes.map((c) => `
+  return consoleLink + b.classes.map((c) => `
     <section class="card">
       <div class="row"><h2>Class ${esc(c.class_id)}</h2>${status(c)}</div>
       <p class="sub">${c.covered} of ${c.total} knowledge points covered · pace ${c.weekly_rate} per week</p>

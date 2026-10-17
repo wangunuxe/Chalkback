@@ -1,6 +1,6 @@
 """往正在运行的 Hub 灌演示覆盖数据（TD6 彩排、截图用）。
 
-    python hub/scripts/seed_demo.py [https://localhost:8000]
+    python hub/scripts/seed_demo.py [https://localhost:8443]
 
 走真实的 POST /api/coverage（与 C 的控制台上传同一路径），用 mock token：
 - T1 → 4A：进度正常（与控制台的 mock 老师 T1 是同一个身份）
@@ -41,4 +41,4 @@ def main(hub: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "https://localhost:8000")
+    main(sys.argv[1] if len(sys.argv) > 1 else "https://localhost:8443")
