@@ -1,4 +1,5 @@
-# Teacher console (owner: C) -- only for development and test mode; the data is the mock from contracts/examples.
+# Teacher console (owner: C) -- only for development and test mode. It starts empty ("Not set up yet");
+# `make mock` fills /data with the mock from contracts/examples (tools/seed_mock_home.py).
 # In a real deployment the console runs directly on the teacher's computer: it reads ~/.chalkback/, calls the local screenpipe, and serves the teacher pages to this machine only.
 # The build context is the repo root: docker compose build console
 FROM python:3.13-slim
@@ -25,4 +26,4 @@ WORKDIR /app/console
 EXPOSE 4000
 
 ENV HUB_URL=https://hub:8000
-CMD ["sh", "-c", "python /app/tools/seed_mock_home.py --home \"$CHALKBACK_HOME\" --hub-url \"$HUB_URL\" --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 4000 --ssl-keyfile key.pem --ssl-certfile cert.pem"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4000", "--ssl-keyfile", "key.pem", "--ssl-certfile", "cert.pem"]

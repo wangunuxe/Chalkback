@@ -134,7 +134,8 @@ function renderSummary(b, courses) {
     : `<span class="pill">🗂️ ${plural(courses.length, "course")} in ${new Set(courses.map((c) => c.class_id)).size} class${new Set(courses.map((c) => c.class_id)).size === 1 ? "" : "es"}</span>`;
   $("workspace").textContent = `${b.workspace.name} · ${ROLE_LABEL[b.view]} view`;
   $("summary").innerHTML = `<div class="stats">
-    <span class="pill">📚 ${esc(b.syllabus.subject)} ${esc(b.syllabus.level)} · syllabus v${b.syllabus.version}</span>
+    ${b.syllabus ? `<span class="pill">📚 ${esc(b.syllabus.subject)} ${esc(b.syllabus.level)} · syllabus v${b.syllabus.version}</span>`
+      : `<span class="chip draft">📚 No syllabus yet</span>`}
     <span class="pill">📅 Exam ${esc(b.exam_date ?? "not set")}${b.weeks_left != null ? ` · ${b.weeks_left} weeks left` : ""}</span>
     <span class="pill">🏫 ${b.classes.length} class${b.classes.length === 1 ? "" : "es"}</span>
     ${coursePill}
@@ -158,6 +159,7 @@ function samplePayload(b, classId) {
 const longDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 function privacyCard(b, classId, canTest) {
+  if (!b.syllabus) return ""; // the example is built from the syllabus
   const sample = samplePayload(b, classId);
   const title = (id) => b.syllabus.knowledge_points.find((kp) => kp.kp_id === id)?.title ?? id;
   return `<section class="card green">
@@ -234,7 +236,11 @@ function renderTeacher(b, titles, courses, syllabi) {
     </div></section>`;
   const privacy = privacyCard(b, b.classes[0]?.class_id ?? "4A", true);
   const mine = myCourses(b, courses, syllabi);
+  const waiting = b.syllabus ? "" : `<section class="card amber"><h3>📚 No syllabus yet</h3>
+      <p class="sub" style="margin:0">Your department head has not published the school's syllabus. Once it is approved you can
+        create your courses, and the lessons you share appear here.</p></section>`;
   if (!b.classes.length) {
+    if (waiting) return consoleLink + waiting + mine;
     return consoleLink + mine + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` + privacy;
   }
   return consoleLink + mine + b.classes.map((c) => `
@@ -301,6 +307,10 @@ function kpRow(kp = {}) {
   </tr>`;
 }
 
+// Id for the school's first syllabus, same rule as the Hub's AI import (syllabus_extract.syllabus_slug): Français + 4e → francais-4e
+const syllabusSlug = (subject, level) => `${subject} ${level}`.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "syllabus";
+
 function readDraft() {
   const rows = [...document.querySelectorAll("#kp-rows tr")];
   const used = new Set(rows.map((r) => r.dataset.kp).filter(Boolean));
@@ -314,8 +324,9 @@ function readDraft() {
     const keywords = r.querySelector(".kp-keywords-in").value.split(",").map((k) => k.trim()).filter(Boolean);
     points.push({ kp_id: id, title, keywords });
   }
+  const subject = $("sy-subject").value.trim(), level = $("sy-level").value.trim();
   return {
-    syllabus_id: $("sy-id").value, subject: $("sy-subject").value.trim(), level: $("sy-level").value.trim(),
+    syllabus_id: $("sy-id").value || syllabusSlug(subject, level), subject, level,
     version: 1, status: "draft", knowledge_points: points,
   };
 }
@@ -341,7 +352,9 @@ function renderPreview(info = "", sticky = false) {
 
 async function renderHead(b, titles, courses) {
   const risky = b.classes.filter((c) => c.at_risk);
-  const current = await (await api("/api/syllabus/current")).json();
+  // A new school has no approved syllabus: the editor starts empty and the head publishes the first one
+  const cur = await api("/api/syllabus/current");
+  const current = cur.ok ? await cur.json() : { syllabus_id: "", subject: "", level: "", knowledge_points: [] };
   approvedIds = new Set(current.knowledge_points.map((kp) => kp.kp_id));
   const matrix = b.classes.length ? `<div class="table-wrap"><table>
       <thead><tr><th>Knowledge point</th>${b.classes.map((c) => `<th class="c">Class ${esc(c.class_id)}</th>`).join("")}</tr></thead>
@@ -354,14 +367,15 @@ async function renderHead(b, titles, courses) {
     ${risky.length ? `<section class="card amber"><h3>⚠️ Exam alert</h3>${risky.map((c) => `<p style="margin:12px 0 0"><strong>Class ${esc(c.class_id)}</strong></p>${riskText(c, b)}`).join("")}</section>` : ""}
     ${classHierarchy(courses, { detail: true })}
     ${forecast(b)}
-    <section class="card">
+    ${b.syllabus ? `<section class="card">
       <h2>Coverage matrix 📚</h2>
       <p class="sub">Knowledge points × classes, from approved shares only.</p>
       ${matrix}
-    </section>
+    </section>` : ""}
     <section class="card pink" id="syllabus-card">
       <h2>Syllabus</h2>
-      <p class="sub">v${current.version} is approved. Teachers' consoles only ever use approved versions; drafts have no effect until you approve them.</p>
+      <p class="sub">${b.syllabus ? `v${current.version} is approved. Teachers' consoles only ever use approved versions; drafts have no effect until you approve them.`
+        : "<strong>No syllabus yet.</strong> Publish the school's first one: upload it as a draft below, then approve it. Teachers' boards and consoles use it once it is approved."}</p>
       ${b.drafts.length ? b.drafts.map((d) => `<div class="row" style="margin:8px 0">
           <span><span class="pill">📝 ${esc(d.syllabus_id)} v${d.version} · draft</span></span>
           <button class="go" data-approve="${esc(d.syllabus_id)}">Approve v${d.version}</button></div>`).join("")
@@ -377,7 +391,7 @@ async function renderHead(b, titles, courses) {
           <button id="sy-extract">✨ Summarise with AI</button>
         </div>
         <div id="kp-preview"></div>
-        <details id="kp-edit">
+        <details id="kp-edit"${current.knowledge_points.length ? "" : " open"}>
           <summary>Edit points and keywords by hand</summary>
           <p class="muted">Keywords are what teachers say or show when teaching the point; the pipe searches lessons for them.</p>
           <input type="hidden" id="sy-id" value="${esc(current.syllabus_id)}">
@@ -387,7 +401,7 @@ async function renderHead(b, titles, courses) {
           </div>
           <div class="table-wrap"><table>
             <thead><tr><th style="width:45%">Knowledge point</th><th>Keywords (comma-separated)</th><th></th></tr></thead>
-            <tbody id="kp-rows">${current.knowledge_points.map(kpRow).join("")}</tbody>
+            <tbody id="kp-rows">${(current.knowledge_points.length ? current.knowledge_points : [{}]).map(kpRow).join("")}</tbody>
           </table></div>
           <div class="row" style="margin-top:10px"><button id="kp-add">+ Add a knowledge point</button></div>
         </details>
@@ -602,7 +616,7 @@ function myCourses(b, courses, syllabi) {
   return `<section class="card" id="my-courses">
     <h2>My courses 🗂️</h2>
     <p class="sub">One course per class and syllabus. Progress comes from the lessons you already shared. When you are ready, get the summary screenpipe wrote, check it, and send it to your department head. You can withdraw it at any time.</p>
-    ${form}
+    ${syllabi.length ? form : `<p class="muted">You can create courses once your department head has approved a syllabus.</p>`}
     ${noteHtml("courses-msg")}
     ${courses.length ? `<div class="courses">${courses.map(teacherCourse).join("")}</div>`
       : `<div class="empty">No courses yet. Create one for each class you teach.</div>`}
@@ -777,8 +791,10 @@ async function refresh(force = false) {
   busy = true;
   try {
     renderRoles();
-    const [r, a, c, s] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit"), api("/api/courses"),
-      role === "teacher" ? api("/api/syllabus") : null]);
+    const view = role;
+    const [r, a, c, s] = await Promise.all([api(`/api/dashboard?view=${view}`), api("/api/audit"), api("/api/courses"),
+      view === "teacher" ? api("/api/syllabus") : null]);
+    if (view !== role) { again = true; return; } // switched roles while loading: draw the new role instead
     if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
     const b = await r.json();
     const events = a.ok ? await a.json() : [];
@@ -786,7 +802,7 @@ async function refresh(force = false) {
     const syllabi = s?.ok ? await s.json() : [];
     for (const course of courses) courseNames[course.course_id] = course.name;
     currentCourses = courses;
-    const titles = Object.fromEntries(b.syllabus.knowledge_points.map((kp) => [kp.kp_id, kp.title]));
+    const titles = Object.fromEntries((b.syllabus?.knowledge_points ?? []).map((kp) => [kp.kp_id, kp.title]));
     renderSummary(b, courses);
     const firstClass = b.classes[0]?.class_id ?? "4A";
     const form = saveForm();

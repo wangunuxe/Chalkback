@@ -32,13 +32,14 @@ with `422`, and stores nothing from it.
 Requires Docker. From the repository root:
 
 ```bash
-make up            # starts the Hub and a teacher console
+make up            # starts the Hub and a teacher console, both empty
+make mock          # optional: load the demo data (see section 9)
 ```
 
 - Hub: **<https://localhost:8443>** (API reference at `/docs`). The certificate is self-signed, so the
   browser warns once. Choose *Advanced → Continue*.
 - Stop with `make down`. Data is kept in the `hub-data` Docker volume.
-- `docker compose down -v` deletes all Hub data. Do this after upgrading if the Hub fails to start.
+- `make reset` (= `docker compose down -v`) deletes all Hub data. Do this after upgrading if the Hub fails to start.
 - `make up` runs the Hub in **test mode** (`HUB_MOCK_AUTH=1`): the public `DEMO-*` invite codes and
   `mock-token-<id>` tokens work. Use it only on your own computer.
 
@@ -86,6 +87,7 @@ In test mode (`make up`, `make hub`) the codes are `DEMO-TEACHER`, `DEMO-HEAD` a
 ## 3. Publish the syllabus (department head, approval A4)
 
 Teachers' laptops always use the **latest approved** syllabus. A draft has no effect until a head approves it.
+A new Hub has no syllabus: the dashboard shows "No syllabus yet" until the head uploads and approves the first one.
 
 On the dashboard, as *Department head* → **Syllabus** panel:
 
@@ -193,14 +195,16 @@ All requests except `join` need `Authorization: Bearer <token>`.
 
 ## 9. Rehearsal data
 
-With the Hub running in test mode (`make up` or `make hub`; the script uses test tokens):
+The Hub starts with no data. With it running in test mode (the script uses test tokens):
 
 ```bash
-python hub/scripts/seed_demo.py            # default https://localhost:8443
+make mock          # Docker (make up): Hub https://localhost:8443 and the console
+make mock-local    # without Docker (make hub + make teacher): Hub https://localhost:8000
 ```
 
-This shares six example lessons through the real API: class 4A is on track, 4B triggers the exam alert, and
-teacher T1 sees a point covered in another class but not in theirs. To see T1's view, choose *I already have a
+As department head H1 this approves the French syllabus (the main one) and a maths syllabus, shares nine example
+lessons through the real API (class 4A is on track, 4B triggers the exam alert, teacher T1 sees a point covered in
+another class but not in theirs), and creates five courses, three with a summary. Running it again adds nothing new. To see T1's view, choose *I already have a
 token* on the home page and enter `mock-token-T1`.
 
 ## Known limits

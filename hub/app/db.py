@@ -4,12 +4,10 @@ The HUB_DB environment variable sets the database file; default hub/chalkback.db
 """
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 from pathlib import Path
 
-from .mock import EXAMPLES
 
 DB_PATH = Path(os.environ.get("HUB_DB", Path(__file__).resolve().parents[1] / "chalkback.db"))
 
@@ -78,8 +76,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
 DEMO_WORKSPACE = ("W1", "Collège Démo", "2026-12-18")  # exam date: no settings endpoint is defined; HUB_EXAM_DATE can override it (TD6)
 # The public demo invite codes only work in test mode (HUB_MOCK_AUTH=1); they are in the repo, so on the public internet anyone could use them to join as admin.
 DEMO_INVITES = {"DEMO-TEACHER": "teacher", "DEMO-HEAD": "head", "DEMO-ADMIN": "admin"}
-# Demo syllabus v1 (approved), used by A/B/C until a department head uploads a new version. Replace with the files in demo/syllabus/ once H4 is finalized.
-DEMO_SYLLABUS = EXAMPLES / "syllabus.json"
+# No syllabus is preloaded: the department head publishes the first one (or `make mock` loads the demo data).
 
 
 def invite_codes() -> dict[str, str]:
@@ -122,11 +119,5 @@ def connect() -> sqlite3.Connection:
         conn.executemany(
             "INSERT OR IGNORE INTO invites (invite_code, workspace_id, role) VALUES (?, ?, ?)",
             [(code, DEMO_WORKSPACE[0], role) for code, role in codes.items()],
-        )
-        syllabus = json.loads(DEMO_SYLLABUS.read_text(encoding="utf-8"))
-        conn.execute(
-            "INSERT OR IGNORE INTO syllabi (workspace_id, syllabus_id, version, status, body, approved_at)"
-            " VALUES (?, ?, ?, 'approved', ?, '2026-10-17T00:00:00+00:00')",
-            (DEMO_WORKSPACE[0], syllabus["syllabus_id"], syllabus["version"], json.dumps(syllabus, ensure_ascii=False)),
         )
     return conn

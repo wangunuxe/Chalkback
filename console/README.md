@@ -5,7 +5,8 @@ students answer in the browser on the teacher's computer; there is no mobile ver
 
 ```bash
 pip install -r requirements.txt
-make teacher        # from the repo root: generate .mock-home/ and the certificate, start https://localhost:4000/console
+make teacher        # from the repo root: generate the certificate, start https://localhost:4000/console (reads .mock-home/)
+make mock-local     # optional: fill .mock-home/ with the mock from contracts/examples (and the Hub on :8000)
 pytest              # from console/
 ```
 
