@@ -1,7 +1,8 @@
 <!doctype html>
 <!--
-  学生游戏页面模板（TB3，负责人 B）。scripts/build_game.py 把 quiz.json 去掉 answer / source / kp_id 后
-  注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
+  学生游戏页面模板（TB3，负责人 B；视觉设计来自前端 PR #3）。scripts/build_game.py 把 quiz.json 去掉
+  answer / source / kp_id 后注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；
+  控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
 
   作答接口（H9，控制台判分）：
     POST /play/{quiz_id}/attempt
@@ -9,75 +10,283 @@
     返回 {correct, answer}（answer 是正确答案，用于显示反馈）
   response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
 
-  约束：不引用任何外部资源（校园网可能没有外网）；所有题目文字用 textContent 插入。
+  约束：
+  - 不引用任何外部资源（CDN、网络字体都不行）：学生手机连的是老师电脑，校园网可能没有外网。
+    PR #3 的 Tailwind 样式已翻译成下面的内联 CSS，颜色取 Tailwind 同名色值。
+  - 所有题目文字用 textContent 插入。
+  - tests/test_build_game.py 会检查这两条，以及页面确实使用 QUIZ 并提交作答。
 -->
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>ChalkBack - Classroom Quiz Game 🖍️✨</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Fredoka', 'Inter', sans-serif; }
+    :root {
+      color-scheme: light;
+      --slate-50: #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0; --slate-500: #64748b; --slate-700: #334155; --slate-800: #1e293b;
+      --sky-50: #f0f9ff; --sky-100: #e0f2fe; --sky-200: #bae6fd; --sky-600: #0284c7; --sky-900: #0c4a6e;
+      --yellow-50: #fefce8; --yellow-200: #fef08a; --yellow-300: #fde047; --yellow-400: #facc15; --yellow-500: #eab308; --yellow-900: #713f12;
+      --pink-50: #fdf2f8; --pink-100: #fce7f3; --pink-200: #fbcfe8; --pink-400: #f472b6; --pink-500: #ec4899; --pink-600: #db2777; --pink-800: #9d174d; --pink-900: #831843;
+      --emerald-100: #d1fae5; --emerald-200: #a7f3d0; --emerald-300: #6ee7b7; --emerald-400: #34d399; --emerald-800: #065f46; --emerald-900: #064e3b;
+      --shadow: 0 25px 50px -12px rgb(0 0 0 / .25);
+      --shadow-sm: 0 1px 3px rgb(0 0 0 / .1), 0 1px 2px rgb(0 0 0 / .06);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px;
+      background: linear-gradient(to bottom right, var(--sky-100), var(--yellow-50), var(--pink-100));
+      color: var(--slate-700);
+      font-family: "Fredoka", ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px; line-height: 1.4; -webkit-text-size-adjust: 100%;
+    }
+    main { width: 100%; max-width: 28rem; margin: 0 auto; }
+    p, h1, h2 { margin: 0; }
+    button { font: inherit; cursor: pointer; touch-action: manipulation; }
+    button:disabled { cursor: default; }
+
+    .card {
+      position: relative; overflow: hidden; background: #fff; border-radius: 24px; padding: 24px;
+      border: 4px solid var(--emerald-300); box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 24px;
+    }
+    .card.join { border-color: var(--yellow-300); padding: 32px; text-align: center; }
+    .deco { position: absolute; top: -24px; right: -24px; font-size: 72px; opacity: .2; pointer-events: none; }
+    .hero { display: flex; flex-direction: column; gap: 8px; }
+    .bounce { font-size: 48px; display: inline-block; animation: bounce 1s infinite; }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(.8, 0, 1, 1); }
+      50% { transform: none; animation-timing-function: cubic-bezier(0, 0, .2, 1); }
+    }
+    h1 { font-size: 30px; font-weight: 700; color: var(--sky-600); }
+    .subtitle { font-size: 14px; font-weight: 600; color: var(--pink-500); }
+
+    form { display: flex; flex-direction: column; gap: 16px; margin: 0; text-align: left; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--slate-500);
+            text-transform: uppercase; letter-spacing: .05em; }
+    input[type=text] {
+      width: 100%; padding: 12px 16px; border-radius: 16px; border: 2px solid var(--yellow-200);
+      background: rgb(254 252 232 / .5); color: var(--slate-800); font: inherit; font-size: 18px; font-weight: 700;
+      text-transform: none; letter-spacing: normal; box-shadow: inset 0 2px 4px rgb(0 0 0 / .05);
+    }
+    input[type=text]:focus { outline: none; border-color: var(--pink-400); }
+
+    .cta {
+      width: 100%; padding: 16px; border-radius: 16px; border: 2px solid #fff; color: #fff; font-size: 20px; font-weight: 700;
+      background: linear-gradient(to right, var(--pink-500), var(--yellow-400)); box-shadow: 0 10px 15px -3px rgb(0 0 0 / .1);
+      transition: transform .15s;
+    }
+    .cta:hover:not(:disabled) { background: linear-gradient(to right, var(--pink-600), var(--yellow-500)); transform: translateY(-4px); }
+    .cta:active:not(:disabled) { transform: translateY(2px); }
+    .cta:disabled { opacity: .6; }
+
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .chip { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .chip.score { background: var(--emerald-100); color: var(--emerald-800); }
+    .chip.time { background: var(--pink-100); color: var(--pink-800); font-variant-numeric: tabular-nums; }
+    .chip.time.low { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: .5; } }
+    .bar { width: 100%; height: 12px; border-radius: 999px; overflow: hidden; background: var(--slate-100); border: 1px solid var(--slate-200); }
+    .bar > div { height: 100%; border-radius: 999px; background: var(--emerald-400); transform-origin: left; }
+
+    .question { background: var(--sky-50); border: 2px solid var(--sky-200); border-radius: 16px; padding: 24px; text-align: center;
+                display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .question .chip { background: var(--sky-100); color: var(--sky-600); }
+    .prompt { font-size: 24px; font-weight: 700; color: var(--slate-800); overflow-wrap: anywhere; }
+
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .choices.single { grid-template-columns: 1fr; }
+    .choice {
+      padding: 16px; min-height: 72px; border-radius: 16px; border: 2px solid; font-weight: 700; font-size: 17px;
+      box-shadow: var(--shadow-sm); overflow-wrap: anywhere; transition: transform .15s, background-color .15s;
+    }
+    .choice:hover:not(:disabled) { transform: translateY(-4px); }
+    .choice:active:not(:disabled) { transform: translateY(2px); }
+    .choice:nth-child(4n+1) { background: var(--emerald-100); color: var(--emerald-900); border-color: var(--emerald-300); }
+    .choice:nth-child(4n+2) { background: var(--pink-50); color: var(--pink-900); border-color: var(--pink-200); }
+    .choice:nth-child(4n+3) { background: var(--yellow-50); color: var(--yellow-900); border-color: var(--yellow-200); }
+    .choice:nth-child(4n+4) { background: var(--sky-50); color: var(--sky-900); border-color: var(--sky-200); }
+    .choice:disabled { opacity: .55; }
+    .choice.picked { opacity: 1; outline: 4px solid var(--pink-400); outline-offset: 2px; }
+
+    .feedback { border-radius: 16px; padding: 16px; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+    .feedback strong { font-size: 22px; }
+    .feedback.ok { background: var(--emerald-100); color: var(--emerald-900); border: 2px solid var(--emerald-300); }
+    .feedback.ko { background: var(--pink-50); color: var(--pink-900); border: 2px solid var(--pink-200); }
+    .feedback.net { background: var(--slate-50); color: var(--slate-700); border: 2px solid var(--slate-200); }
+
+    .final { font-size: 56px; font-weight: 700; color: var(--pink-500); text-align: center; }
+    .center { text-align: center; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bounce, .chip.time.low { animation: none; }
+      .cta, .choice { transition: none; }
+    }
   </style>
 </head>
-<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col justify-center items-center p-4 text-slate-700">
-
-  <main id="app" class="w-full max-w-md mx-auto">
-    <!-- Join Card -->
-    <div class="bg-white rounded-3xl p-8 border-4 border-yellow-300 shadow-2xl text-center space-y-6 relative overflow-hidden">
-      <div class="absolute -top-6 -right-6 text-7xl opacity-20 pointer-events-none">🖍️</div>
-      <div class="space-y-2">
-        <span class="text-5xl animate-bounce inline-block">🖍️</span>
-        <h1 class="text-3xl font-bold text-sky-600">ChalkBack Quiz</h1>
-        <p class="text-sm text-pink-500 font-semibold">Classroom Review & Interactive Quiz 📋✨</p>
-      </div>
-
-      <form id="join" class="space-y-4">
-        <div class="space-y-1 text-left">
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Your Nickname (Pseudo)</label>
-          <input name="nickname" required maxlength="20" autocomplete="off" placeholder="Ex: Lucas 🎒" class="w-full px-4 py-3 rounded-2xl border-2 border-yellow-200 focus:border-pink-400 focus:outline-none font-bold text-lg text-slate-800 bg-yellow-50/50 shadow-inner">
-        </div>
-        <button class="w-full py-4 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-bold text-xl rounded-2xl shadow-lg border-2 border-white transform hover:-translate-y-1 active:translate-y-0.5 transition-all cursor-pointer">
-          🎮 Start Quiz !
-        </button>
-      </form>
-    </div>
-  </main>
-
+<body>
+  <main id="app" aria-live="polite"></main>
   <script>
     const QUIZ = /*QUIZ_JSON*/ null;
-    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
-    // TODO(TB3): 渲染题目、计时、提交作答
 
-    document.getElementById('join').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const nickname = this.elements.nickname.value;
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="bg-white rounded-3xl p-6 border-4 border-emerald-300 shadow-2xl space-y-6">
-          <div class="flex items-center justify-between">
-            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-xs">⭐ Score: 10/10</span>
-            <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold text-xs animate-pulse">⏳ 00:15</span>
-          </div>
-          <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200">
-            <div class="bg-emerald-400 h-full w-3/4 rounded-full"></div>
-          </div>
-          <div class="bg-sky-50 rounded-2xl p-6 border-2 border-sky-200 text-center space-y-3">
-            <span class="text-xs font-bold text-sky-600 bg-sky-100 px-3 py-1 rounded-full">Question 1 / 3</span>
-            <h2 class="text-2xl font-bold text-slate-800">Review Question 1</h2>
-            <p class="text-3xl font-extrabold text-pink-600">Sample Concept 🌟</p>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <button onclick="alert('🎉 Bravo ! Correct !')" class="p-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-2xl border-2 border-emerald-300 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">A) Option 1</button>
-            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-pink-50 hover:bg-pink-100 text-pink-900 font-bold rounded-2xl border-2 border-pink-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">B) Option 2</button>
-            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-yellow-50 hover:bg-yellow-100 text-yellow-900 font-bold rounded-2xl border-2 border-yellow-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">C) Option 3</button>
-            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-sky-50 hover:bg-sky-100 text-sky-900 font-bold rounded-2xl border-2 border-sky-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">D) Option 4</button>
-          </div>
-        </div>
-      `;
-    });
+    const app = document.getElementById("app");
+    const state = { nickname: "", index: 0, score: 0 };
+    const LETTERS = ["A", "B", "C", "D", "E", "F"];
+    let timer = null;
+
+    function el(tag, attrs = {}, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === "class") node.className = v;
+        else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+      }
+      for (const c of children) node.append(c);
+      return node;
+    }
+
+    function show(...children) {
+      clearInterval(timer);
+      app.replaceChildren(...children);
+    }
+
+    function joinScreen() {
+      const input = el("input", { type: "text", name: "nickname", maxlength: "20", required: "",
+        autocomplete: "off", autocapitalize: "off", placeholder: "Ex: Lucas 🎒" });
+      show(el("div", { class: "card join" },
+        el("div", { class: "deco", "aria-hidden": "true" }, "🖍️"),
+        el("div", { class: "hero" },
+          el("span", { class: "bounce", "aria-hidden": "true" }, "🖍️"),
+          el("h1", {}, "ChalkBack Quiz"),
+          el("p", { class: "subtitle" }, `${QUIZ.questions.length} questions · Classroom Review 📋✨`)),
+        el("form", { onsubmit: (e) => {
+          e.preventDefault();
+          state.nickname = input.value.trim();
+          if (state.nickname) questionScreen();
+        } },
+          el("label", {}, "Your Nickname", input),
+          el("button", { class: "cta" }, "🎮 Start Quiz!")),
+      ));
+      input.focus();
+    }
+
+    function questionScreen() {
+      const q = QUIZ.questions[state.index];
+      const total = QUIZ.questions.length;
+      const started = performance.now();
+      const limitMs = q.time_limit_s * 1000;
+      let done = false;
+      const bar = el("div");
+      const clock = el("span", { class: "chip time" });
+      const card = el("div", { class: "card" });
+
+      const submit = (response, picked) => {
+        if (done) return;
+        done = true;
+        clearInterval(timer);
+        const elapsed = Math.min(Math.round(performance.now() - started), limitMs);
+        card.querySelectorAll("button, input").forEach((n) => (n.disabled = true));
+        if (picked) picked.classList.add("picked");
+        sendAttempt(q, response, elapsed, card);
+      };
+
+      let body;
+      if (q.type === "mcq") {
+        const long = q.choices.some((c) => c.length > 30);
+        body = el("div", { class: "choices" + (long ? " single" : "") },
+          ...q.choices.map((c, i) => {
+            const b = el("button", { type: "button", class: "choice", onclick: () => submit(i, b) }, `${LETTERS[i] || i + 1}) ${c}`);
+            return b;
+          }));
+      } else if (q.type === "true_false") {
+        const yes = el("button", { type: "button", class: "choice", onclick: () => submit(true, yes) }, "✅ True");
+        const no = el("button", { type: "button", class: "choice", onclick: () => submit(false, no) }, "❌ False");
+        body = el("div", { class: "choices" }, yes, no);
+      } else {
+        const input = el("input", { type: "text", autocomplete: "off", autocapitalize: "off",
+          autocorrect: "off", spellcheck: "false", placeholder: "Your answer…" });
+        body = el("form", { onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) submit(input.value.trim()); } },
+          input, el("button", { class: "cta" }, "✅ Validate"));
+        setTimeout(() => input.focus(), 0);
+      }
+
+      card.append(
+        el("div", { class: "top" }, el("span", { class: "chip score" }, `⭐ Score: ${state.score}/${total}`), clock),
+        el("div", { class: "bar" }, bar),
+        el("div", { class: "question" },
+          el("span", { class: "chip" }, `Question ${state.index + 1} / ${total}`),
+          el("p", { class: "prompt" }, q.prompt)),
+        body,
+      );
+      show(card);
+
+      const tick = () => {
+        const remaining = Math.max(0, limitMs - (performance.now() - started));
+        const s = Math.ceil(remaining / 1000);
+        bar.style.transform = `scaleX(${remaining / limitMs})`;
+        clock.textContent = `⏳ ${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+        clock.classList.toggle("low", s <= 5);
+        if (remaining <= 0) submit(null);
+      };
+      tick();
+      timer = setInterval(tick, 100);
+    }
+
+    async function post(payload) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(`/play/${encodeURIComponent(QUIZ.quiz_id)}/attempt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) return await res.json();
+        } catch (_) { /* 网络抖动，重试 */ }
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      return null;
+    }
+
+    function answerText(q, answer) {
+      if (q.type === "mcq") return `${LETTERS[answer] || answer + 1}) ${q.choices[answer]}`;
+      if (q.type === "true_false") return answer ? "True" : "False";
+      return String(answer);
+    }
+
+    async function sendAttempt(q, response, timeMs, card) {
+      const result = await post({ nickname: state.nickname, q_id: q.q_id, response, time_ms: timeMs });
+      let feedback;
+      if (result === null) {
+        feedback = el("div", { class: "feedback net" }, el("strong", {}, "📡 Answer not sent"), el("span", {}, "Network problem — let's keep going."));
+      } else if (result.correct) {
+        state.score++;
+        feedback = el("div", { class: "feedback ok" }, el("strong", {}, "🎉 Great job! Correct!"));
+      } else {
+        feedback = el("div", { class: "feedback ko" },
+          el("strong", {}, response === null ? "⏰ Time's up!" : "❌ Not quite"),
+          el("span", {}, `Correct answer: ${answerText(q, result.answer)}`));
+      }
+      const last = state.index === QUIZ.questions.length - 1;
+      card.append(feedback, el("button", { class: "cta", onclick: () => { state.index++; last ? endScreen() : questionScreen(); } },
+        last ? "🏁 See my score" : "➡️ Next question"));
+    }
+
+    function endScreen() {
+      show(el("div", { class: "card join" },
+        el("div", { class: "deco", "aria-hidden": "true" }, "🏆"),
+        el("h1", {}, `Well done, ${state.nickname}!`),
+        el("p", { class: "final" }, `${state.score} / ${QUIZ.questions.length}`),
+        el("p", { class: "subtitle" }, "Your answers help your teacher prepare the next lesson ✨"),
+      ));
+    }
+
+    if (!QUIZ) {
+      show(el("div", { class: "card join" }, el("h1", {}, "ChalkBack Quiz"),
+        el("p", { class: "center" }, "Empty template: generate this page with scripts/build_game.py.")));
+    } else {
+      joinScreen();
+    }
   </script>
 </body>
 </html>
