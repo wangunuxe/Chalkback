@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
 );
 CREATE TABLE IF NOT EXISTS invites (
   invite_code  TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces
+  workspace_id TEXT NOT NULL REFERENCES workspaces,
+  role         TEXT NOT NULL CHECK (role IN ('teacher', 'head', 'admin'))  -- 每种角色一个码
 );
 CREATE TABLE IF NOT EXISTS members (
   member_id    TEXT PRIMARY KEY,           -- teacher_id 等
@@ -54,8 +55,19 @@ CREATE TABLE IF NOT EXISTS audit_events (
 """
 
 
+# 演示工作区：§6.4 没有“创建工作区”的接口，Hub 启动时自动建好（TD2）。
+DEMO_WORKSPACE = ("W1", "Collège Démo")
+DEMO_INVITES = {"DEMO-TEACHER": "teacher", "DEMO-HEAD": "head", "DEMO-ADMIN": "admin"}
+
+
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
+    with conn:
+        conn.execute("INSERT OR IGNORE INTO workspaces (workspace_id, name) VALUES (?, ?)", DEMO_WORKSPACE)
+        conn.executemany(
+            "INSERT OR IGNORE INTO invites (invite_code, workspace_id, role) VALUES (?, ?, ?)",
+            [(code, DEMO_WORKSPACE[0], role) for code, role in DEMO_INVITES.items()],
+        )
     return conn
