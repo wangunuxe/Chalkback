@@ -10,6 +10,7 @@ class HubClient:
             base_url=hub_url,
             headers={"Authorization": f"Bearer {token}"} if token else {},
             timeout=10,
+            verify=False if hub_url.startswith("https://") else True,
         )
 
     def join(self, invite_code: str, display_name: str, role: str = "teacher") -> dict:

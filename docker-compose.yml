@@ -1,7 +1,7 @@
 # 开发与联调环境：学校 Hub + 老师控制台（mock 数据）。
 #
 #   docker compose up --build
-#   Hub      http://localhost:8000      （API 文档 /docs）
+#   Hub      https://localhost:8443      （API 文档 /docs）
 #   控制台   http://localhost:4000      （只绑定本机）
 #
 # 不在这里的：screenpipe（桌面程序，要录老师的麦克风和屏幕）和 chalkback-pipe（由 screenpipe 启动）。
@@ -15,7 +15,7 @@ services:
       context: .
       dockerfile: hub/Dockerfile
     ports:
-      - "8000:8000"
+      - "8443:8000"
     volumes:
       - hub-data:/data
     networks: [chalkback]
@@ -31,7 +31,7 @@ services:
       - "127.0.0.1:4000:4000"
     environment:
       CONSOLE_TRUSTED_NETS: 172.28.0.0/16
-      HUB_URL: http://hub:8000
+      HUB_URL: https://hub:8000
     volumes:
       - console-data:/data   # 假的 ~/.chalkback；docker compose down -v 后会重新生成 mock
     depends_on:
