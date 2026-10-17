@@ -17,7 +17,7 @@ pytest
 - 三种角色都能看审计日志，范围按角色过滤。
 - 预警：`剩余未覆盖知识点数 > 距考试剩余周数 × 平均每周覆盖数`。平均每周覆盖数 = 已覆盖数 ÷ 从该班第一节上传课到今天的周数（最少按 1 周算）。考试日期默认 `2026-12-18`，用环境变量 `HUB_EXAM_DATE=YYYY-MM-DD` 覆盖。
 
-彩排数据：Hub 运行时执行 `python hub/scripts/seed_demo.py [https://localhost:8000]`，会通过真实接口上传 3 个班的示例覆盖数据（4A 进度正常，4B 触发预警，T1 能看到同年级对比）。
+彩排数据：Hub 运行时执行 `python hub/scripts/seed_demo.py [Hub 地址]`（默认 `https://localhost:8443`，即 `make up` 的地址；直接用 uvicorn 运行时传 `http://localhost:8000`），会通过真实接口上传 3 个班的示例覆盖数据（4A 进度正常，4B 触发预警，T1 能看到同年级对比）。
 
 覆盖表（TD4、TD5，审批 A3、A5）：
 - `POST /api/coverage`（老师）：严格按 `coverage_share` schema 校验，多一个字段都返回 422（隐私边界）。同一位老师重传同一节课，新的替换旧的。写审计 `share_coverage`。
