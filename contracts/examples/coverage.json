@@ -4,31 +4,10 @@
   "class_id": "4A",
   "syllabus_id": "fr-grammaire-4e",
   "syllabus_version": 1,
-  "generated_at": "2026-10-17T11:15:00+02:00",
+  "generated_at": "2026-10-17T11:05:00+02:00",
   "points": [
-    {
-      "kp_id": "KP01",
-      "covered": true,
-      "minutes": 8.2,
-      "segment_ids": ["S-L-T1-20261017-1000-001", "S-L-T1-20261017-1000-002"]
-    },
-    {
-      "kp_id": "KP02",
-      "covered": false,
-      "minutes": 0.0,
-      "segment_ids": []
-    },
-    {
-      "kp_id": "KP03",
-      "covered": true,
-      "minutes": 4.5,
-      "segment_ids": ["S-L-T1-20261017-1000-003"]
-    },
-    {
-      "kp_id": "KP04",
-      "covered": true,
-      "minutes": 6.0,
-      "segment_ids": ["S-L-T1-20261017-1000-004"]
-    }
+    {"kp_id": "KP01", "covered": false, "minutes": 0, "segment_ids": []},
+    {"kp_id": "KP02", "covered": false, "minutes": 0, "segment_ids": []},
+    {"kp_id": "KP03", "covered": true, "minutes": 4.5, "segment_ids": ["S-L-T1-20261017-1000-003"]}
   ]
 }
