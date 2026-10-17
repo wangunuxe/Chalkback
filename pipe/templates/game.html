@@ -11,7 +11,7 @@
   response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
 
   约束：
-  - 不引用任何外部资源（CDN、网络字体都不行）：学生手机连的是老师电脑，校园网可能没有外网。
+  - 不引用任何外部资源（CDN、网络字体都不行）：游戏由老师电脑本机的控制台提供，教室里可能没有外网，离线也要能用。
     PR #3 的 Tailwind 样式已翻译成下面的内联 CSS，颜色取 Tailwind 同名色值。
   - 所有题目文字用 textContent 插入。
   - tests/test_build_game.py 会检查这两条，以及页面确实使用 QUIZ 并提交作答。

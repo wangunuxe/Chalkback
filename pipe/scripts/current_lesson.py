@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """确定要处理的那节课（pipe 第 1 步，负责人 B）。
 
-    python current_lesson.py [--now 2026-10-19T11:05:00+02:00] [--days 7]
+    python current_lesson.py [--now 2026-10-19T11:05:00+02:00] [--days 7] [--mock]
 
 读 config.json 的课表，从 --now 往回找最近一节**已经结束**的课（最多回看 --days 天），输出：
 
@@ -13,6 +13,10 @@
 ready 为 true 表示这节课已经处理过，pipe 应直接结束（B 不修改已有 ready 的目录，§6.2）。
 往回找而不是只看“刚结束”，是为了让手动触发（demo 用录好的课）也能用。
 找不到任何课时退出码 2。
+
+--mock（本地开发，配合 tools/seed_mock_home.py）：把“现在”固定为 MOCK_NOW。示例 config 的课表是周一 10:00–11:00，
+示例课（2026-10-17）已经有 ready 的 outbox，所以 mock 跑的是它之后的周一那节课（seed 也给它写了教案）。
+不固定的话，结果取决于运行那天是星期几，常常找到一节没有教案的课。
 """
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ from datetime import date, datetime, time, timedelta, tzinfo
 from pathlib import Path
 
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+MOCK_NOW = "2026-10-19T11:05:00+02:00"
 
 
 def chalkback_home() -> Path:
@@ -79,10 +84,13 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--now", type=datetime.fromisoformat, help="ISO 8601 带时区；默认当前时间（Europe/Paris）")
     ap.add_argument("--days", type=int, default=7, help="最多往回找几天")
+    ap.add_argument("--mock", action="store_true", help=f"本地开发：没给 --now 时把现在固定为 {MOCK_NOW}")
     args = ap.parse_args(argv)
 
     home = chalkback_home()
     config = json.loads((home / "config.json").read_text(encoding="utf-8"))
+    if args.mock and args.now is None:
+        args.now = datetime.fromisoformat(MOCK_NOW)
     if args.now and args.now.tzinfo is None:
         ap.error("--now 必须带时区，例如 2026-10-19T11:05:00+02:00")
     # 换到 Europe/Paris 再推算，往回找时跨过夏令时切换也对

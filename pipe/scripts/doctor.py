@@ -93,18 +93,18 @@ def check_home(r: Report, home: Path) -> dict | None:
     config_path = home / "config.json"
     if not config_path.exists():
         r.add("FAIL", "Teacher config", f"{config_path} not found",
-              "open http://localhost:4000/setup and finish the setup wizard")
+              "open https://localhost:4000/setup and finish the setup wizard")
         return None
     import validate
     errors = validate.validate_file("config", config_path)
     if errors:
-        r.add("FAIL", "Teacher config", errors[0], "run the setup wizard again: http://localhost:4000/setup")
+        r.add("FAIL", "Teacher config", errors[0], "run the setup wizard again: https://localhost:4000/setup")
         return None
     config = json.loads(config_path.read_text(encoding="utf-8"))
     r.add("ok", "Teacher config", f"teacher {config['teacher_id']}, {len(config['timetable'])} timetable slot(s)")
     if not config["timetable"]:
         r.add("warn", "Timetable", "empty - the pipe will never find a lesson to process",
-              "add your lessons in the setup wizard: http://localhost:4000/setup")
+              "add your lessons in the setup wizard: https://localhost:4000/setup")
 
     syllabus = home / "cache" / "syllabus.json"
     if not syllabus.exists():

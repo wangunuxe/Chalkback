@@ -10,7 +10,7 @@
 - source.segment_id 是本节的片段；source.quote 规范化后是该片段 speech 的子串（不许编造原话）
 - source.frame_ids 都来自该片段的 evidence（不许编造截图 id）
 - mcq：答案下标在范围内，选项规范化后不重复；fill_blank：题干有 ___，答案规范化后非空
-- 警告：片段不在 coverage 给这个知识点记的 segment_ids 里；原话少于 5 个词
+- 警告：片段不在 coverage 给这个知识点记的 segment_ids 里；原话少于 5 个或多于 25 个词
 
 normalize_answer() 是填空题判分规则的草案，控制台判分必须用同一套规则（待写进 contracts/）。
 """
@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from validate import validate_file  # noqa: E402
 
 MIN_QUOTE_WORDS = 5
+MAX_QUOTE_WORDS = 25
 APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'", "«": '"', "»": '"', "“": '"', "”": '"'})
 
 
@@ -79,7 +80,9 @@ def check(quiz: dict, segments: list[dict], coverage: dict, plan: dict | None) -
                 warnings.append(f"{where}: 片段 {src['segment_id']} 没有被 coverage 记在 {kp} 下")
         words = len(normalize_quote(src["quote"]).split())
         if words < MIN_QUOTE_WORDS:
-            warnings.append(f"{where}: 原话只有 {words} 个词，可能不足以支撑这道题（要求 {MIN_QUOTE_WORDS}–25 个词）")
+            warnings.append(f"{where}: 原话只有 {words} 个词，可能不足以支撑这道题（要求 {MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} 个词）")
+        elif words > MAX_QUOTE_WORDS:
+            warnings.append(f"{where}: 原话有 {words} 个词，太长了，只引用支撑这道题的那一句（要求 {MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} 个词）")
 
         if q["type"] == "mcq":
             choices = q.get("choices", [])

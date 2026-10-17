@@ -123,3 +123,13 @@ def test_short_quote_is_a_warning(quiz):
     quiz["questions"][0]["source"]["quote"] = "j'ai mangées"
     errors, warnings = run(quiz)
     assert errors == [] and any("2 个词" in w for w in warnings)
+
+
+def test_overlong_quote_warned(quiz):
+    """gen_quiz.md 要求原话 5–25 个词：太长的引用只警告，不算错。"""
+    segment = example("segment")
+    long_quote = " ".join(["on répète"] * 13)  # 26 个词
+    segment["speech"] += " " + long_quote
+    quiz["questions"][0]["source"]["quote"] = long_quote
+    errors, warnings = check(quiz, [segment], example("coverage"), PLAN)
+    assert errors == [] and any("26 个词，太长了" in w for w in warnings)

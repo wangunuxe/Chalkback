@@ -99,7 +99,7 @@ def search_hits(keywords: list[str], since: datetime, until: datetime, timetable
             for item in res.get("data", []):
                 c = item.get("content", {})
                 if item.get("type") == "Audio":
-                    if c.get("device_type") != "input":
+                    if not extract_segments.is_mic(c):
                         continue
                     key, text = ("audio", c.get("audio_transcription_id")), c.get("transcription", "")
                 elif item.get("type") == "OCR":

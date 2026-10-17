@@ -55,6 +55,8 @@ def main() -> None:
     write(home / "config.json", config)
     write(home / "cache" / "syllabus.json", ex("syllabus"))
     write(home / "lesson_plans" / plan["class_id"] / f"{plan['date']}.json", plan)
+    # pipe 本地 mock 跑的是示例课之后的周一那节课（current_lesson.py --mock），给它也备一份教案
+    write(home / "lesson_plans" / plan["class_id"] / "2026-10-19.json", {**plan, "date": "2026-10-19"})
     write(out / "segments.json", [ex("segment")])
     for name in ("coverage", "alerts", "quiz"):
         write(out / f"{name}.json", ex(name))
