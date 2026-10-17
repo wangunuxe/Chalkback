@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from jsonschema import Draft202012Validator
+from pydantic import BaseModel
 
-from .. import db
+from .. import db, syllabus_extract
 from ..auth import Member, current_member, require
 from ..mock import EXAMPLES
 
@@ -16,17 +17,41 @@ router = APIRouter(prefix="/api/syllabus", tags=["syllabus"])
 SCHEMA = Draft202012Validator(json.loads((EXAMPLES.parent / "syllabus.schema.json").read_text(encoding="utf-8")))
 
 
-@router.get("/current")
-def current(member: Member = Depends(current_member)):
+def approved(workspace_id: str) -> dict | None:
     with closing(db.connect()) as conn:
         row = conn.execute(
             "SELECT body FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
             " ORDER BY version DESC, approved_at DESC LIMIT 1",
-            (member.workspace_id,),
+            (workspace_id,),
         ).fetchone()
-    if row is None:
+    return json.loads(row["body"]) if row else None
+
+
+@router.get("/current")
+def current(member: Member = Depends(current_member)):
+    syllabus = approved(member.workspace_id)
+    if syllabus is None:
         raise HTTPException(404, "no approved syllabus")
-    return json.loads(row["body"])
+    return syllabus
+
+
+class ExtractRequest(BaseModel):
+    filename: str
+    content_base64: str
+    syllabus_id: str | None = None
+
+
+@router.post("/extract")
+def extract(req: ExtractRequest, member: Member = Depends(require("head"))):
+    """AI suggestion from a syllabus file (PDF/DOCX/PPTX/TXT/MD). Saves nothing: the head edits it, then POST /api/syllabus."""
+    existing = approved(member.workspace_id)
+    syllabus_id = req.syllabus_id or (existing or {}).get("syllabus_id") or "syllabus"
+    if existing and existing["syllabus_id"] != syllabus_id:
+        existing = None  # a different syllabus: no ids to keep
+    try:
+        return syllabus_extract.extract(req.filename, req.content_base64, existing, syllabus_id)
+    except syllabus_extract.ExtractError as e:
+        raise HTTPException(e.status, e.message)
 
 
 @router.post("")

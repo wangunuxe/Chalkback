@@ -20,6 +20,11 @@ services:
       # Test mode: accepts mock-token-<id> and enables the DEMO-* invite codes (the console's mock config uses mock-token-T1).
       # Only for local testing; do not set it for public deployment (off by default in hub/Dockerfile); see docs/ADMIN.md.
       HUB_MOCK_AUTH: "1"
+      # Syllabus import with AI (optional): set in .env (copy .env.example). Empty = import disabled.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      HUB_AI_MODEL: ${HUB_AI_MODEL:-}
+      HUB_AI_PROVIDER: ${HUB_AI_PROVIDER:-}
     volumes:
       - hub-data:/data
     networks: [chalkback]

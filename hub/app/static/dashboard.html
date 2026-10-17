@@ -342,6 +342,13 @@ async function renderHead(b, titles) {
         <summary>Upload a new draft</summary>
         <p class="muted">Starts from the current version: edit, add or remove knowledge points, then upload.
           The Hub numbers the new version; teachers only get it after you approve it.</p>
+        <div class="row" style="gap:12px; margin:8px 0; flex-wrap:wrap">
+          <label style="flex:1">Fill from a syllabus file (PDF, Word, PowerPoint, text)
+            <input type="file" id="sy-file" accept=".pdf,.docx,.pptx,.txt,.md"></label>
+          <button id="sy-extract">✨ Fill with AI</button>
+        </div>
+        <p class="muted">AI reads the file and fills the table below. Points it recognises keep their id, so past coverage still
+          counts. Nothing is saved until you check the table and upload it.</p>
         <input type="hidden" id="sy-id" value="${esc(current.syllabus_id)}">
         <div class="row" style="gap:12px; margin:8px 0">
           <label style="flex:1">Subject <input id="sy-subject" value="${esc(current.subject)}"></label>
@@ -373,6 +380,39 @@ function bindHead() {
   if (rows) rows.onclick = (e) => { if (e.target.classList.contains("kp-remove")) e.target.closest("tr").remove(); };
   const add = $("kp-add");
   if (add) add.onclick = () => { rows.insertAdjacentHTML("beforeend", kpRow()); rows.lastElementChild.querySelector("input").focus(); };
+  const ex = $("sy-extract");
+  if (ex) ex.onclick = async () => {
+    const file = $("sy-file").files[0];
+    if (!file) return note("syllabus-msg", "Choose a syllabus file first.");
+    if (file.size > 5 * 1024 * 1024) return note("syllabus-msg", "The file is larger than 5 MB.");
+    ex.disabled = true;
+    ex.textContent = "Reading the file…";
+    try {
+      const data = await new Promise((ok, fail) => {
+        const fr = new FileReader();
+        fr.onload = () => ok(String(fr.result).split(",", 2)[1] ?? "");
+        fr.onerror = () => fail(fr.error);
+        fr.readAsDataURL(file);
+      });
+      const r = await api("/api/syllabus/extract", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, content_base64: data, syllabus_id: $("sy-id").value }) });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) return note("syllabus-msg", typeof body.detail === "string" ? body.detail : `Could not read the file (${r.status}).`);
+      const s = body.syllabus;
+      $("sy-subject").value = s.subject;
+      $("sy-level").value = s.level;
+      rows.innerHTML = s.knowledge_points.map(kpRow).join("");
+      const parts = [`${s.knowledge_points.length} knowledge points from ${file.name}`,
+        `${body.kept.length} kept their id`, `${body.new.length} new`];
+      if (body.dropped.length) parts.push(`not in the file: ${body.dropped.join(", ")}`);
+      note("syllabus-msg", `AI suggestion: ${parts.join(" · ")}. Check the table, then upload it as a draft.`, true);
+    } catch (e) {
+      note("syllabus-msg", "Could not read the file.");
+    } finally {
+      ex.disabled = false;
+      ex.textContent = "✨ Fill with AI";
+    }
+  };
   const up = $("upload-btn");
   if (up) up.onclick = async () => {
     const body = readDraft();
