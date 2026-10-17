@@ -1,4 +1,6 @@
 """Syllabus drafts, department head approval, versions (TD3, approval A4). Unapproved versions have no effect."""
+from __future__ import annotations
+
 import json
 import uuid
 from contextlib import closing
@@ -11,25 +13,22 @@ from pydantic import BaseModel
 from .. import db, syllabus_extract
 from ..auth import Member, current_member, require
 from ..mock import EXAMPLES
+from .coverage import current_syllabus
 
 router = APIRouter(prefix="/api/syllabus", tags=["syllabus"])
 
 SCHEMA = Draft202012Validator(json.loads((EXAMPLES.parent / "syllabus.schema.json").read_text(encoding="utf-8")))
 
 
-def approved(workspace_id: str) -> dict | None:
+def approved(workspace_id: str, syllabus_id: str | None = None) -> dict | None:
+    """Latest approved version of the school's main syllabus, or of syllabus_id when given (see coverage.current_syllabus)."""
     with closing(db.connect()) as conn:
-        row = conn.execute(
-            "SELECT body FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
-            " ORDER BY version DESC, approved_at DESC LIMIT 1",
-            (workspace_id,),
-        ).fetchone()
-    return json.loads(row["body"]) if row else None
+        return current_syllabus(conn, workspace_id, syllabus_id)
 
 
 @router.get("/current")
-def current(member: Member = Depends(current_member)):
-    syllabus = approved(member.workspace_id)
+def current(syllabus_id: str | None = None, member: Member = Depends(current_member)):
+    syllabus = approved(member.workspace_id, syllabus_id)
     if syllabus is None:
         raise HTTPException(404, "no approved syllabus")
     return syllabus
@@ -44,7 +43,7 @@ class ExtractRequest(BaseModel):
 @router.post("/extract")
 def extract(req: ExtractRequest, member: Member = Depends(require("head"))):
     """AI suggestion from a syllabus file (PDF/DOCX/PPTX/TXT/MD). Saves nothing: the head edits it, then POST /api/syllabus."""
-    existing = approved(member.workspace_id)
+    existing = approved(member.workspace_id, req.syllabus_id)  # keep the ids of the syllabus being replaced
     syllabus_id = req.syllabus_id or (existing or {}).get("syllabus_id") or "syllabus"
     if existing and existing["syllabus_id"] != syllabus_id:
         existing = None  # a different syllabus: no ids to keep
@@ -52,6 +51,19 @@ def extract(req: ExtractRequest, member: Member = Depends(require("head"))):
         return syllabus_extract.extract(req.filename, req.content_base64, existing, syllabus_id)
     except syllabus_extract.ExtractError as e:
         raise HTTPException(e.status, e.message)
+
+
+@router.get("")
+def list_approved(member: Member = Depends(current_member)):
+    """Latest approved version of every syllabus in the workspace (one per subject), e.g. to pick one when creating a course."""
+    with closing(db.connect()) as conn:
+        rows = conn.execute(
+            "SELECT body FROM syllabi s WHERE workspace_id = ? AND status = 'approved' AND version ="
+            " (SELECT MAX(version) FROM syllabi WHERE syllabus_id = s.syllabus_id AND status = 'approved')"
+            " ORDER BY syllabus_id",
+            (member.workspace_id,),
+        ).fetchall()
+    return [json.loads(r["body"]) for r in rows]
 
 
 @router.post("")

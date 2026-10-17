@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChalkBack — Syllabus Board</title>
-  <link rel="stylesheet" href="/style.css?v=2">
+  <link rel="stylesheet" href="/style.css?v=4">
 </head>
 <body>
 
@@ -27,7 +27,7 @@
       <span class="icon">🔒</span>
       <div>
         <strong>Privacy by design</strong>
-        <p>Only coverage that a teacher approved is shown: knowledge point, covered or not, minutes. Recordings, transcripts and screenpipe IDs stay on teachers' computers.</p>
+        <p>Only what a teacher approved is shown: coverage per knowledge point (covered or not, minutes) and the course summaries they chose to send. Recordings, transcripts and screenpipe IDs stay on teachers' computers.</p>
       </div>
     </section>
 
@@ -39,12 +39,14 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <footer>ChalkBack Hub © 2026 · live, refreshes every 3 s</footer>
 
+<script src="/screenpipe_summary.js?v=1"></script>
 <script>
 const ROLE_LABEL = { teacher: "Teacher", head: "Department head", admin: "School admin" };
 const ROLE_ICON = { teacher: "🧑‍🏫", head: "📋", admin: "🏫" };
 const ACTION_LABEL = {
   join: "Joined the school", consent: "Gave consent", publish_quiz: "Published a quiz",
   share_coverage: "Shared lesson coverage", revoke: "Withdrew a shared lesson", approve_syllabus: "Approved a syllabus version",
+  share_summary: "Sent a course summary", withdraw_summary: "Withdrew a course summary",
 };
 // The teacher console runs on the teacher's own computer (bound to localhost only); verbatim quotes, screenshots and questions stay there
 const CONSOLE_URL = "https://localhost:4000";
@@ -125,13 +127,17 @@ function riskText(c, board) {
     ${board.weeks_left} weeks before the exam (${esc(board.exam_date)}).</div>`;
 }
 
-function renderSummary(b) {
+function renderSummary(b, courses) {
   const risky = b.classes.filter((c) => c.at_risk).length;
+  const coursePill = role === "teacher"
+    ? `<span class="pill">🗂️ ${plural(courses.length, "course")}</span>`
+    : `<span class="pill">🗂️ ${plural(courses.length, "course")} in ${new Set(courses.map((c) => c.class_id)).size} class${new Set(courses.map((c) => c.class_id)).size === 1 ? "" : "es"}</span>`;
   $("workspace").textContent = `${b.workspace.name} · ${ROLE_LABEL[b.view]} view`;
   $("summary").innerHTML = `<div class="stats">
     <span class="pill">📚 ${esc(b.syllabus.subject)} ${esc(b.syllabus.level)} · syllabus v${b.syllabus.version}</span>
     <span class="pill">📅 Exam ${esc(b.exam_date ?? "not set")}${b.weeks_left != null ? ` · ${b.weeks_left} weeks left` : ""}</span>
     <span class="pill">🏫 ${b.classes.length} class${b.classes.length === 1 ? "" : "es"}</span>
+    ${coursePill}
     ${risky ? `<span class="chip risk">⚠️ ${risky} at risk</span>` : `<span class="chip ok">✓ all on track</span>`}
   </div>`;
 }
@@ -221,16 +227,17 @@ function bindPrivacy(b, classId) {
   };
 }
 
-function renderTeacher(b, titles) {
+function renderTeacher(b, titles, courses, syllabi) {
   const consoleLink = `<section class="card green"><div class="row">
       <span><strong>Your ChalkBack console</strong><br><span class="muted">Review quizzes, approve or withdraw shares. Transcripts and screenshots stay there, on your computer.</span></span>
       <a class="btn" href="${CONSOLE_URL}/console" target="_blank" rel="noopener">Open my console →</a>
     </div></section>`;
   const privacy = privacyCard(b, b.classes[0]?.class_id ?? "4A", true);
+  const mine = myCourses(b, courses, syllabi);
   if (!b.classes.length) {
-    return consoleLink + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` + privacy;
+    return consoleLink + mine + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` + privacy;
   }
-  return consoleLink + b.classes.map((c) => `
+  return consoleLink + mine + b.classes.map((c) => `
     <section class="card">
       <div class="row"><h2>Class ${esc(c.class_id)}</h2>${status(c)}</div>
       <p class="sub">${c.covered} of ${c.total} knowledge points covered · pace ${c.weekly_rate} per week</p>
@@ -313,7 +320,7 @@ function readDraft() {
   };
 }
 
-async function renderHead(b, titles) {
+async function renderHead(b, titles, courses) {
   const risky = b.classes.filter((c) => c.at_risk);
   const current = await (await api("/api/syllabus/current")).json();
   const matrix = b.classes.length ? `<div class="table-wrap"><table>
@@ -325,6 +332,7 @@ async function renderHead(b, titles) {
       </tbody></table></div>` : `<div class="empty">No class has shared coverage yet.</div>`;
   return `
     ${risky.length ? `<section class="card amber"><h3>⚠️ Exam alert</h3>${risky.map((c) => `<p style="margin:12px 0 0"><strong>Class ${esc(c.class_id)}</strong></p>${riskText(c, b)}`).join("")}</section>` : ""}
+    ${classHierarchy(courses, { detail: true })}
     ${forecast(b)}
     <section class="card">
       <h2>Coverage matrix 📚</h2>
@@ -425,7 +433,7 @@ function bindHead() {
   };
 }
 
-function renderAdmin(b) {
+function renderAdmin(b, courses) {
   const members = ["teacher", "head", "admin"].map((r) => `<span class="pill">${ROLE_ICON[r]} ${b.members[r] || 0} ${ROLE_LABEL[r].toLowerCase()}${(b.members[r] || 0) === 1 ? "" : "s"}</span>`).join("");
   return `
     <section class="card">
@@ -437,6 +445,7 @@ function renderAdmin(b) {
           <td class="c">${c.covered}/${c.total}</td><td class="c">${c.weekly_rate}</td><td>${status(c)}</td></tr>`).join("")}</tbody>
       </table></div>` : `<div class="empty">No class has shared coverage yet.</div>`}
     </section>
+    ${classHierarchy(courses, { detail: false })}
     ${privacyCard(b, b.classes[0]?.class_id ?? "4A", false)}
     <section class="card green">
       <h2>Workspace & invite codes</h2>
@@ -452,6 +461,10 @@ function renderAdmin(b) {
 // Audit targets are IDs (SH-…, fr-grammaire-4e@v2, W1); say what they are in words, keep the ID as a tooltip
 function targetLabel(e) {
   const t = String(e.target_id);
+  if (e.action === "share_summary" || e.action === "withdraw_summary") {
+    const course = courseNames[t];
+    return course ? `“${course}”` : "a course";
+  }
   const syllabus = t.match(/^(.+)@v(\d+)$/);
   if (syllabus) return `syllabus ${syllabus[1]}, version ${syllabus[2]}`;
   if (e.action === "share_coverage" || e.action === "revoke") return "one lesson's coverage";
@@ -471,10 +484,231 @@ function renderAudit(events) {
     </table></div>` : `<div class="empty">No actions yet.</div>`}`;
 }
 
+// Classes -> courses -> knowledge points. A teacher sends each course's summary (written by screenpipe on their computer)
+// to the department head; the head sees every class with its courses, the knowledge points covered and the summaries.
+const courseNames = {};   // course_id -> name, so audit entries can say which course
+const drafts = {};        // course_id -> summary text being reviewed (kept across the 3-second redraw)
+let armedDelete = null;   // course waiting for the second click on "Delete"
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const teacherName = (t) => t.name || `Teacher ${t.id}`;
+const pctOf = (p) => (p.total ? Math.round((100 * p.covered) / p.total) : 0);
+const shortDate = (iso) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+const subjectOf = (c) => `${c.syllabus.subject} ${c.syllabus.level}`.trim();
+const lessonsText = (l) => !l.count ? "no lessons shared yet"
+  : `${plural(l.count, "lesson")}, ${l.first === l.last ? shortDate(l.first) : `${shortDate(l.first)} – ${shortDate(l.last)}`}`;
+const miniBar = (p) => `<span class="mini-bar"><span style="width:${pctOf(p)}%"></span></span><span class="muted">${p.covered}/${p.total}</span>`;
+
+const kpChips = (points) => `<div class="kp-chips">${points.map((p) => p.covered
+  ? `<span class="chip yes" title="${esc(p.kp_id)}">✅ ${esc(p.title)} · ${p.minutes} min</span>`
+  : `<span class="chip no" title="${esc(p.kp_id)}">○ ${esc(p.title)}</span>`).join("")}</div>`;
+
+const summaryBox = (s, label) => `<div class="summary-box">
+    <div class="summary-label">📝 ${label} · ${esc(shortDate(s.sent_at))}</div>
+    <p>${esc(s.text)}</p>
+  </div>`;
+
+// Teacher: one card per course, with the summary to review and send
+function teacherCourse(course) {
+  const id = esc(course.course_id);
+  const sent = course.summary;
+  const editing = course.course_id in drafts;
+  const editor = editing ? `<div class="summary-edit">
+      <label for="st-${id}">Summary from screenpipe: read it, edit it if needed, then send</label>
+      <textarea id="st-${id}" data-draft="${id}" maxlength="3000">${esc(drafts[course.course_id])}</textarea>
+      <p class="muted" style="margin:6px 0 0">🔒 Only this text goes to your department head. Recordings, transcripts and screenshots stay on your computer.</p>
+      <div class="row" style="justify-content:flex-end; margin-top:8px">
+        <button class="ghost" data-action="cancel-summary" data-course="${id}">Cancel</button>
+        <button class="primary" data-action="send-summary" data-course="${id}">📤 Send to department head</button>
+      </div>
+    </div>` : "";
+  const actions = editing ? "" : `<div class="row course-actions">
+      ${sent ? `<button data-action="withdraw-summary" data-course="${id}">↩️ Withdraw summary</button>`
+        : `<button class="${armedDelete === course.course_id ? "danger" : "ghost"}" data-action="delete" data-course="${id}">${armedDelete === course.course_id ? "Click again to delete" : "Delete"}</button>`}
+      <button class="${sent ? "" : "primary"}" data-action="get-summary" data-course="${id}">✨ ${sent ? "Update summary" : "Get summary from screenpipe"}</button>
+    </div>`;
+  return `<article class="course${sent ? " sent" : ""}" data-key="course:${id}">
+    <div class="course-head">
+      <div>
+        <h3>${esc(course.name)}</h3>
+        <div class="muted">Class ${esc(course.class_id)} · ${esc(subjectOf(course))}</div>
+      </div>
+      ${sent ? `<span class="chip ok">✅ Summary sent</span>` : `<span class="chip draft">🔒 Nothing sent yet</span>`}
+    </div>
+    ${course.description ? `<p class="desc">${esc(course.description)}</p>` : ""}
+    <div class="course-progress">
+      <div class="bar"><span style="width:${pctOf(course.progress)}%"></span></div>
+      <span class="muted">${course.progress.covered}/${course.progress.total} knowledge points taught · ${esc(lessonsText(course.lessons))}</span>
+    </div>
+    ${kpChips(course.points)}
+    ${sent ? summaryBox(sent, "Sent to your department head") : ""}
+    ${editor}
+    ${actions}
+    ${noteHtml(`course-msg-${course.course_id}`)}
+  </article>`;
+}
+
+function myCourses(b, courses, syllabi) {
+  const classes = [...new Set([...b.classes.map((c) => c.class_id), ...courses.map((c) => c.class_id)])];
+  const form = `<details class="new-course" id="new-course">
+      <summary>+ New course</summary>
+      <div class="mat-form">
+        <div class="row" style="gap:10px; align-items:end">
+          <label style="flex:2; min-width:200px">Course name <input id="nc-name" maxlength="80" placeholder="e.g. Grammaire — 4A"></label>
+          <label style="flex:1; min-width:110px">Class <input id="nc-class" maxlength="20" list="nc-classes" placeholder="e.g. 4A"></label>
+          <label style="flex:2; min-width:200px">Syllabus <select id="nc-syllabus">${syllabi.map((s) => `<option value="${esc(s.syllabus_id)}">${esc(s.subject)} ${esc(s.level)}</option>`).join("")}</select></label>
+        </div>
+        <datalist id="nc-classes">${classes.map((c) => `<option value="${esc(c)}">`).join("")}</datalist>
+        <label>Description (optional) <input id="nc-desc" maxlength="500" placeholder="What this course covers"></label>
+        <div class="row" style="justify-content:flex-end"><button class="go" data-action="create-course">Create course</button></div>
+      </div>
+    </details>`;
+  return `<section class="card" id="my-courses">
+    <h2>My courses 🗂️</h2>
+    <p class="sub">One course per class and syllabus. Progress comes from the lessons you already shared. When you are ready, get the summary screenpipe wrote, check it, and send it to your department head. You can withdraw it at any time.</p>
+    ${form}
+    ${noteHtml("courses-msg")}
+    ${courses.length ? `<div class="courses">${courses.map(teacherCourse).join("")}</div>`
+      : `<div class="empty">No courses yet. Create one for each class you teach.</div>`}
+  </section>`;
+}
+
+// Head and admin: classes (groups of students) -> courses -> knowledge points (head only) and summaries (head only)
+function classHierarchy(courses, { detail }) {
+  if (!courses.length) {
+    return `<section class="card" id="class-courses"><h2>Classes and courses 🏫</h2>
+      <div class="empty">No courses yet.<br>Teachers create their courses from their own dashboard.</div></section>`;
+  }
+  const byClass = new Map();
+  for (const c of courses) {
+    if (!byClass.has(c.class_id)) byClass.set(c.class_id, []);
+    byClass.get(c.class_id).push(c);
+  }
+  const blocks = [...byClass.entries()].sort(([a], [b]) => a.localeCompare(b, "en", { numeric: true })).map(([classId, list]) => {
+    const progress = { covered: list.reduce((n, c) => n + c.progress.covered, 0), total: list.reduce((n, c) => n + c.progress.total, 0) };
+    const teachers = [...new Set(list.map((c) => teacherName(c.teacher)))];
+    const summaries = list.filter((c) => c.summary).length;
+    const rows = list.map((c) => {
+      const head = `<span class="cr-name">${esc(c.name)}</span>
+        <span class="cr-meta muted">${esc(subjectOf(c))} · 🧑‍🏫 ${esc(teacherName(c.teacher))}</span>
+        <span class="cr-progress">${miniBar(c.progress)}</span>
+        ${detail ? (c.summary ? `<span class="chip ok">📝 Summary · ${esc(shortDate(c.summary.sent_at))}</span>` : `<span class="chip draft">No summary yet</span>`) : ""}`;
+      if (!detail) return `<div class="course-row" data-key="course:${esc(c.course_id)}"><div class="cr-summary">${head}</div></div>`;
+      return `<details class="course-row" id="hc-${esc(c.course_id)}" data-key="course:${esc(c.course_id)}">
+        <summary class="cr-summary">${head}</summary>
+        <div class="cr-body">
+          <div class="muted">${esc(lessonsText(c.lessons))}</div>
+          ${kpChips(c.points)}
+          ${c.summary ? summaryBox(c.summary, `Summary from ${teacherName(c.teacher)}`) : `<p class="muted" style="margin:10px 0 0">${esc(teacherName(c.teacher))} has not sent a summary for this course yet.</p>`}
+        </div>
+      </details>`;
+    }).join("");
+    return `<div class="class-block" data-key="class:${esc(classId)}">
+      <div class="group-head">
+        <span class="avatar class">${esc(classId)}</span>
+        <div><strong>Class ${esc(classId)}</strong>
+          <div class="muted">${plural(list.length, "course")} · ${esc(teachers.join(", "))}${detail ? ` · ${summaries} ${summaries === 1 ? "summary" : "summaries"}` : ""}</div></div>
+        <div class="class-progress"><div class="bar"><span style="width:${pctOf(progress)}%"></span></div>
+          <span class="muted">${pctOf(progress)}% of knowledge points taught</span></div>
+      </div>
+      <div class="course-list">${rows}</div>
+    </div>`;
+  }).join("");
+  return `<section class="card" id="class-courses">
+    <h2>Classes and courses 🏫</h2>
+    <p class="sub">${detail
+      ? "Each class (group of students) with the courses taught to it. Open a course to see the knowledge points covered and the teacher's summary."
+      : "Each class with its courses and their progress. Knowledge point details and summaries are for department heads."}</p>
+    ${blocks}
+  </section>`;
+}
+
+// Form fields inside an open <details> keep what was typed across the 3-second redraw
+function saveForm() {
+  const values = {};
+  for (const d of $("view").querySelectorAll("details[id][open]")) {
+    for (const el of d.querySelectorAll("input[id], select[id], textarea[id]")) {
+      if (el.type === "file") continue; // a chosen file cannot be set back from script (the browser throws)
+      values[el.id] = el.type === "checkbox" ? el.checked : el.value;
+    }
+  }
+  return { values, open: [...$("view").querySelectorAll("details[id][open]")].map((d) => d.id) };
+}
+function restoreForm({ values, open }) {
+  for (const id of open) { const d = $(id); if (d) d.open = true; }
+  for (const [id, v] of Object.entries(values)) {
+    const el = $(id);
+    if (!el) continue;
+    if (el.type === "checkbox") el.checked = v; else el.value = v;
+  }
+}
+
+async function errorText(r) {
+  const body = await r.json().catch(() => ({}));
+  const detail = body.detail;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) return detail.map((d) => (typeof d === "string" ? d : d.msg?.replace(/^Value error, /, ""))).join("; ");
+  return `error ${r.status}`;
+}
+
+let currentCourses = [];
+
+async function courseAction(btn) {
+  const action = btn.dataset.action;
+  const cid = btn.dataset.course;
+  const course = currentCourses.find((c) => c.course_id === cid);
+  if (action === "delete" && armedDelete !== cid) {
+    armedDelete = cid;
+    setTimeout(() => { if (armedDelete === cid) { armedDelete = null; refresh(true); } }, 5000);
+    return refresh(true);
+  }
+  if (action === "cancel-summary") { delete drafts[cid]; return refresh(true); }
+  btn.disabled = true;
+  let r;
+  if (action === "get-summary") {
+    try { drafts[cid] = await screenpipeSummary(course); }
+    catch { btn.disabled = false; return note(`course-msg-${cid}`, "Could not get the summary from screenpipe. Is screenpipe running?"); }
+    delete notes[`course-msg-${cid}`];
+    await refresh(true);
+    return $(`st-${cid}`)?.focus();
+  }
+  if (action === "create-course") {
+    const body = { name: $("nc-name").value, class_id: $("nc-class").value, syllabus_id: $("nc-syllabus").value, description: $("nc-desc").value };
+    if (!body.name.trim() || !body.class_id.trim()) { btn.disabled = false; return note("courses-msg", "Please give the course a name and a class."); }
+    r = await api("/api/courses", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (r.ok) { for (const f of ["nc-name", "nc-class", "nc-desc"]) $(f).value = ""; $("new-course").open = false; delete notes["courses-msg"]; toast(`🗂️ Course “${body.name.trim()}” created.`); }
+    else note("courses-msg", `Could not create the course: ${await errorText(r)}`);
+  } else if (action === "send-summary") {
+    const text = $(`st-${cid}`).value;
+    if (!text.trim()) { btn.disabled = false; return note(`course-msg-${cid}`, "The summary is empty."); }
+    r = await api(`/api/courses/${encodeURIComponent(cid)}/summary`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    if (r.ok) { delete drafts[cid]; delete notes[`course-msg-${cid}`]; toast(`📤 Summary for “${courseNames[cid]}” sent to your department head.`); }
+  } else if (action === "withdraw-summary") {
+    r = await api(`/api/courses/${encodeURIComponent(cid)}/summary`, { method: "DELETE" });
+    if (r.ok) toast(`↩️ Summary for “${courseNames[cid]}” withdrawn. Your department head no longer sees it.`);
+  } else if (action === "delete") {
+    armedDelete = null;
+    r = await api(`/api/courses/${encodeURIComponent(cid)}`, { method: "DELETE" });
+    if (r.ok) toast(`🗑️ “${courseNames[cid]}” deleted.`);
+  }
+  if (r && !r.ok && action !== "create-course") note(`course-msg-${cid}`, `Could not do that: ${await errorText(r)}`);
+  await refresh(true);
+}
+
+// One listener for every course button: the page is redrawn every 3 seconds, so buttons are not bound one by one
+$("view").addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (btn && !btn.disabled) courseAction(btn);
+});
+$("view").addEventListener("input", (e) => {
+  if (e.target.dataset.draft) drafts[e.target.dataset.draft] = e.target.value;
+});
+
 // Live notices: compared with the previous refresh, changed cells flash and new audit entries pop up a notice (no notices when switching roles)
 let previous = null;
-function snapshot(b, events) {
+function snapshot(b, events, courses) {
   const cells = {};
+  for (const c of courses) cells[`course:${c.course_id}`] = `${c.summary?.sent_at ?? ""}|${c.progress.covered}`;
   for (const c of b.classes) {
     cells[c.class_id] = c.covered;
     for (const p of c.points || []) cells[`${c.class_id}:${p.kp_id}`] = `${p.covered}|${p.minutes}`;
@@ -492,33 +726,45 @@ function announce(prev, now, events) {
     if (e.action === "share_coverage") toast(`📥 ${e.actor.id} shared a lesson. The board is updated.`);
     else if (e.action === "revoke") toast(`↩️ ${e.actor.id} withdrew a share. It is gone from the board.`);
     else if (e.action === "approve_syllabus") toast(`✅ New ${targetLabel(e)} approved.`);
+    else if (e.action === "share_summary" && role === "head") toast(`📝 ${e.actor.id} sent a summary for ${targetLabel(e)}.`);
+    else if (e.action === "withdraw_summary" && role === "head") toast(`↩️ ${e.actor.id} withdrew the summary for ${targetLabel(e)}.`);
     else if (e.action === "join") toast(`👋 ${ROLE_LABEL[e.actor.role] || e.actor.role} ${e.actor.id} joined the school.`);
   }
 }
 
 let busy = false;
+let again = false; // a forced refresh (role switch, button) asked while another one was running: run it right after
 async function refresh(force = false) {
+  if (busy) { again ||= force; return; }
   // Do not auto-refresh while a syllabus draft is being edited, so the content is not overwritten
-  if (busy || (!force && ($("upload")?.open || document.activeElement?.tagName === "TEXTAREA"))) return;
+  if (!force && ($("upload")?.open || ["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement?.tagName))) return;
   busy = true;
   try {
     renderRoles();
-    const [r, a] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit")]);
+    const [r, a, c, s] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit"), api("/api/courses"),
+      role === "teacher" ? api("/api/syllabus") : null]);
     if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
     const b = await r.json();
     const events = a.ok ? await a.json() : [];
+    const courses = c.ok ? await c.json() : [];
+    const syllabi = s?.ok ? await s.json() : [];
+    for (const course of courses) courseNames[course.course_id] = course.name;
+    currentCourses = courses;
     const titles = Object.fromEntries(b.syllabus.knowledge_points.map((kp) => [kp.kp_id, kp.title]));
-    renderSummary(b);
+    renderSummary(b, courses);
     const firstClass = b.classes[0]?.class_id ?? "4A";
-    if (role === "teacher") { $("view").innerHTML = renderTeacher(b, titles); bindPrivacy(b, firstClass); }
-    else if (role === "head") { $("view").innerHTML = await renderHead(b, titles); bindHead(); }
-    else $("view").innerHTML = renderAdmin(b);
+    const form = saveForm();
+    if (role === "teacher") { $("view").innerHTML = renderTeacher(b, titles, courses, syllabi); bindPrivacy(b, firstClass); }
+    else if (role === "head") { $("view").innerHTML = await renderHead(b, titles, courses); bindHead(); }
+    else $("view").innerHTML = renderAdmin(b, courses);
+    restoreForm(form);
     renderAudit(events);
-    const now = snapshot(b, events);
+    const now = snapshot(b, events, courses);
     announce(previous, now, events);
     previous = now;
   } finally {
     busy = false;
+    if (again) { again = false; refresh(true); }
   }
 }
 

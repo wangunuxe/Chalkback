@@ -1,4 +1,4 @@
-"""SQLite storage (TD2-TD5). Stores only data whose upload was approved: workspaces, members, syllabus versions, coverage_share, audit log.
+"""SQLite storage (TD2-TD5). Stores only data whose upload was approved: workspaces, members, syllabus versions, coverage_share, courses and the summaries teachers sent, audit log.
 
 The HUB_DB environment variable sets the database file; default hub/chalkback.db (gitignored).
 """
@@ -49,6 +49,19 @@ CREATE TABLE IF NOT EXISTS coverage_shares (
   body         TEXT NOT NULL,              -- JSON already validated against the coverage_share schema
   shared_at    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS courses (
+  course_id    TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces,
+  teacher_id   TEXT NOT NULL,              -- the teacher who created it; only they can change it
+  name         TEXT NOT NULL,
+  class_id     TEXT NOT NULL,              -- the class (group of students) the course is taught to
+  syllabus_id  TEXT NOT NULL,              -- progress is counted from this teacher's coverage shares for class_id + syllabus_id
+  description  TEXT NOT NULL DEFAULT '',
+  created_at   TEXT NOT NULL,
+  summary      TEXT,                       -- the summary the teacher approved and sent to the department head; NULL = not sent
+  summary_sent_at TEXT,
+  UNIQUE (workspace_id, teacher_id, class_id, syllabus_id)  -- one course per teacher, class and syllabus, so each lesson belongs to exactly one course
+);
 CREATE TABLE IF NOT EXISTS audit_events (
   event_id     TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL,
@@ -86,9 +99,19 @@ def invite_codes() -> dict[str, str]:
     return dict(DEMO_INVITES) if mock_auth_enabled() else {}
 
 
+def upgrade_prototype_courses(conn: sqlite3.Connection) -> None:
+    """An earlier prototype had a courses table with a draft/sent status (and a materials table). Keep its rows under another name
+    instead of deleting them, so the current courses table can be created."""
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(courses)")}
+    if "status" in columns:
+        with conn:
+            conn.execute("ALTER TABLE courses RENAME TO courses_prototype")
+
+
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    upgrade_prototype_courses(conn)
     conn.executescript(SCHEMA)
     with conn:
         conn.execute("INSERT OR IGNORE INTO workspaces (workspace_id, name, exam_date) VALUES (?, ?, ?)", DEMO_WORKSPACE)
