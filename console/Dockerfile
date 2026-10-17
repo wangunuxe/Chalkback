@@ -15,11 +15,13 @@ COPY pipe/templates pipe/templates
 COPY tools tools
 COPY console console
 
-RUN useradd --create-home chalkback && mkdir /data && chown chalkback /data
+RUN python console/generate_cert.py
+
+RUN useradd --create-home chalkback && mkdir /data && chown -R chalkback:chalkback /app /data
 USER chalkback
 VOLUME /data
 WORKDIR /app/console
 EXPOSE 4000
 
-ENV HUB_URL=http://hub:8000
-CMD ["sh", "-c", "python /app/tools/seed_mock_home.py --home \"$CHALKBACK_HOME\" --hub-url \"$HUB_URL\" --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 4000"]
+ENV HUB_URL=https://hub:8000
+CMD ["sh", "-c", "python /app/tools/seed_mock_home.py --home \"$CHALKBACK_HOME\" --hub-url \"$HUB_URL\" --if-empty && exec uvicorn app.main:app --host 0.0.0.0 --port 4000 --ssl-keyfile key.pem --ssl-certfile cert.pem"]

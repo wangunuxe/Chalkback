@@ -28,8 +28,176 @@
   <script>
     // agent 生成时把 quiz.json 去掉 source 后注入这里
     const QUIZ = /*QUIZ_JSON*/ null;
+<<<<<<< Updated upstream
     const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
     // TODO(TB3): 渲染题目、计时、提交作答
+=======
+
+    const FALLBACK_QUIZ = {
+      quiz_id: "Q-DEMO",
+      questions: [
+        { q_id: "q1", type: "mcq", prompt: "Comment dit-on 'Riz' en chinois ?", choices: ["Mǐfàn (米饭)", "Jiāozǐ (饺子)", "Miàntiáo (面条)", "Bāozǐ (包子)"], time_limit_s: 20 },
+        { q_id: "q2", type: "mcq", prompt: "Que signifie 'Jiāozǐ (饺子)' en français ?", choices: ["Les nouilles", "Les raviolis chinois", "Le riz", "Les baguettes"], time_limit_s: 20 },
+        { q_id: "q3", type: "true_false", prompt: "« Kuàizi » (筷子) signifie 'Baguettes' en français ?", choices: ["True", "False"], time_limit_s: 15 }
+      ]
+    };
+
+    const activeQuiz = QUIZ || FALLBACK_QUIZ;
+    const ATTEMPT_URL = `/play/${activeQuiz?.quiz_id}/attempt`;
+
+    const app = document.getElementById("app");
+    const state = { nickname: "", index: 0, score: 0 };
+    const LETTERS = ["A", "B", "C", "D", "E", "F"];
+    let timer = null;
+
+    function el(tag, attrs = {}, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(attrs)) {
+        if (k === "class") node.className = v;
+        else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+        else node.setAttribute(k, v);
+      }
+      for (const c of children) node.append(c);
+      return node;
+    }
+
+    function show(...children) {
+      clearInterval(timer);
+      app.replaceChildren(...children);
+    }
+
+    function joinScreen() {
+      const input = el("input", { type: "text", name: "nickname", maxlength: "20", required: "",
+        autocomplete: "off", autocapitalize: "off", placeholder: "Ex: Lucas 🎒" });
+      show(el("div", { class: "card join" },
+        el("div", { class: "deco", "aria-hidden": "true" }, "🖍️"),
+        el("div", { class: "hero" },
+          el("span", { class: "bounce", "aria-hidden": "true" }, "🖍️"),
+          el("h1", {}, "ChalkBack Quiz"),
+          el("p", { class: "subtitle" }, `${activeQuiz.questions.length} questions · Classroom Review 📋✨`)),
+        el("form", { onsubmit: (e) => {
+          e.preventDefault();
+          state.nickname = input.value.trim();
+          if (state.nickname) questionScreen();
+        } },
+          el("label", {}, "Your Nickname", input),
+          el("button", { class: "cta" }, "🎮 Start Quiz!")),
+      ));
+      input.focus();
+    }
+
+    function questionScreen() {
+      const q = activeQuiz.questions[state.index];
+      const total = activeQuiz.questions.length;
+      const started = performance.now();
+      const limitMs = q.time_limit_s * 1000;
+      let done = false;
+      const bar = el("div");
+      const clock = el("span", { class: "chip time" });
+      const card = el("div", { class: "card" });
+
+      const submit = (response, picked) => {
+        if (done) return;
+        done = true;
+        clearInterval(timer);
+        const elapsed = Math.min(Math.round(performance.now() - started), limitMs);
+        card.querySelectorAll("button, input").forEach((n) => (n.disabled = true));
+        if (picked) picked.classList.add("picked");
+        sendAttempt(q, response, elapsed, card);
+      };
+
+      let body;
+      if (q.type === "mcq") {
+        const long = q.choices.some((c) => c.length > 30);
+        body = el("div", { class: "choices" + (long ? " single" : "") },
+          ...q.choices.map((c, i) => {
+            const b = el("button", { type: "button", class: "choice", onclick: () => submit(i, b) }, `${LETTERS[i] || i + 1}) ${c}`);
+            return b;
+          }));
+      } else if (q.type === "true_false") {
+        const yes = el("button", { type: "button", class: "choice", onclick: () => submit(true, yes) }, "✅ True");
+        const no = el("button", { type: "button", class: "choice", onclick: () => submit(false, no) }, "❌ False");
+        body = el("div", { class: "choices" }, yes, no);
+      } else {
+        const input = el("input", { type: "text", autocomplete: "off", autocapitalize: "off",
+          autocorrect: "off", spellcheck: "false", placeholder: "Your answer…" });
+        body = el("form", { onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) submit(input.value.trim()); } },
+          input, el("button", { class: "cta" }, "✅ Validate"));
+        setTimeout(() => input.focus(), 0);
+      }
+
+      card.append(
+        el("div", { class: "top" }, el("span", { class: "chip score" }, `⭐ Score: ${state.score}/${total}`), clock),
+        el("div", { class: "bar" }, bar),
+        el("div", { class: "question" },
+          el("span", { class: "chip" }, `Question ${state.index + 1} / ${total}`),
+          el("p", { class: "prompt" }, q.prompt)),
+        body,
+      );
+      show(card);
+
+      const tick = () => {
+        const remaining = Math.max(0, limitMs - (performance.now() - started));
+        const s = Math.ceil(remaining / 1000);
+        bar.style.transform = `scaleX(${remaining / limitMs})`;
+        clock.textContent = `⏳ ${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+        clock.classList.toggle("low", s <= 5);
+        if (remaining <= 0) submit(null);
+      };
+      tick();
+      timer = setInterval(tick, 100);
+    }
+
+    async function post(payload) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch(ATTEMPT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) return await res.json();
+        } catch (_) { /* 网络抖动，重试 */ }
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+      }
+      return null;
+    }
+
+    function answerText(q, answer) {
+      if (q.type === "mcq") return `${LETTERS[answer] || answer + 1}) ${q.choices[answer]}`;
+      if (q.type === "true_false") return answer ? "True" : "False";
+      return String(answer);
+    }
+
+    async function sendAttempt(q, response, timeMs, card) {
+      const result = await post({ nickname: state.nickname, q_id: q.q_id, response, time_ms: timeMs });
+      let feedback;
+      if (result === null) {
+        feedback = el("div", { class: "feedback net" }, el("strong", {}, "📡 Answer not sent"), el("span", {}, "Network problem — let's keep going."));
+      } else if (result.correct) {
+        state.score++;
+        feedback = el("div", { class: "feedback ok" }, el("strong", {}, "🎉 Great job! Correct!"));
+      } else {
+        feedback = el("div", { class: "feedback ko" },
+          el("strong", {}, response === null ? "⏰ Time's up!" : "❌ Not quite"),
+          el("span", {}, `Correct answer: ${answerText(q, result.answer)}`));
+      }
+      const last = state.index === activeQuiz.questions.length - 1;
+      card.append(feedback, el("button", { class: "cta", onclick: () => { state.index++; last ? endScreen() : questionScreen(); } },
+        last ? "🏁 See my score" : "➡️ Next question"));
+    }
+
+    function endScreen() {
+      show(el("div", { class: "card join" },
+        el("div", { class: "deco", "aria-hidden": "true" }, "🏆"),
+        el("h1", {}, `Well done, ${state.nickname}!`),
+        el("p", { class: "final" }, `${state.score} / ${activeQuiz.questions.length}`),
+        el("p", { class: "subtitle" }, "Your answers help your teacher prepare the next lesson ✨"),
+      ));
+    }
+
+    joinScreen();
+>>>>>>> Stashed changes
   </script>
 </body>
 </html>
