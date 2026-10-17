@@ -1,16 +1,15 @@
 <!doctype html>
 <!--
-  学生游戏页面模板（TB3，负责人 B）。agent 据此为每节课生成 outbox/{lesson_id}/game.html，
-  控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
+  学生游戏页面模板（TB3，负责人 B）。scripts/build_game.py 把 quiz.json 去掉 answer / source / kp_id 后
+  注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
 
-  约束：
-  - 不显示任何题目的 source（原话、截图 id）。
-  - 支持 mcq / fill_blank / true_false 三种题型，逐题计时（time_limit_s），手机可用。
-  - 学生只输入昵称。
-  - 每题作答提交到控制台，由控制台写入 attempts.jsonl（attempt 契约）。
+  作答接口（H9，控制台判分）：
+    POST /play/{quiz_id}/attempt
+    请求 {nickname, q_id, response, time_ms}
+    返回 {correct, answer}（answer 是正确答案，用于显示反馈）
+  response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
 
-  TODO(B+C): 作答提交的接口（路径、请求体、correct 由谁判定）技术文档没有写，
-  B 和 C 需在 H9 之前约定并补进 §6.3。下面的 /play/{quiz_id}/attempt 只是占位。
+  约束：不引用任何外部资源（校园网可能没有外网）；所有题目文字用 textContent 插入。
 -->
 <html lang="en" class="h-full">
 <head>
@@ -48,7 +47,6 @@
   </main>
 
   <script>
-    // agent 生成时把 quiz.json 去掉 source 后注入这里
     const QUIZ = /*QUIZ_JSON*/ null;
     const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
     // TODO(TB3): 渲染题目、计时、提交作答
