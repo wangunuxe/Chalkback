@@ -6,14 +6,14 @@
         --out ~/.chalkback/outbox/L-T1-20261017-1000/segments.json
 
 输出：segment 对象数组，须通过 `validate.py segment`。
-约束（§6.1）：只用 screenpipe `GET /search`（只读权限下没有 /raw_sql）；音频只取 device_type=input；
+约束（§6.1）：只用 screenpipe `GET /search`；音频只取 device_type=input；
 按换页切分，每段约 2–5 分钟；请求带 Authorization: Bearer $SCREENPIPE_LOCAL_API_KEY。
-字段名以 TA1 实测记录（demo/screenpipe_probe/）为准。
 """
 from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta
+import difflib
 import json
 import os
 import urllib.parse
@@ -24,8 +24,16 @@ SCREENPIPE_URL = os.environ.get("SCREENPIPE_URL", "http://localhost:3030")
 MOCK = Path(__file__).resolve().parents[2] / "contracts" / "examples" / "segment.json"
 
 
+def parse_iso(ts_str: str) -> datetime:
+    """兼容解析带 Z 或具体时区偏移的 ISO-8601 字符串。"""
+    if not ts_str:
+        return datetime.now().astimezone()
+    clean_ts = ts_str.replace("Z", "+00:00")
+    return datetime.fromisoformat(clean_ts)
+
+
 def search(**params) -> dict:
-    """GET /search 的薄封装。参数见 §6.1：content_type、start_time、end_time、app_name、window_name、q、limit、offset。"""
+    """GET /search 的薄封装。参数：content_type、start_time、end_time、limit、offset 等。"""
     url = f"{SCREENPIPE_URL}/search?{urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})}"
     api_key = os.environ.get("SCREENPIPE_LOCAL_API_KEY", "")
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -59,9 +67,22 @@ def fetch_all_items(content_type: str, start: str, end: str) -> list[dict]:
     return items
 
 
+def is_significant_slide_change(text_a: str, text_b: str) -> bool:
+    """过滤 OCR 细微抖动：只有内容相似度低于 70% 时才视为换页。"""
+    if not text_a and text_b:
+        return True
+    if text_a and not text_b:
+        return True
+    ratio = difflib.SequenceMatcher(None, text_a.strip(), text_b.strip()).ratio()
+    return ratio < 0.70
+
+
 def extract(lesson_id: str, start: str, end: str) -> list[dict]:
     """分页取 audio(device_type=input) 和 ocr，按换页切分并对齐，生成 segment 列表。"""
-    # 1. 抓取麦克风转写，过滤仅麦克风输入
+    dt_lesson_start = parse_iso(start)
+    dt_lesson_end = parse_iso(end)
+
+    # 1. 抓取麦克风转写，过滤仅输入设备
     raw_audio = fetch_all_items("audio", start, end)
     audio_records = []
     for item in raw_audio:
@@ -69,11 +90,16 @@ def extract(lesson_id: str, start: str, end: str) -> list[dict]:
         if item.get("type") == "Audio" and content.get("device_type") == "input":
             ts = content.get("timestamp")
             if ts:
+                trans_id = (
+                    content.get("audio_transcription_id")
+                    or content.get("id")
+                    or item.get("id")
+                )
                 audio_records.append(
                     {
-                        "id": content.get("audio_transcription_id"),
+                        "id": trans_id,
                         "text": content.get("transcription", "").strip(),
-                        "time": datetime.fromisoformat(ts),
+                        "time": parse_iso(ts),
                     }
                 )
     audio_records.sort(key=lambda x: x["time"])
@@ -86,35 +112,47 @@ def extract(lesson_id: str, start: str, end: str) -> list[dict]:
         if item.get("type") == "OCR":
             text = content.get("text", "").strip()
             ts = content.get("timestamp")
+            frame_id = (
+                content.get("frame_id")
+                or content.get("frameId")
+                or item.get("id")
+            )
             if text and ts:
                 ocr_records.append(
                     {
-                        "frame_id": content.get("frame_id"),
+                        "frame_id": frame_id,
                         "text": text,
-                        "app_name": content.get("app_name", "Presentation"),
-                        "time": datetime.fromisoformat(ts),
+                        "app_name": content.get("app_name", "PowerPoint"),
+                        "time": parse_iso(ts),
                     }
                 )
     ocr_records.sort(key=lambda x: x["time"])
 
-    # 3. 按换页（OCR 文本变化）提取关键节点；过滤短时间内的抖动
-    dt_lesson_start = datetime.fromisoformat(start)
-    dt_lesson_end = datetime.fromisoformat(end)
-
+    # 3. 按换页和时间跨度切分检查点
     slide_checkpoints: list[dict] = []
     last_text = ""
-    for ocr in ocr_records:
-        curr_text = ocr["text"]
-        # 当文字发生较大变动，且距离上一个分段至少间隔 60 秒以上视为新幻灯片
-        if curr_text != last_text:
-            if (
-                not slide_checkpoints
-                or (ocr["time"] - slide_checkpoints[-1]["time"]).total_seconds() >= 60
-            ):
-                slide_checkpoints.append(ocr)
-                last_text = curr_text
 
-    # 兜底：若全程无 PPT 换页或纯口授，按每 3 分钟划定一个分段锚点
+    for ocr in ocr_records:
+        if not slide_checkpoints:
+            # 首个检查点强制对齐到课程开始时间，确保前置语音不漏网
+            slide_checkpoints.append(
+                {
+                    "frame_id": ocr["frame_id"],
+                    "text": ocr["text"],
+                    "app_name": ocr["app_name"],
+                    "time": dt_lesson_start,
+                }
+            )
+            last_text = ocr["text"]
+            continue
+
+        elapsed = (ocr["time"] - slide_checkpoints[-1]["time"]).total_seconds()
+        # 条件：内容有明显换页且间隔 >= 60 秒，或者单页停留超过 5 分钟进行强制拆分
+        if (is_significant_slide_change(last_text, ocr["text"]) and elapsed >= 60) or elapsed >= 300:
+            slide_checkpoints.append(ocr)
+            last_text = ocr["text"]
+
+    # 兜底：若无 OCR 数据，按每 3 分钟均匀切片
     if not slide_checkpoints:
         curr = dt_lesson_start
         step = timedelta(minutes=3)
@@ -138,23 +176,16 @@ def extract(lesson_id: str, start: str, end: str) -> list[dict]:
         else:
             seg_end_dt = dt_lesson_end
 
-        # 确保时间边界合理
         if seg_end_dt <= seg_start_dt:
             continue
 
-        # 匹配落入该区间的麦克风转写
+        # 匹配该时间窗内的麦克风发言
         matched_audios = [
-            a
-            for a in audio_records
-            if seg_start_dt <= a["time"] < seg_end_dt
+            a for a in audio_records if seg_start_dt <= a["time"] < seg_end_dt
         ]
 
-        speech_parts = [a["text"] for a in matched_audios if a["text"]]
-        speech = " ".join(speech_parts).strip()
-        trans_ids = [
-            a["id"] for a in matched_audios if a["id"] is not None
-        ]
-
+        speech = " ".join(a["text"] for a in matched_audios if a["text"]).strip()
+        trans_ids = [a["id"] for a in matched_audios if a["id"] is not None]
         frame_ids = [cp["frame_id"]] if cp["frame_id"] is not None else []
 
         segment = {
@@ -191,6 +222,7 @@ def main() -> None:
             encoding="utf-8",
         )
         return
+
     segments = extract(args.lesson_id, args.start, args.end)
     args.out.write_text(json.dumps(segments, ensure_ascii=False, indent=2), encoding="utf-8")
 
