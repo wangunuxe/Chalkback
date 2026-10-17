@@ -320,9 +320,29 @@ function readDraft() {
   };
 }
 
+// The list the head checks before uploading: same look as the coverage matrix; the table under "Edit by hand" is the source
+let approvedIds = new Set();
+function renderPreview(info = "", sticky = false) {
+  if (sticky || info) renderPreview.info = info;
+  info = renderPreview.info || "";
+  const d = readDraft();
+  const pts = d.knowledge_points;
+  $("kp-preview").innerHTML = `
+    ${info ? `<div class="msg ok" style="margin:8px 0">${esc(info)}</div>` : ""}
+    <p class="muted" style="margin:8px 0">${esc(d.subject)} · ${esc(d.level)} · ${pts.length} knowledge point${pts.length === 1 ? "" : "s"}</p>
+    <div class="table-wrap"><table><thead><tr><th style="width:45%">Knowledge point</th><th>Keywords</th></tr></thead><tbody>
+      ${pts.map((kp) => `<tr><td><span class="kp-title">${esc(kp.title)}</span>
+        <span class="kp-id">${esc(kp.kp_id)}${approvedIds.has(kp.kp_id) ? "" : " · new"}</span></td>
+        <td><div class="kp-chips" style="display:flex; flex-wrap:wrap; gap:6px">${kp.keywords.map((k) => `<span class="pill" style="font-size:12px; padding:3px 10px">${esc(k)}</span>`).join("")
+          || `<span class="muted">No keywords: the pipe can't search lessons for this point</span>`}</div></td></tr>`).join("")
+        || `<tr><td colspan="2" class="muted">No knowledge points yet.</td></tr>`}
+    </tbody></table></div>`;
+}
+
 async function renderHead(b, titles, courses) {
   const risky = b.classes.filter((c) => c.at_risk);
   const current = await (await api("/api/syllabus/current")).json();
+  approvedIds = new Set(current.knowledge_points.map((kp) => kp.kp_id));
   const matrix = b.classes.length ? `<div class="table-wrap"><table>
       <thead><tr><th>Knowledge point</th>${b.classes.map((c) => `<th class="c">Class ${esc(c.class_id)}</th>`).join("")}</tr></thead>
       <tbody>
@@ -348,26 +368,30 @@ async function renderHead(b, titles, courses) {
         : `<p class="muted">No pending drafts.</p>`}
       <details id="upload">
         <summary>Upload a new draft</summary>
-        <p class="muted">Starts from the current version: edit, add or remove knowledge points, then upload.
-          The Hub numbers the new version; teachers only get it after you approve it.</p>
+        <p class="muted">Choose the syllabus file: AI summarises it into the knowledge point list below. Points it recognises
+          keep their id, so coverage already shared still counts. Nothing is saved until you upload; teachers only get the
+          new version after you approve it.</p>
         <div class="row" style="gap:12px; margin:8px 0; flex-wrap:wrap">
-          <label style="flex:1">Fill from a syllabus file (PDF, Word, PowerPoint, text)
+          <label style="flex:1">Syllabus file (PDF, Word, PowerPoint, text)
             <input type="file" id="sy-file" accept=".pdf,.docx,.pptx,.txt,.md"></label>
-          <button id="sy-extract">✨ Fill with AI</button>
+          <button id="sy-extract">✨ Summarise with AI</button>
         </div>
-        <p class="muted">AI reads the file and fills the table below. Points it recognises keep their id, so past coverage still
-          counts. Nothing is saved until you check the table and upload it.</p>
-        <input type="hidden" id="sy-id" value="${esc(current.syllabus_id)}">
-        <div class="row" style="gap:12px; margin:8px 0">
-          <label style="flex:1">Subject <input id="sy-subject" value="${esc(current.subject)}"></label>
-          <label style="flex:1">Level <input id="sy-level" value="${esc(current.level)}"></label>
-        </div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Knowledge point</th><th>Keywords teachers use when teaching it (comma-separated)</th><th></th></tr></thead>
-          <tbody id="kp-rows">${current.knowledge_points.map(kpRow).join("")}</tbody>
-        </table></div>
-        <div class="row" style="margin-top:10px">
-          <button id="kp-add">+ Add a knowledge point</button>
+        <div id="kp-preview"></div>
+        <details id="kp-edit">
+          <summary>Edit points and keywords by hand</summary>
+          <p class="muted">Keywords are what teachers say or show when teaching the point; the pipe searches lessons for them.</p>
+          <input type="hidden" id="sy-id" value="${esc(current.syllabus_id)}">
+          <div class="row" style="gap:12px; margin:8px 0">
+            <label style="flex:1">Subject <input id="sy-subject" value="${esc(current.subject)}"></label>
+            <label style="flex:1">Level <input id="sy-level" value="${esc(current.level)}"></label>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th style="width:45%">Knowledge point</th><th>Keywords (comma-separated)</th><th></th></tr></thead>
+            <tbody id="kp-rows">${current.knowledge_points.map(kpRow).join("")}</tbody>
+          </table></div>
+          <div class="row" style="margin-top:10px"><button id="kp-add">+ Add a knowledge point</button></div>
+        </details>
+        <div class="row" style="margin-top:12px; justify-content:flex-end">
           <button class="primary" id="upload-btn">Upload as draft</button>
         </div>
       </details>
@@ -385,7 +409,10 @@ function bindHead() {
     };
   }
   const rows = $("kp-rows");
-  if (rows) rows.onclick = (e) => { if (e.target.classList.contains("kp-remove")) e.target.closest("tr").remove(); };
+  if (!rows) return;
+  renderPreview("", true);
+  rows.onclick = (e) => { if (e.target.classList.contains("kp-remove")) { e.target.closest("tr").remove(); renderPreview(); } };
+  rows.oninput = $("sy-subject").oninput = $("sy-level").oninput = () => renderPreview();
   const add = $("kp-add");
   if (add) add.onclick = () => { rows.insertAdjacentHTML("beforeend", kpRow()); rows.lastElementChild.querySelector("input").focus(); };
   const ex = $("sy-extract");
@@ -410,15 +437,24 @@ function bindHead() {
       $("sy-subject").value = s.subject;
       $("sy-level").value = s.level;
       rows.innerHTML = s.knowledge_points.map(kpRow).join("");
-      const parts = [`${s.knowledge_points.length} knowledge points from ${file.name}`,
-        `${body.kept.length} kept their id`, `${body.new.length} new`];
-      if (body.dropped.length) parts.push(`not in the file: ${body.dropped.join(", ")}`);
-      note("syllabus-msg", `AI suggestion: ${parts.join(" · ")}. Check the table, then upload it as a draft.`, true);
+      $("sy-id").value = s.syllabus_id;
+      approvedIds = new Set(body.kept);
+      renderPreview(body.subject_changed
+        ? (body.new_syllabus
+          ? `This file is for ${s.subject}, so it becomes a new syllabus (${s.syllabus_id}) next to ${body.previous_subject}.`
+          : `This file is for ${s.subject}: it is the next version of that syllabus (${s.syllabus_id}).`)
+          + ` The ${body.previous_subject} syllabus is not changed.` : "", true);
+      const parts = [`${s.knowledge_points.length} knowledge points from ${file.name}`];
+      if (!body.new_syllabus) {
+        parts.push(`${body.kept.length} kept their id`, `${body.new.length} new`);
+        if (body.dropped.length) parts.push(`not in the file: ${body.dropped.join(", ")}`);
+      }
+      note("syllabus-msg", `AI summary: ${parts.join(" · ")}. Check the list, then upload it as a draft.`, true);
     } catch (e) {
       note("syllabus-msg", "Could not read the file.");
     } finally {
       ex.disabled = false;
-      ex.textContent = "✨ Fill with AI";
+      ex.textContent = "✨ Summarise with AI";
     }
   };
   const up = $("upload-btn");

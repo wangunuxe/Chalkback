@@ -48,7 +48,8 @@ def extract(req: ExtractRequest, member: Member = Depends(require("head"))):
     if existing and existing["syllabus_id"] != syllabus_id:
         existing = None  # a different syllabus: no ids to keep
     try:
-        return syllabus_extract.extract(req.filename, req.content_base64, existing, syllabus_id)
+        return syllabus_extract.extract(req.filename, req.content_base64, existing, syllabus_id,
+                                        find=lambda sid: approved(member.workspace_id, sid))
     except syllabus_extract.ExtractError as e:
         raise HTTPException(e.status, e.message)
 

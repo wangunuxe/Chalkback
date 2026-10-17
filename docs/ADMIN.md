@@ -92,10 +92,13 @@ On the dashboard, as *Department head* → **Syllabus** panel:
 1. **Upload a new draft.** The editor starts with the current version as JSON. Change the knowledge points and
    upload. The Hub checks the format and assigns the next version number itself.
    **From a file:** choose the syllabus file (PDF, Word, PowerPoint, TXT or Markdown, up to 5 MB) and click
-   **Fill with AI**. The AI fills the table with the knowledge points and keywords it finds. Points that match the
-   current version keep their id (`KP01`…), so coverage already shared still counts; new points get the next numbers.
-   **Check the table before uploading**: the AI can miss or split points, and keywords drive what the pipe searches
-   for. The file is sent to the AI service (Anthropic or Google) and not stored by the Hub. Needs `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`.
+   **Summarise with AI**. The panel shows the knowledge point list the AI found. Points that match the current
+   version keep their id (`KP01`…), so coverage already shared still counts; new points get the next numbers and are
+   marked *new*. Next to each point the list shows the keywords the AI wrote for it (what the pipe searches lessons
+   for); change them under **Edit points and keywords by hand**. If the file is for another subject (for example Chinese while the
+   current syllabus is French), it becomes a separate syllabus for that subject (`chinois-college`) with its own
+   numbering, or the next version of it if one exists; the current syllabus is not changed. The file is sent to the AI service (Anthropic or Google) and not
+   stored by the Hub. Needs `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`.
 2. The draft appears under the panel. Teachers still get the previous version.
 3. **Approve vN.** This version now applies to everyone. The audit log records `approve_syllabus`
    with the target `<syllabus_id>@v<N>`.
