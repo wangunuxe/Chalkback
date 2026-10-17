@@ -30,7 +30,7 @@ pip install -r requirements-dev.txt
 make check          # 示例全部通过契约 + 各组件测试
 make seed-mock      # 用示例生成 .mock-home/（假的 ~/.chalkback/）
 make hub            # :8000，所有接口先返回 mock
-make console        # :4000，读 .mock-home
+make teacher        # https://localhost:4000/console，读 .mock-home
 ```
 
 上游没完成就用 `contracts/examples/` 的 mock 开工，不要等。
@@ -45,7 +45,7 @@ make reset-mock     # 连数据卷一起删，下次 up 重新生成 mock
 ```
 
 - 容器里只有 **Hub + 控制台（mock 数据）**。screenpipe 和 chalkback-pipe 必须跑在老师电脑上（要录麦克风和屏幕），不进容器。
-- 控制台容器只绑定 `127.0.0.1:4000`，学生手机连不进来。测试手机作答时请在宿主机上运行 `make console`。
+- 控制台容器只绑定 `127.0.0.1:4000`。学生游戏也只在老师电脑上打开，不做手机端。
 - 真实部署时，控制台直接跑在老师电脑上，不用 Docker；Hub 可以用 `hub/Dockerfile` 部署到云端。
 
 ## 规则速记

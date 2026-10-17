@@ -17,6 +17,7 @@ EDITS = STATE / "edits.jsonl"
 WEIGHTS = STATE / "weights.json"
 SHARES = STATE / "shares.json"
 ATTEMPTS = STATE / "attempts.jsonl"
+KP_STATS = STATE / "kp_stats"  # kp_stats/{quiz_id}.json，只在本机（§5 kp_stats：C → C）
 
 
 def lesson_plan(class_id: str, date: str) -> Path:
@@ -25,3 +26,7 @@ def lesson_plan(class_id: str, date: str) -> Path:
 
 def outbox_dir(lesson_id: str) -> Path:
     return OUTBOX / lesson_id
+
+
+def kp_stats(quiz_id: str) -> Path:
+    return KP_STATS / f"{quiz_id}.json"

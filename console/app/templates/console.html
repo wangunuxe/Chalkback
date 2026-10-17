@@ -1,137 +1,279 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<!--
+  老师审核页（TC3，负责人 C）。只用 outbox 里的真实数据；不引用外部资源（离线也能用）。
+  按钮调用 /review/{lesson_id}/action|publish|reject|share 和 DELETE /shares/{share_id}，结果显示在页面顶部，不弹对话框。
+-->
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChalkBack - Teacher Console</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>ChalkBack Console</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Fredoka', 'Inter', sans-serif; }
+    :root {
+      --bg: #f0f9ff; --card: #ffffff; --text: #334155; --muted: #64748b; --border: #e2e8f0;
+      --sky: #0284c7; --sky-soft: #e0f2fe; --green: #047857; --green-soft: #d1fae5;
+      --amber: #92400e; --amber-soft: #fef3c7; --pink: #be185d; --pink-soft: #fce7f3; --red: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { background: var(--card); border-bottom: 3px solid #fde68a; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+    header h1 { margin: 0; font-size: 20px; color: var(--sky); }
+    header nav a { margin-left: 14px; color: var(--sky); text-decoration: none; font-weight: 600; }
+    main { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+    section { background: var(--card); border: 2px solid var(--border); border-radius: 16px; padding: 16px 18px; }
+    h2 { margin: 0 0 10px; font-size: 18px; }
+    h3 { margin: 0; font-size: 16px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .spread { justify-content: space-between; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--sky-soft); color: var(--sky); }
+    .badge.green { background: var(--green-soft); color: var(--green); }
+    .badge.amber { background: var(--amber-soft); color: var(--amber); }
+    .badge.pink { background: var(--pink-soft); color: var(--pink); }
+    .lessons a { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); text-decoration: none; color: var(--text); font-size: 13px; }
+    .lessons a.current { background: var(--sky); border-color: var(--sky); color: #fff; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    ul { margin: 6px 0 0; padding-left: 20px; }
+    .alert-group { margin-top: 10px; }
+    .question { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-top: 12px; background: #f8fafc; }
+    .question .prompt { font-weight: 600; font-size: 16px; margin: 8px 0; }
+    .choices { list-style: upper-alpha; }
+    .choices li.answer { color: var(--green); font-weight: 700; }
+    .quote { font-style: italic; background: #fefce8; border-left: 3px solid #facc15; padding: 6px 10px; margin-top: 8px; font-size: 13px; }
+    button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 6px 14px; cursor: pointer; background: var(--sky-soft); color: var(--sky); }
+    button.primary { background: var(--sky); color: #fff; }
+    button.danger { background: var(--pink-soft); color: var(--red); }
+    button:disabled { opacity: .5; cursor: default; }
+    form.edit { display: none; margin-top: 10px; gap: 8px; }
+    form.edit.open { display: grid; }
+    form.edit label { display: grid; gap: 2px; font-size: 13px; font-weight: 600; }
+    form.edit input, form.edit textarea, form.edit select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+    #message { display: none; padding: 10px 14px; border-radius: 12px; font-weight: 600; }
+    #message.ok { display: block; background: var(--green-soft); color: var(--green); }
+    #message.error { display: block; background: var(--pink-soft); color: var(--red); }
   </style>
 </head>
-<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col text-slate-700">
-
-  <!-- Header -->
-  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b-4 border-yellow-200 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <span class="text-4xl animate-bounce">🖍️</span>
-      <div>
-        <h1 class="text-2xl font-bold tracking-wide text-sky-600">Teacher Console</h1>
-        <p class="text-xs font-semibold text-pink-500">Smart Classroom Playback & Syllabus Tracking 📋✨</p>
-      </div>
-    </div>
-    <div class="flex items-center space-x-4">
-      <span class="px-3 py-1 bg-yellow-100 text-yellow-800 font-bold rounded-full text-sm border-2 border-yellow-300">
-        🏫 {{ data.teacher_name }}
-      </span>
-    </div>
+<body>
+  <header>
+    <h1>🖍️ ChalkBack Console</h1>
+    <nav>
+      <span class="muted">{{ "Teacher " ~ teacher_id if teacher_id else "Not set up yet" }}</span>
+      <a href="/console">Review</a>
+      <a href="/shares">Shares</a>
+      <a href="/style">Style</a>
+    </nav>
   </header>
 
-  <!-- Main Content -->
-  <main class="max-w-4xl w-full mx-auto p-6 flex-1 space-y-6">
+  <main>
+    <div id="message" role="status"></div>
 
-    <!-- Lesson Info Card -->
-    <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl relative overflow-hidden space-y-2">
-      <div class="absolute -right-6 -bottom-6 text-9xl opacity-10 pointer-events-none">📚</div>
-      <span class="px-3 py-1 bg-pink-100 text-pink-700 font-bold rounded-full text-xs uppercase tracking-wider">Lesson ID: {{ data.lesson_id }}</span>
-      <h2 class="text-3xl font-bold text-slate-800">{{ data.subject }}</h2>
-      <p class="text-sm text-slate-500">Teacher: {{ data.teacher_name }} | Timestamp: {{ data.timestamp }}</p>
+    {% if not lesson_id %}
+    <section>
+      <h2>No lesson ready yet</h2>
+      <p class="muted">ChalkBack writes each lesson to the outbox after class. Lessons appear here once the pipe has finished.</p>
+    </section>
+    {% else %}
+    {% set quiz = data.quiz %}
+    {% set alerts = data.alerts or {} %}
+    {% set coverage = data.coverage or {} %}
+
+    <section>
+      <div class="row spread">
+        <h2>Lesson {{ lesson_id }}</h2>
+        <span class="badge">Class {{ quiz.class_id }}</span>
+      </div>
+      {% if lessons|length > 1 %}
+      <div class="row lessons">
+        {% for l in lessons %}<a href="/console?lesson={{ l }}" class="{{ 'current' if l == lesson_id else '' }}">{{ l }}</a>{% endfor %}
+      </div>
+      {% endif %}
     </section>
 
-    <!-- Omission Alerts -->
-    {% if data.missed_kps %}
-    <section class="bg-gradient-to-r from-amber-50 to-pink-50 rounded-3xl p-6 border-4 border-amber-300 shadow-xl space-y-3">
-      <div class="flex items-center space-x-3">
-        <span class="text-3xl animate-bounce">⚠️</span>
-        <div>
-          <h3 class="text-xl font-bold text-amber-800">Omission Alerts</h3>
-          <p class="text-xs text-amber-700">Concepts not covered in this session</p>
-        </div>
+    {% if alerts.missed or alerts.covered_before or alerts.weak_from_reports %}
+    <section>
+      <h2>⚠️ Alerts</h2>
+      {% if alerts.missed %}
+      <div class="alert-group"><span class="badge pink">Not covered</span>
+        <ul>{% for a in alerts.missed %}<li><strong>{{ kp_titles.get(a.kp_id, a.kp_id) }}</strong> — {{ a.note }}</li>{% endfor %}</ul>
       </div>
-      <ul class="list-disc list-inside space-y-1 text-amber-900 font-bold text-sm bg-white/80 p-4 rounded-2xl border-2 border-amber-200">
-        {% for kp in data.missed_kps %}
-        <li>{{ kp }}</li>
-        {% endfor %}
-      </ul>
+      {% endif %}
+      {% if alerts.covered_before %}
+      <div class="alert-group"><span class="badge green">Covered in an earlier lesson</span>
+        <ul>{% for a in alerts.covered_before %}<li><strong>{{ kp_titles.get(a.kp_id, a.kp_id) }}</strong> — last covered {{ a.last_covered_at[:16]|replace("T", " ") }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+      {% if alerts.weak_from_reports %}
+      <div class="alert-group"><span class="badge amber">Weak in quiz reports</span>
+        <ul>{% for a in alerts.weak_from_reports %}<li><strong>{{ kp_titles.get(a.kp_id, a.kp_id) }}</strong> — seen {{ a.seen_at[:16]|replace("T", " ") }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
     </section>
     {% endif %}
 
-    <!-- Knowledge Point Coverages -->
-    <section class="bg-white rounded-3xl p-6 border-4 border-emerald-200 shadow-xl space-y-4">
-      <h3 class="text-xl font-bold text-emerald-700 flex items-center space-x-2">
-        <span>📋</span><span>Knowledge Point Coverages</span>
-      </h3>
-      <div class="space-y-4">
-        {% for cov in data.coverages %}
-        <div class="bg-slate-50 rounded-2xl p-4 border-2 border-slate-200 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-800">{{ cov.kp_title or cov.kp_id }}</span>
-            {% if cov.covered %}
-            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-xs">🟢 Covered ({{ cov.duration_minutes or cov.minutes or 0 }}m)</span>
-            {% else %}
-            <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold text-xs">🔴 Not Covered</span>
-            {% endif %}
-          </div>
-          {% if cov.screenpipe_timestamp %}
-          <div class="font-mono text-xs bg-white px-3 py-1.5 rounded-xl border border-slate-300 text-slate-700 inline-block shadow-inner">
-            [Timestamp: <span class="font-bold text-pink-600">{{ cov.screenpipe_timestamp }}</span> | Frame <span class="font-bold text-sky-600">{{ cov.frame_id or 'N/A' }}</span>]
-          </div>
-          {% endif %}
-          {% if cov.raw_quote %}
-          <p class="text-xs text-slate-600 italic bg-yellow-50 p-3 rounded-xl border border-yellow-200">
-            "{{ cov.raw_quote }}"
-          </p>
-          {% endif %}
-        </div>
+    <section>
+      <h2>📋 Syllabus coverage</h2>
+      <table>
+        <tr><th>Knowledge point</th><th>Covered</th><th>Minutes</th></tr>
+        {% for p in coverage.points or [] %}
+        <tr>
+          <td>{{ kp_titles.get(p.kp_id, p.kp_id) }} <span class="muted">{{ p.kp_id }}</span></td>
+          <td>{% if p.covered %}<span class="badge green">yes</span>{% else %}<span class="badge pink">no</span>{% endif %}</td>
+          <td>{{ p.minutes }}</td>
+        </tr>
         {% endfor %}
+      </table>
+      <div class="row spread" style="margin-top: 12px">
+        {% if data.share %}
+        <span class="muted">Shared with the school Hub on {{ data.share.shared_at[:16]|replace("T", " ") }} ({{ data.share.share_id }})</span>
+        <button class="danger" data-call="DELETE /shares/{{ data.share.share_id }}">Withdraw (A5)</button>
+        {% else %}
+        <span class="muted">Sharing sends only knowledge point, covered and minutes — never transcripts, screenshots or quotes.</span>
+        <button class="primary" data-call="POST /review/{{ lesson_id }}/share">Share with school (A3)</button>
+        {% endif %}
       </div>
     </section>
 
-    <!-- Generated Questions -->
-    <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl space-y-4">
-      <h3 class="text-xl font-bold text-sky-700 flex items-center space-x-2">
-        <span>⭐</span><span>Generated Questions for Review</span>
-      </h3>
-      <div class="space-y-4">
-        {% for q in data.generated_questions %}
-        <div class="bg-sky-50 rounded-2xl p-4 border-2 border-sky-200 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="px-2.5 py-1 bg-sky-200 text-sky-900 rounded-lg font-bold text-xs">{{ q.id or q.q_id }} (KP: {{ q.kp_id }})</span>
-            <span class="text-xs font-semibold text-emerald-700">
-              {% if q.correct_index is defined %}Correct: Option {{ q.correct_index + 1 }}
-              {% elif q.answer is defined %}Answer: {{ q.answer }}
-              {% endif %}
-            </span>
-          </div>
-          <h4 class="font-bold text-slate-800 text-lg">{{ q.stem or q.prompt }}</h4>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {% for opt in (q.options or q.choices) %}
-            <div class="bg-white p-2.5 rounded-xl border border-sky-100 text-sm font-medium text-slate-700 shadow-sm">
-              {{ opt }}
-            </div>
-            {% endfor %}
-          </div>
-          {% if q.explanation %}
-          <p class="text-xs text-slate-500 bg-white/60 p-2 rounded-lg">
-            💡 Explanation: {{ q.explanation }}
-          </p>
-          {% elif q.source %}
-          <p class="text-xs text-slate-500 bg-white/60 p-2 rounded-lg italic">
-            💬 Source Quote: "{{ q.source.quote }}" (Frame: {{ q.source.frame_ids }})
-          </p>
+    <section>
+      <div class="row spread">
+        <h2>⭐ Quiz <span class="badge {{ {'published': 'green', 'rejected': 'pink'}.get(quiz.status, 'amber') }}">{{ quiz.status }}</span></h2>
+        <div class="row">
+          {% if quiz.status == "published" %}
+          <a href="/play/{{ quiz.quiz_id }}" target="_blank"><button class="primary">Open game</button></a>
+          {% elif quiz.status != "rejected" %}
+          <button class="danger" data-call="POST /review/{{ lesson_id }}/reject">Reject quiz</button>
+          <button class="primary" data-call="POST /review/{{ lesson_id }}/publish">Publish (A2)</button>
           {% endif %}
         </div>
-        {% endfor %}
       </div>
+      {% if quiz.status == "pending" %}<p class="muted">Approve, edit or delete each question, then publish. Students only see the game after you publish.</p>{% endif %}
+
+      {% for q in quiz.questions %}
+      <div class="question" id="q-{{ q.q_id }}">
+        <div class="row spread">
+          <div class="row">
+            <span class="badge">{{ q.q_id }}</span>
+            <span class="badge amber">{{ q.type }}</span>
+            <span class="muted">{{ kp_titles.get(q.kp_id, q.kp_id) }} · {{ q.time_limit_s }} s</span>
+          </div>
+          {% if quiz.status == "pending" %}
+          <div class="row">
+            <button data-call="POST /review/{{ lesson_id }}/action" data-body='{{ {"action": "approve", "q_id": q.q_id}|tojson }}'>Approve</button>
+            <button data-edit="{{ q.q_id }}">Edit</button>
+            <button class="danger" data-call="POST /review/{{ lesson_id }}/action" data-body='{{ {"action": "delete", "q_id": q.q_id}|tojson }}'>Delete</button>
+          </div>
+          {% endif %}
+        </div>
+        <div class="prompt">{{ q.prompt }}</div>
+        {% if q.type == "mcq" %}
+        <ol class="choices">{% for c in q.choices %}<li class="{{ 'answer' if loop.index0 == q.answer else '' }}">{{ c }}</li>{% endfor %}</ol>
+        {% else %}
+        <div>Answer: <strong>{{ q.answer|string|lower if q.type == "true_false" else q.answer }}</strong></div>
+        {% endif %}
+        <div class="quote">“{{ q.source.quote }}” <span class="muted">— said in class ({{ q.source.segment_id }})</span></div>
+
+        {% if quiz.status == "pending" %}
+        <form class="edit" data-lesson="{{ lesson_id }}" data-question='{{ q|tojson }}'>
+          <label>Question <textarea name="prompt" rows="2">{{ q.prompt }}</textarea></label>
+          {% if q.type == "mcq" %}
+          <label>Choices (one per line) <textarea name="choices" rows="4">{{ q.choices|join("\n") }}</textarea></label>
+          <label>Correct choice number <input name="answer" type="number" min="1" value="{{ q.answer + 1 }}"></label>
+          {% elif q.type == "true_false" %}
+          <label>Answer <select name="answer"><option value="true" {{ 'selected' if q.answer }}>true</option><option value="false" {{ 'selected' if not q.answer }}>false</option></select></label>
+          {% else %}
+          <label>Answer <input name="answer" value="{{ q.answer }}"></label>
+          {% endif %}
+          <label>Time limit (seconds) <input name="time_limit_s" type="number" min="1" value="{{ q.time_limit_s }}"></label>
+          <div class="row"><button class="primary" type="submit">Save edit</button></div>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
     </section>
 
+    {% if data.kp_stats %}
+    <section>
+      <h2>📊 Results ({{ data.kp_stats.n_players }} players)</h2>
+      <table>
+        <tr><th>Knowledge point</th><th>Correct</th><th>Average time</th></tr>
+        {% for r in data.kp_stats.by_kp %}
+        <tr>
+          <td>{{ kp_titles.get(r.kp_id, r.kp_id) }}</td>
+          <td>{% if r.accuracy < 0.5 %}<span class="badge pink">{{ (r.accuracy * 100)|round|int }}%</span>{% else %}{{ (r.accuracy * 100)|round|int }}%{% endif %}</td>
+          <td>{{ (r.avg_time_ms / 1000)|round(1) }} s</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <p class="muted">Points under 50% get double weight in the next quiz.</p>
+    </section>
+    {% endif %}
+    {% endif %}
   </main>
 
-  <!-- Footer -->
-  <footer class="text-center py-6 text-xs text-slate-400">
-    <p>ChalkBack Teacher Console © 2026</p>
-  </footer>
+  <script>
+    const message = document.getElementById("message");
+    function show(text, ok) {
+      message.textContent = text;
+      message.className = ok ? "ok" : "error";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
 
+    async function call(method, url, body) {
+      const res = await fetch(url, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = Array.isArray(data.detail) ? data.detail.map((d) => d.msg || d).join("; ") : data.detail;
+        throw new Error(detail || `${res.status} ${res.statusText}`);
+      }
+      return data;
+    }
+
+    async function run(button, method, url, body) {
+      button.disabled = true;
+      try {
+        await call(method, url, body);
+        location.reload();
+      } catch (e) {
+        show(e.message, false);
+        button.disabled = false;
+      }
+    }
+
+    document.querySelectorAll("[data-call]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const [method, url] = button.dataset.call.split(" ");
+        run(button, method, url, button.dataset.body ? JSON.parse(button.dataset.body) : undefined);
+      });
+    });
+
+    document.querySelectorAll("[data-edit]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelector(`#q-${CSS.escape(button.dataset.edit)} form.edit`).classList.toggle("open");
+      });
+    });
+
+    document.querySelectorAll("form.edit").forEach((form) => {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const q = JSON.parse(form.dataset.question);
+        const f = new FormData(form);
+        const changes = { prompt: f.get("prompt").trim(), time_limit_s: Number(f.get("time_limit_s")) };
+        if (q.type === "mcq") {
+          changes.choices = f.get("choices").split("\n").map((c) => c.trim()).filter(Boolean);
+          changes.answer = Number(f.get("answer")) - 1;
+        } else if (q.type === "true_false") {
+          changes.answer = f.get("answer") === "true";
+        } else {
+          changes.answer = f.get("answer").trim();
+        }
+        run(form.querySelector("button"), "POST", `/review/${encodeURIComponent(form.dataset.lesson)}/action`,
+            { action: "edit", q_id: q.q_id, changes });
+      });
+    });
+  </script>
 </body>
 </html>

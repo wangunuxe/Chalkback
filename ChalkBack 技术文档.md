@@ -42,8 +42,8 @@ ChalkBack 是一个面向学校的教学助手。screenpipe 在每位老师电�
 | screenpipe | 老师电脑 | 记录老师麦克风转写和屏幕文字；不修改，原样使用 | A 部署 | screenpipe 桌面版（Windows 或 macOS） |
 | chalkback-pipe | 老师电脑，由 screenpipe 启动 | 下课后还原课堂、对知识点、出题并生成学生游戏、漏讲提醒、学风格，结果写入 outbox | A 数据部分，B 智能部分 | `pipe.md` + Python 脚本，只调用 screenpipe 本地 API |
 | outbox | 老师电脑 `~/.chalkback/outbox/` | pipe 与控制台之间的文件接口 | B 写，C 读 | JSON 文件 |
-| 老师控制台 | 老师电脑 `http://localhost:4000` | 安装向导、审核题目、在校园网内提供学生游戏并记录作答、批准共享、共享记录与撤回、与 Hub 同步 | C | FastAPI + 简单前端 |
-| 学校 Hub | 云端（对公网可访问） | 工作区与邀请码、共享考纲、知识点覆盖表（接收批准的覆盖数据）、角色看板、审计日志 | D | FastAPI + SQLite + 简单前端 |
+| 老师控制台 | 老师电脑 `https://localhost:4000` | 安装向导、审核题目、在本机提供学生游戏页面并记录作答、批准共享、共享记录与撤回、与 Hub 同步 | C | FastAPI + 简单前端 |
+| 学校 Hub | 云端（对公网可访问，HTTPS） | 工作区与邀请码、共享考纲、知识点覆盖表（接收批准的覆盖数据）、角色看板、审计日志 | D | FastAPI + SQLite + 简单前端 |
 
 技术栈为建议，可以调整，但全队要在第 3 小时前定下并保持一致。
 
@@ -86,8 +86,8 @@ agent 负责需要判断的部分，固定逻辑（取数据、拼片段、校�
 4. **对知识点**：生成本节课覆盖表，只存 screenpipe 的时间戳和 id。
 5. **生成结果**：漏讲提醒（回查过去 21 天确认）、带出处的测验和学生游戏（按老师风格和学情权重）、Kahoot 报告里的薄弱点。全部写入 outbox，并通知老师。
 6. **老师审核题目** **\[审批 A2\]**：通过、修改或拒绝。修改记录回传 pipe，用于更新风格文件。
-7. **发布游戏**：控制台在校园网内提供 agent 生成的学生游戏，得到游戏链接和二维码。
-8. **学生作答**：扫码、输入昵称、作答，控制台在本机记录答案和用时。
+7. **发布游戏**：控制台在本机（`localhost`）提供 agent 生成的学生游戏页面，老师在自己电脑的浏览器里打开。
+8. **学生作答**：学生在老师电脑上打开游戏页面，输入昵称、作答，控制台在本机记录答案和用时。不做手机端，不对校园网开放。
 9. **学情回传**：控制台按知识点统计作答，生成权重文件，下次出题使用。
 10. **老师批准共享覆盖数据** **\[审批 A3\]**：只上传知识点、是否讲过、时长。
 11. **看板更新**：Hub 更新考纲进度和预警，写入审计日志。
@@ -310,19 +310,19 @@ pipe 正文按顺序执行：
 
 ### 6.3 老师控制台（C）
 
-本机 `http://localhost:4000`；老师页面只允许本机访问，/play 和作答接口对校园网开放。
+本机 `https://localhost:4000`（自签证书，由 `console/generate_cert.py` 生成；第一次打开时浏览器会提示证书不受信任，确认继续即可）；所有页面（包括 `/play` 和作答接口）都只允许本机访问。学生游戏只在老师电脑上的浏览器里打开，不做手机端。
 
 | 页面 | 功能 |
 | --- | --- |
 | `/setup` | 邀请码 → 学科班级 → 课表 → 知情同意（A1）→ 写 `config.json` 和 pipe 定时 |
 | `/review` | 列出 outbox；显示漏讲提醒；逐题通过 / 修改 / 删除（A2）；点开出处显示原话和截图；批准共享覆盖数据（A3） |
-| `/play/{quiz_id}` | 学生游戏：在校园网内提供 agent 生成的 `game.html`；接收作答写入 `attempts.jsonl`；按知识点统计得到 `kp_stats` 和 `weights.json` |
+| `/play/{quiz_id}` | 学生游戏：在本机提供 agent 生成的 `game.html`；接收作答写入 `attempts.jsonl`；按知识点统计得到 `kp_stats` 和 `weights.json` |
 | `/shares` | 已上传记录（来自 `shares.json` 和 Hub 审计）；撤回（A5） |
 | `/style` | 只读展示风格文件及每条规则的来源 |
 
 ### 6.4 学校 Hub API（D）
 
-认证：`POST /api/join` 返回的 token，放在 `Authorization: Bearer <token>`；token 对应一个角色。看板数据只来自批准上传的覆盖表。
+全部接口走 HTTPS（Docker 部署为 `https://<hub>:8443`，证书由 `hub/generate_cert.py` 生成）。认证：`POST /api/join` 返回的 token，放在 `Authorization: Bearer <token>`；token 对应一个角色。看板数据只来自批准上传的覆盖表。
 
 | 方法 | 路径 | 角色 | 输入 | 输出 |
 | --- | --- | --- | --- | --- |
@@ -392,7 +392,7 @@ chalkback/
 | --- | --- | --- | --- |
 | TB1 `validate.py`：按 `contracts/` 校验任一契约文件 | 脚本 | 对 `examples/` 全部通过，对错误文件报错 | 周六 13:00 |
 | TB2 `pipe.md` 编排第 6.1 节的 8 步 | pipe | 用 mock 片段 `pipe run chalkback` 产出完整 outbox | 周六 20:00 |
-| TB3 `gen_quiz.md`：按覆盖时长和权重分配题量，只考讲过的知识点，每题带 `source`；再用 `templates/game.html` 生成学生游戏页面 `game.html` | 提示词 + 游戏模板 + 真实输出 | 通过 `quiz` 校验；每题 `source.quote` 能在转写中找到；`game.html` 在手机上能打开并作答 | 周六 20:00 |
+| TB3 `gen_quiz.md`：按覆盖时长和权重分配题量，只考讲过的知识点，每题带 `source`；再用 `templates/game.html` 生成学生游戏页面 `game.html` | 提示词 + 游戏模板 + 真实输出 | 通过 `quiz` 校验；每题 `source.quote` 能在转写中找到；`game.html` 在老师电脑的浏览器里能打开并作答 | 周六 20:00 |
 | TB4 `alerts.md` + 过去 21 天回查 | 提示词 | 演示数据上正确区分“未讲”和“上周讲过” | 周日 01:00 |
 | TB5 `learn_style.md`：从老师过去 30 天的出题画面（窗口含 Kahoot、Quizlet、Forms）和 `edits.jsonl` 生成风格文件，每条规则带证据 | 提示词 + T1、T2 两份风格文件 | 两份文件明显不同；同一节课生成的题目风格不同 | 周日 09:00 |
 | TB6 打包：pipe 能从 GitHub 一条命令安装；写 `SETUP.md` | 文档 + 可安装的 pipe | 在一台干净的电脑上按文档装好 | 周日 09:00 |
@@ -407,7 +407,7 @@ chalkback/
 | TC1 控制台骨架，读取 outbox（先用 mock） | 可运行的控制台 | 列出 mock 课程和题目 | 周六 13:00 |
 | TC2 `/setup` 向导：邀请码加入、课表、知情同意页（A1）、写 `config.json`、通过 screenpipe API 写 pipe 定时 | 页面 | 新用户不碰代码完成配置；审计中有 `join` 和 `consent` | 周日 01:00 |
 | TC3 `/review`：逐题审核（A2）、点开出处显示原话和截图、漏讲提醒、批准共享（A3）；写 `edits.jsonl`；生成 `coverage_share` 并上传 | 页面 | 上传内容不含任何原文和 screenpipe id | 周六 20:00（mock）/ 周日 01:00（接 Hub） |
-| TC4 学生游戏 `/play`：在校园网内提供 agent 生成的 `game.html`，生成链接和二维码；手机输入昵称、逐题计时、作答写入 `attempts.jsonl` | 功能 | 三种题型都能作答；十部手机同时作答无异常 | 周日 01:00 |
+| TC4 学生游戏 `/play`：在本机（`localhost`）提供 agent 生成的 `game.html`；输入昵称、逐题计时、作答写入 `attempts.jsonl` | 功能 | 三种题型都能作答；同一台电脑上多位学生先后作答（不同昵称）都能正确记录 | 周日 01:00 |
 | TC5 本机按知识点统计 `attempts.jsonl` 得到 `kp_stats`，按第 5 节规则生成 `weights.json` | 功能 | 下一次出题使用新权重 | 周日 09:00 |
 | TC6 `/shares` 共享记录与撤回（A5）；`/style` 只读风格页 | 页面 | 撤回后 Hub 看板不再显示，审计有 `revoke` | 周日 09:00 |
 
@@ -417,7 +417,7 @@ chalkback/
 
 | 任务 | 交付物 | 验收标准 | 截止 |
 | --- | --- | --- | --- |
-| TD1 部署方式和公网地址；API 骨架按第 6.4 节返回 mock | 公网 URL + mock API | 手机能打开；C 能对接 | 周六 13:00 |
+| TD1 部署方式和公网地址；API 骨架按第 6.4 节返回 mock | 公网 URL + mock API | 公网浏览器能打开；C 能对接 | 周六 13:00 |
 | TD2 工作区、邀请码、`/api/join`、角色 token | 接口 | 三种角色各能加入 | 周六 20:00 |
 | TD3 考纲草稿、组长批准、版本（A4） | 接口 + 页面 | 未批准的版本不生效 | 周日 01:00 |
 | TD4 知识点覆盖表：接收批准的 `coverage_share`，按班级、年级汇总，提供 `/api/coverage` | 接口 | 与 TC3 上传联调通过 | 周日 01:00 |
@@ -457,7 +457,7 @@ chalkback/
 
 1. **周六 13:00 · 开工就绪**：契约冻结（H1）；screenpipe 实测（H2）；Hub 公网地址和 mock（H3）；演示考纲（H4）；全队定下技术栈和大模型 API key。
 2. **周六 20:00 · 各自跑通**：每个组件用 mock 独立运行；演示课、出题画面、Kahoot 报告页录完（H6）。
-3. **周日 01:00 · 第一次端到端**：真实录课 → pipe → outbox → 审核 → 手机作答 → 统计 → 批准共享到 Hub。完成后按需轮流睡觉。
+3. **周日 01:00 · 第一次端到端**：真实录课 → pipe → outbox → 审核 → 本机游戏作答 → 统计 → 批准共享到 Hub。完成后按需轮流睡觉。
 4. **周日 09:00 · 赛道 3 功能齐全**：五个审批点、撤回、审计日志、三种角色视图、风格学习、`SETUP.md`。
 5. **周日 13:00 · 功能冻结**：队外新人安装测试（TB7）；录备用演示视频；幻灯片定稿。之后只修 bug。
 6. **周日 17:00 · 彩排**：完整走两遍，每遍计时不超过 3 分钟；准备问答素材。
@@ -471,10 +471,10 @@ chalkback/
 
 | 时间 | 画面 | 要说的重点 | 负责 |
 | --- | --- | --- | --- |
-| 0:00–0:15 | 开场页 + 二维码 | 痛点；“老师照常上课，screenpipe 记住课堂”；请评委扫码 | D |
+| 0:00–0:15 | 开场页 | 痛点；“老师照常上课，screenpipe 记住课堂” | D |
 | 0:15–0:35 | 新老师加入：`SETUP.md` 一条命令 + 安装向导和知情同意页 | “一位队外新人 X 分钟装好”（用 TB7 的真实数字） | B |
 | 0:35–1:10 | 下课后 pipe 自动产出：漏讲提醒 + 测验；点开一道题显示原话和课件截图；并排展示 T1、T2 同一份 pipe 学出的不同风格 | 共享一个 pipe，每位老师得到自己的风格 | A |
-| 1:10–1:35 | 老师审核通过 → 评委的作答结果已出：“第 2 题大家都错，下次加权” | 没有审核就不会发布 | C |
+| 1:10–1:35 | 老师审核通过 → 在本机打开游戏页面答一题 → 作答统计（含提前准备的全班作答数据）：“第 2 题大家都错，下次加权” | 没有审核就不会发布 | C |
 | 1:35–2:05 | 批准共享 → 看板切换三种角色：老师、组长、管理员；考前预警 | 不同角色看到不同内容；及时调整方向 | D |
 | 2:05–2:30 | 审计日志 → 老师点“撤回”→ 看板更新 | 每一次共享都经老师批准、可追溯、可撤回；录音从未离开电脑 | C |
 | 2:30–3:00 | 架构图 + 商业模式一页 | 学校按年订阅；可通过 screenpipe Teams 部署到全校 | D |
@@ -492,8 +492,109 @@ chalkback/
 | 演示课的学科、年级、语言和考纲未定 | 全队定一个具体主题，知识点控制在 8–12 个 | A + D | 周六 13:00 |
 | 知识点映射不准 | 先用一节课验证（TA3、TA4）；必要时加关键词规则兜底 | A | 周六 20:00 |
 | pipe 超时或回看窗口不够 | `timeout: 900`；提示词里显式指定起止时间 | B | 周六 20:00 |
-| 学生手机连不上老师电脑（校园网或比赛 Wi-Fi 隔离设备） | 演示前实测；备用：老师电脑开热点让手机连入 | C | 周六 20:00 |
+| 游戏只在老师电脑上作答，现场作答人数少，统计和权重不明显 | 提前用多个昵称准备一份全班 `attempts.jsonl` 作为演示数据；现场只演示答一题 | C | 周六 20:00 |
 | Kahoot 报告页读不准 | 只作为加分项；学情以自制游戏数据为主 | A | 周日 01:00 |
 | 现场网络或程序出问题 | 备用录屏；所有演示数据提前生成 | A | 周日 13:00 |
 | 评委质疑“监控老师” | 答辩主动讲第 4 节的权限表和隐私边界；只录老师麦克风，学生只用昵称 | D | 周日 13:00 |
 | 界面语言（法语或英语）未定 | 按评委构成决定 | 全员 | 周六 13:00 |
+
+## 13. 未完成清单
+
+2026-10-17 对照第 3–12 节逐条检查仓库的结果（基于 `main` @ `d9e5db6`，加上本地已修好的 C 部分）。`make check` 通过（204 个测试，其中控制台 47 个），下面是测试覆盖不到、或文档要求了但还没做的部分。做完一项就勾掉；有新发现就加进来。
+
+### 13.1 需要全队决定（涉及契约或接口，按第 0 节需一致同意）
+
+- [ ] **A1、A2 的审计**：`audit_event` 有 `consent`、`publish_quiz`，但第 6.4 节没有接口能把它们写进 Hub，第 4 节“每次审批都写一条 audit_event”和 TC2 验收都做不到。二选一：新增 `POST /api/audit`（只收这两种），或把第 4 节改成 A1、A2 只在本机记录。（C + D）
+- [ ] **组长“本年级”权限**：契约里没有班级 → 年级的对应关系，Hub 目前让组长看全校。定下来后改第 4 节或加字段。（D）
+- [ ] **考试日期**：第 6.4 节说存在工作区设置里，但没有设置接口，现在只能用环境变量 `HUB_EXAM_DATE`（默认 `2026-12-18`）。（D）
+- [ ] **超时作答**：游戏超时提交 `response: null`，控制台按答错记录，但 `attempt` schema 不允许 null（`pipe/templates/game.html:11`）。（B + C）
+- [ ] **填空题判分规则**（忽略大小写和多余空格）写进 `contracts/`（`pipe/scripts/check_quiz.py:15`）。控制台已经直接用这套规则判分。（B + C）
+- [ ] **演示主题和考纲**：仍是 4 个知识点的法语占位，第 12 节要求 8–12 个；`demo/syllabus/` 为空（H4）。（A + D）
+- [ ] 大模型提供方、模型和费用上限没有记录。（B）
+- [ ] 界面语言（法语或英语）。（全员）
+- [ ] 是否需要选定赛道：问组织者并记下结果。（D）
+
+### 13.2 阻塞演示，优先修
+
+- [x] **控制台 HTTPS 在宿主机跑不起来**：`console/generate_cert.py` 改为写到自己所在的 `console/` 目录，已有证书就不重新生成；`make teacher` 已在 macOS 上实测 `https://127.0.0.1:4000` 可用。（C）
+- [ ] **Hub 同样的问题**：`hub/generate_cert.py:9` 仍把证书写到 Docker 路径 `/app/hub`；`make hub` 仍是 `http://localhost:8000`。（D）
+- [x] **`edits.jsonl` 不符合 `edit_event`**：控制台现在写完整的 `edit_event`（`edit_id`、`quiz_id`、`before`、`after`），pipe 第 6 步 `style_inputs.py` 能读；`setup.py`、`shares.py` 不再写非契约记录。（C）
+- [x] **TC5 没有实现**：每次作答后重算 `state/kp_stats/{quiz_id}.json` 和 `state/weights.json`（默认 1.0；正确率 < 50% → 2.0；Kahoot 薄弱点 +0.5）。（C）
+- [x] **超时作答被判为正确**：现在一律算错；`mcq` 也不再把 `true` 当作下标 1。（C）
+- [x] **审核只记日志**：通过、修改、删除、拒绝都会改写 `quiz.json`；发布时重新生成 `game.html`；只有已发布的测验才能在 `/play` 打开（A2）；审核页有审核、发布、共享、撤回按钮。（C）
+- [x] **共享失败时显示成功**：Hub 不通或拒绝时返回 502，本机不记录；撤回时 Hub 删除成功才删本机记录。（C）
+- [ ] **`read_reports.py` 编造薄弱点**：找不到 Kahoot 报告时固定返回 KP03（`pipe/scripts/read_reports.py:127-134`），应返回 `[]`。（A）
+- [ ] **公网 Hub 的安全**：`HUB_MOCK_AUTH` 默认开启，任何人用 `mock-token-ADM1` 就是管理员；首页公开 `DEMO-ADMIN`、`DEMO-HEAD` 邀请码；第一个真实加入的老师 id 是 `T1`，和 mock 的 T1 是同一身份。上公网前处理。（D）控制台已不再回落到 `mock-token-T1`（C，已修）。
+- [ ] **mock 端到端不一致**：mock 课表是周一，mock 课是 2026-10-17（周六），`current_lesson.py` 选错课且 `lesson_plan` 为空（B）；`extract_segments.py --mock` 忽略 `--lesson-id`，outbox 目录名和文件里的 `lesson_id` 不一致（A）。
+
+### 13.3 角色 A
+
+- [ ] TA1 实测记录不完整：只测了音频；ocr、accessibility、`/notify`、`Api(...)` 权限规则、溯源截图接口都没测；`demo/screenpipe_probe/README.md` 还是空模板。
+- [ ] 确认 screenpipe 音频结果的字段（`device_type` 大小写等），否则可能把所有转写都过滤掉。
+- [ ] TA2 `extract_segments.py`：片段最短 1 分钟（应约 2–5 分钟）；没有按 app 或窗口过滤，浏览器、邮件画面也会被切成片段、写进 `slide_text`；缺 `app_name` 时编成 `"PowerPoint"`；时区没统一成 Europe/Paris；没有讲话的片段也会写出，第 2 步“片段为空就失败”永远不触发；不取 accessibility 文字；没有单元测试。
+- [ ] TA3 `prompts/map_kp.md` 缺映射规则：怎么判定知识点、`minutes` 怎么算、什么算 `covered`、关键词兜底、校验失败怎么办；`class_id` 应来自 `$WORK/lesson.json`。`demo/coverage.json` 是手写的，和 `demo/segments.json` 对不上。
+- [ ] TA4 没有人工标注，也没有准确率数字。
+- [ ] TA5 `read_reports.py` 其余问题：搜的是 OCR 文字而不是窗口标题；按整页匹配，一页会误报多个知识点；Windows 上缺 `tzdata` 时一启动就崩（T2 是 Windows）；吞掉错误；没有单元测试。
+- [ ] TA6 演示数据：教案应放在 `lesson_plans/{class_id}/{date}.json`（现在是 `demo/lesson_plans/lesson_plan_T1_20261017.json`）；缺 T2 的教案和“上周”的课；录课、出题画面、Kahoot 报告页无法从仓库确认。
+- [ ] TA7 `docs/DEMO.md` 只有骨架（步骤、备用方案、彩排记录都是空的）；备用录屏；两次彩排。
+
+### 13.4 角色 B
+
+- [ ] TB2 没有 `pipe run chalkback` 跑出完整 outbox 的记录；mock 模式下 `lookback.py` 不搜索，所有候选都变成“漏讲”。
+- [ ] TB3 还没有用演示数据实际生成的 `quiz.json` 和 `game.html`；`source.quote` 超过 25 个词不检查。
+- [ ] TB4 验收（区分“未讲”和“上周讲过”）需要真实录课数据（H6）。
+- [ ] TB5 缺 T1、T2 两份明显不同的风格文件。
+- [ ] TB6 实测：安装后 pipe 的名字（`chalkback` 还是 `pipe`）、`tree/main/pipe` 地址能否安装、`/notify` 的端口和请求体（`pipe/pipe.md:25-26,150`）；`docs/SETUP.md:90` 控制台启动说明（现在是 `make teacher`，见 `console/README.md`）。
+- [ ] TB7 新人测试没做，计时结果为空；`SETUP.md` 写“约 15 分钟”，测试卡写 30–40 分钟。
+- [ ] 实测一次 pipe 运行时间低于 `timeout: 900`。
+- [ ] 改 `pipe/scripts/build_game.py` 或 `check_quiz.normalize_answer` 时先告诉 C：控制台发布游戏和判分直接复用这两个函数（`console/app/contracts.py`）。
+
+### 13.5 角色 C
+
+已修（控制台测试从 8 个增加到 47 个，接口见 `console/README.md`）：
+
+- [x] TC3：漏讲提醒按三类显示（未讲、以前讲过、Kahoot 薄弱点），知识点显示考纲标题；`/console` 不再回落到编造的假数据；上传前用 `coverage_share` schema 校验；重复共享替换本机旧记录（与 Hub 一致）。
+- [x] TC4：不存在或未发布的 `quiz_id` 返回 404（以前 500）；填空题用 pipe 的 `normalize_answer` 判分；作答时间用 Europe/Paris。
+- [x] TC2 `/setup` 的问题：必须明确 `consent: true`；Hub 不通时返回 502，不写 mock token；`workspace_id` 取自 join 的返回；拉取并缓存 `cache/syllabus.json`。
+- [x] `/console` 不再依赖 Tailwind CDN 和 Google Fonts（内联 CSS，离线可用）。
+- [x] 所有页面（包括 `/play`）只允许本机访问；`make teacher`、`make console` 绑定 `127.0.0.1`。
+- [x] 补测试：`/review`、`/play`、`/shares`、`/setup` 及审核页。
+- [x] 删除过期的 `verify_tc1.py`。
+- [x] `console/README.md` 写明全部接口、作答接口和 `state/shares.json` 格式。
+- [x] 证书私钥 `*.pem` 加入 `.gitignore`。
+
+还没做：
+
+- [ ] TC2 `/setup` 的 HTML 向导（现在 GET 返回 JSON）、学科和班级步骤、知情同意说明页。
+- [ ] TC2 按课表写 pipe 定时（生成 cron，`POST /pipes/chalkback/config`）：要等 B 实测 pipe 安装后的名字（13.4 TB6）。
+- [ ] TC3 出处显示截图：要等 A 实测截图接口（13.3 TA1）。
+- [ ] TC6：`/shares` 合并 Hub 审计；`/style` 只返回 JSON，没有只读页面。
+- [ ] 老师填写教案（`lesson_plan`）的入口；`config.auto_share` 没有用到。
+- [ ] 准备一份多个昵称的全班 `attempts.jsonl` 演示数据（第 12 节）。
+
+### 13.6 角色 D
+
+- [ ] TD1 / H3 公网部署和地址（连同 13.2 的安全项）。
+- [ ] TD2 管理员不能创建工作区、轮换邀请码；成员 id 按计数生成，同时加入可能返回 500。
+- [ ] TD4 `POST /api/coverage` 不检查考纲版本是否已批准、`kp_id` 是否存在、`lesson_id` 里的老师是否与 token 一致。
+- [ ] 考纲版本号和“当前考纲”是全局的，不按工作区或学科区分。
+- [ ] TD7 幻灯片（开场页、架构图、商业模式、隐私边界）不在仓库里，状态未知。
+- [ ] 文档：`docs/ADMIN.md`、`hub/README.md` 写每 10 秒刷新，代码是 3 秒；`README.md` 里“`make hub` 所有接口先返回 mock”已过时。
+
+### 13.7 去掉手机端、改用 HTTPS 后要同步的地方
+
+团队已决定：学生游戏只在老师电脑上的浏览器里打开，不做手机端；控制台和 Hub 都用 HTTPS。
+
+- [x] 控制台代码、测试、`Makefile`、`console/README.md`、`README.md`、`docker-compose.yml` 已改。（C）
+- [x] 本文档已改为本机游戏和 HTTPS：第 2 节、第 3 节第 7–8 步、第 6.3 节、第 6.4 节、第 8 节 TB3 / TC4 / TD1、第 10 节第 3 条、第 11 节 0:00 和 1:10 两行、第 12 节对应风险。（全员）
+- [ ] `docs/SETUP.md:129,145`（二维码、手机、热点）；`pipe/prompts/gen_quiz.md:5,47`（“用手机作答”“手机一屏”）；`pipe/templates/game.html:14`（不引用外部资源的规则保留，理由改为离线可用）。（B）
+- [ ] `docs/DEMO.md:8` 手机连接检查项。（A）
+- [ ] http 改 https：`pipe/pipe.md:140`、`pipe/scripts/doctor.py:96,101,107`、`docs/SETUP.md` 多处仍写 `http://localhost:4000`。（B）
+
+### 13.8 本文档自身
+
+- [ ] 第 2 节架构图导出时丢失（`&#91;embedded content…`），可改为引用仓库里的 `工作流.webp`。
+- [ ] 第 6.1 节的 frontmatter 和步骤与 `pipe/pipe.md` 不一致：缺 `Api(...)` 权限、第 0 步 `doctor.py`、第 1 步 `current_lesson.py`、`read_reports.py` 的参数；`game.html` 实际是把去掉答案的题目嵌入页面，不是读取 `quiz.json`。
+- [ ] 第 6.2 节缺 `work/{lesson_id}/` 和 `state/kp_stats/` 的存放位置；第 5 节契约表缺 `config`；第 5 节 `weights` 示例里 KP03 按规则应为 2.5。
+- [ ] 第 7 节仓库结构缺 `pipe/schemas/`、`pipe/tests/`、其余脚本、`tools/`、`tests/`、`Makefile`、`docker-compose.yml`。
+- [ ] 第 0 节“完成的定义”加上 `make check` 通过；“第 3 小时前”统一成具体时间。

@@ -1,16 +1,18 @@
 """/setup：邀请码 → 学科班级 → 课表 → 知情同意（A1）→ 写 config.json 和 pipe 定时（TC2）。
 
-审计：Hub 应记录 join 和 consent。pipe 定时：按课表生成 cron，POST screenpipe /pipes/chalkback/config。
+- 必须明确勾选同意（consent: true）才能完成安装。
+- 通过 Hub /api/join 加入；Hub 不通或邀请码无效时返回 502，不写入任何 mock token。
+- workspace_id、teacher_id、token 都取自 join 的返回；同时把当前考纲缓存到 cache/syllabus.json（pipe 第 3、4 步要用）。
+- 尚未实现：HTML 向导页面、按课表写 pipe 定时（POST screenpipe /pipes/chalkback/config）、Hub 记录 consent（待定）。
 """
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from .. import paths
-from ..hub_client import HubClient
+from ..contracts import errors, now_iso, read_json, write_json
+from ..hub_client import HubClient, hub_error
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -18,22 +20,14 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 class SetupRequest(BaseModel):
     invite_code: str
     teacher_name: str
-    workspace_id: str = "W1"
-    syllabus_id: str = "fr-grammaire-4e"
-    timetable: list[dict] = [{"day": "MON", "start": "10:00", "end": "11:00", "class_id": "4A"}]
-    hub_url: str = "https://localhost:8443"
-    consent: bool = True
+    timetable: list[dict]  # [{day: MON…SUN, start: "HH:MM", end: "HH:MM", class_id}]
+    hub_url: str
+    consent: bool = False
 
 
 @router.get("")
 def setup_page():
-    config = {}
-    if paths.CONFIG.exists():
-        try:
-            config = json.loads(paths.CONFIG.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {"status": "active", "config": config}
+    return {"configured": paths.CONFIG.exists(), "config": read_json(paths.CONFIG)}
 
 
 @router.post("")
@@ -41,44 +35,28 @@ def save_setup(payload: SetupRequest):
     if not payload.consent:
         raise HTTPException(400, "Consent is required (A1)")
 
-    token = "mock-token-T1"
-    teacher_id = "T1"
-
-    # Try joining Hub if reachable
+    client = HubClient(hub_url=payload.hub_url)
     try:
-        client = HubClient(hub_url=payload.hub_url)
-        res = client.join(invite_code=payload.invite_code, display_name=payload.teacher_name)
-        if res and "token" in res:
-            token = res["token"]
-            teacher_id = res.get("teacher_id", teacher_id)
+        joined = client.join(invite_code=payload.invite_code, display_name=payload.teacher_name)
+        syllabus = HubClient(payload.hub_url, joined["token"]).current_syllabus()
     except Exception as e:
-        print(f"Hub join offline fallback: {e}")
+        raise hub_error(e)
 
-    config_data = {
+    previous = read_json(paths.CONFIG) or {}
+    config = {
         "hub_url": payload.hub_url,
-        "token": token,
-        "teacher_id": teacher_id,
-        "workspace_id": payload.workspace_id,
-        "syllabus_id": payload.syllabus_id,
+        "token": joined["token"],
+        "teacher_id": joined["teacher_id"],
+        "workspace_id": joined["workspace_id"],
+        "syllabus_id": syllabus["syllabus_id"],
         "timetable": payload.timetable,
-        "auto_share": False,
-        "consent_at": datetime.now(timezone.utc).isoformat()
+        "auto_share": previous.get("auto_share", False),
+        "consent_at": now_iso(),
     }
+    problems = errors("config", config)
+    if problems:
+        raise HTTPException(422, problems)
 
-    try:
-        paths.CONFIG.parent.mkdir(parents=True, exist_ok=True)
-        paths.CONFIG.write_text(json.dumps(config_data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-        # Record edit event
-        paths.EDITS.parent.mkdir(parents=True, exist_ok=True)
-        edit_event = {
-            "type": "setup_completed",
-            "teacher_id": teacher_id,
-            "at": datetime.now(timezone.utc).isoformat()
-        }
-        with open(paths.EDITS, "a", encoding="utf-8") as f:
-            f.write(json.dumps(edit_event, ensure_ascii=False) + "\n")
-    except Exception as e:
-        raise HTTPException(500, f"Failed to save setup config: {e}")
-
-    return {"status": "success", "teacher_id": teacher_id, "workspace_id": payload.workspace_id}
+    write_json(paths.CONFIG, config)
+    write_json(paths.SYLLABUS_CACHE, syllabus)
+    return {"status": "configured", "teacher_id": config["teacher_id"], "workspace_id": config["workspace_id"]}

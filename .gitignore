@@ -9,6 +9,8 @@ __pycache__/
 .mock-home/
 hub/*.db
 config.json
+# 自签证书和私钥（generate_cert.py 生成）
+*.pem
 !contracts/examples/config.json
 
 # 演示录音、截图（只留在演示电脑上）
