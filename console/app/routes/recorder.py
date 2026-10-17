@@ -1,4 +1,4 @@
-"""/screenpipe: the console's Recording panel (status, start/stop recording, latest content, run the pipe now).
+"""/screenpipe: the console's Recording panel (status, start/stop recording, latest content, generate the quiz game now).
 
 Local-only like every console page. The transcript and screen text returned by /screenpipe/recent are shown to the
 teacher and nothing else: not stored, never sent to the Hub (privacy boundary, DESIGN.md §0).
@@ -34,4 +34,10 @@ def recent(minutes: int = Query(10, ge=1, le=120)):
 
 @router.post("/process")
 def process():
+    """Generate the quiz game for the last lesson now (runs the pipe in the background)."""
     return screenpipe.run_pipe()
+
+
+@router.get("/process")
+def process_status():
+    return screenpipe.last_run()

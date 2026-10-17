@@ -1,9 +1,10 @@
 """Local screenpipe API, for the console's Recording panel: status, start/stop recording, latest transcript and
-screen text, and running the pipe now instead of waiting for the timetable.
+screen text, and generating the quiz game for the last lesson now (running the pipe) instead of waiting for the timetable.
 
 Teacher's computer only. Nothing returned here is stored or sent to the Hub: it is only shown on the local console page.
 Address and auth follow pipe's scripts: SCREENPIPE_URL (default http://localhost:3030) and SCREENPIPE_LOCAL_API_KEY
 (screenpipe Settings > Privacy). The command that runs the pipe can be changed with CHALKBACK_PIPE_RUN.
+The pipe's output goes to state/pipe-run.log so a failed run is shown to the teacher instead of failing silently.
 """
 from __future__ import annotations
 
@@ -16,8 +17,13 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from fastapi import HTTPException
 
+from . import paths
+
 PIPE_RUN = "npx -y screenpipe@latest pipe run pipe"  # installed name = folder name `pipe` (tested on Windows, see docs/SETUP.md step 4)
 NOT_RUNNING = "screenpipe is closed: open the screenpipe app to record"
+LOG_LINES = 15
+
+_run: dict = {}  # the current or last pipe run of this console process: {"proc", "started_at", "command"}
 
 
 def _client() -> httpx.Client:
@@ -109,11 +115,36 @@ def recent(minutes: int) -> list[dict]:
     return sorted(items, key=lambda i: i["time"] or "", reverse=True)
 
 
+def log_path():
+    return paths.STATE / "pipe-run.log"
+
+
 def run_pipe() -> dict:
     """Start chalkback-pipe now in the background; its results land in the outbox like a scheduled run."""
+    if _run and _run["proc"].poll() is None:
+        raise HTTPException(409, "the quiz game is already being generated")
     command = shlex.split(os.environ.get("CHALKBACK_PIPE_RUN", PIPE_RUN))
     program = shutil.which(command[0])
     if program is None:
         raise HTTPException(503, f"{command[0]} not found: install Node.js, or set CHALKBACK_PIPE_RUN")
-    subprocess.Popen([program, *command[1:]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-    return {"status": "started", "command": " ".join(command)}
+    log_path().parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path(), "wb") as log:
+        proc = subprocess.Popen([program, *command[1:]], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    _run.update(proc=proc, started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"), command=" ".join(command))
+    return last_run()
+
+
+def last_run() -> dict:
+    """running / done / failed, with the end of the pipe's output when it failed."""
+    if not _run:
+        return {"status": "never"}
+    code = _run["proc"].poll()
+    result = {"status": "running" if code is None else "done" if code == 0 else "failed",
+              "started_at": _run["started_at"], "command": _run["command"], "exit_code": code}
+    if code not in (None, 0):
+        try:
+            lines = log_path().read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            lines = []
+        result["log_tail"] = [line for line in lines if line.strip()][-LOG_LINES:]
+    return result

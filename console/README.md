@@ -64,7 +64,8 @@ make teacher
 | POST | `/screenpipe/recording/start` | `/audio/start`, then `/vision/device/start` for every monitor in `/vision/list`. 409 if the screenpipe app is closed |
 | POST | `/screenpipe/recording/stop` | `/audio/stop`, `/vision/device/stop` for running monitors |
 | GET | `/screenpipe/recent?minutes=10` | `/search` (audio from the microphone only, plus OCR), newest first, 1–120 minutes |
-| POST | `/screenpipe/process` | Runs `npx -y screenpipe@latest pipe run pipe` in the background (the installed pipe is named after its folder, `pipe`) (change with `CHALKBACK_PIPE_RUN`); results arrive in the outbox |
+| POST | `/screenpipe/process` | "Generate quiz game": runs `npx -y screenpipe@latest pipe run pipe` in the background (the installed pipe is named after its folder, `pipe`; change with `CHALKBACK_PIPE_RUN`) for the last lesson in the timetable; results arrive in the outbox. 409 while a run is going on |
+| GET | `/screenpipe/process` | Last run: `never`, `running`, `done` or `failed` (with `exit_code` and the last lines of `state/pipe-run.log`) |
 
 Privacy: the transcript and screen text are only shown on this page. They are not stored and never sent to the Hub (`tests/test_screenpipe.py` fails if any of these calls reaches the Hub client).
 

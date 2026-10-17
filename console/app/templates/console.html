@@ -56,6 +56,9 @@
     .rec-items li.screen { background: var(--sky-soft); }
     .rec-items .when { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
     .rec-items .app { color: var(--muted); font-size: 12px; }
+    pre.run { margin: 8px 0 0; white-space: pre-wrap; font: inherit; font-size: 14px; }
+    pre.run:empty { display: none; }
+    pre.run.failed { background: var(--pink-soft); color: var(--red); padding: 8px 12px; border-radius: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -79,9 +82,10 @@
         <button class="primary" id="rec-start">⏺ Start recording</button>
         <button class="danger" id="rec-stop">⏹ Stop recording</button>
         <button id="rec-recent">📝 Last 10 minutes</button>
-        <button id="rec-process">⚡ Prepare this lesson now</button>
+        <button id="rec-process" title="Uses the recording of the last lesson in your timetable">🎲 Generate quiz game</button>
       </div>
       <p id="rec-devices" class="muted"></p>
+      <pre id="rec-run" class="run"></pre>
       <ul id="rec-items" class="rec-items"></ul>
     </section>
 
@@ -334,9 +338,37 @@
       recorderAction(e.currentTarget, "POST", "/screenpipe/recording/start", (s) => { renderStatus(s); show("Recording started.", true); }));
     document.getElementById("rec-stop").addEventListener("click", (e) =>
       recorderAction(e.currentTarget, "POST", "/screenpipe/recording/stop", (s) => { renderStatus(s); show("Recording stopped.", true); }));
-    document.getElementById("rec-process").addEventListener("click", (e) =>
-      recorderAction(e.currentTarget, "POST", "/screenpipe/process", () =>
-        show("ChalkBack is preparing this lesson (1–5 minutes). Reload this page when it is ready.", true)));
+    // Generating the quiz game runs the pipe in the background: follow it until it ends, and show why if it fails
+    const recRun = document.getElementById("rec-run");
+    const recProcess = document.getElementById("rec-process");
+    let runTimer = null;
+
+    function renderRun(run) {
+      recProcess.disabled = run.status === "running";
+      recRun.className = run.status === "failed" ? "run failed" : "run";
+      if (run.status === "never") { recRun.textContent = ""; return; }
+      const since = new Date(run.started_at).toLocaleTimeString();
+      recRun.textContent = {
+        running: `🎲 Generating the quiz game for the last lesson… (started ${since}, usually 1–5 minutes)`,
+        done: `✅ Quiz game generated (started ${since}). Reload this page to review it.`,
+        failed: `❌ Generating the quiz game failed (started ${since}, exit code ${run.exit_code}):\n${(run.log_tail || []).join("\n")}`,
+      }[run.status];
+      if (run.status !== "running") {
+        clearInterval(runTimer);
+        runTimer = null;
+      }
+    }
+
+    async function followRun() {
+      try { renderRun(await call("GET", "/screenpipe/process")); } catch (e) { recRun.textContent = e.message; }
+    }
+
+    recProcess.addEventListener("click", (e) =>
+      recorderAction(e.currentTarget, "POST", "/screenpipe/process", (run) => {
+        renderRun(run);
+        if (!runTimer) runTimer = setInterval(followRun, 5000);
+      }));
+    followRun().then(() => { if (recProcess.disabled && !runTimer) runTimer = setInterval(followRun, 5000); });
     document.getElementById("rec-recent").addEventListener("click", (e) =>
       recorderAction(e.currentTarget, "GET", "/screenpipe/recent?minutes=10", (data) => {
         recItems.replaceChildren(...data.items.map((item) => {

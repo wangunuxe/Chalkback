@@ -144,15 +144,50 @@ def test_recent_minutes_are_bounded(client, fake):
     assert client.get("/screenpipe/recent?minutes=500").status_code == 422
 
 
-def test_process_runs_the_pipe_in_background(client, monkeypatch):
+class FakeProc:
+    """Stands in for the pipe process: `code` None while running, then its exit code; writes `output` to the log."""
+
+    def __init__(self, cmd, stdout, **kwargs):
+        self.cmd, self.code = cmd, None
+        stdout.write(FakeProc.output)
+
+    def poll(self):
+        return self.code
+
+
+@pytest.fixture
+def pipe_run(monkeypatch):
     from app import screenpipe
 
     started = []
+    FakeProc.output = b""
+    monkeypatch.setattr(screenpipe, "_run", {})
     monkeypatch.setattr(screenpipe.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(screenpipe.subprocess, "Popen", lambda cmd, **kw: started.append(cmd))
+    monkeypatch.setattr(screenpipe.subprocess, "Popen", lambda cmd, **kw: started.append(FakeProc(cmd, **kw)) or started[-1])
+    return started
+
+
+def test_generate_quiz_game_runs_the_pipe_in_background(client, pipe_run):
+    assert client.get("/screenpipe/process").json() == {"status": "never"}
     body = client.post("/screenpipe/process").json()
-    assert body["status"] == "started"
-    assert started == [["/usr/bin/npx", "-y", "screenpipe@latest", "pipe", "run", "pipe"]]
+    assert body["status"] == "running"
+    assert pipe_run[0].cmd == ["/usr/bin/npx", "-y", "screenpipe@latest", "pipe", "run", "pipe"]
+
+    assert client.post("/screenpipe/process").status_code == 409  # one run at a time
+    pipe_run[0].code = 0
+    assert client.get("/screenpipe/process").json()["status"] == "done"
+
+
+def test_failed_run_shows_why(client, pipe_run):
+    FakeProc.output = b"running pipe 'pipe' ...\n\nError: pipe 'pipe' execution failed:\n403 free_plan_hosted_background_disabled\n"
+    client.post("/screenpipe/process")
+    pipe_run[0].code = 1
+    run = client.get("/screenpipe/process").json()
+    assert run["status"] == "failed" and run["exit_code"] == 1
+    assert run["log_tail"][-1] == "403 free_plan_hosted_background_disabled"
+    assert "" not in run["log_tail"]
+    client.post("/screenpipe/process")  # a finished run does not block the next one
+    assert len(pipe_run) == 2
 
 
 def test_process_without_node(client, monkeypatch):
@@ -172,5 +207,5 @@ def test_panel_blocked_from_lan(app, fake):
 
 def test_console_page_has_recording_panel(client, fake):
     html = client.get("/console").text
-    assert 'id="recorder"' in html and "/screenpipe/recording/start" in html
+    assert 'id="recorder"' in html and "/screenpipe/recording/start" in html and "Generate quiz game" in html
     assert "nothing is sent to the school Hub" in html
