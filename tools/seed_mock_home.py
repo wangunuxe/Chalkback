@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """用 contracts/examples 生成一个假的 ~/.chalkback/，供 console 在上游未完成时开发（§0“用 mock 先开工”）。
 
-    python tools/seed_mock_home.py [--home .mock-home]
+    python tools/seed_mock_home.py [--home .mock-home] [--hub-url http://hub:8000] [--if-empty]
     CHALKBACK_HOME=.mock-home uvicorn ...
+
+会清空 --home 目录的内容（保留目录本身，方便它是 Docker volume 挂载点）。
 """
 from __future__ import annotations
 
@@ -27,15 +29,25 @@ def write(path: Path, data) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--home", type=Path, default=ROOT / ".mock-home")
-    home = ap.parse_args().home
+    ap.add_argument("--hub-url", help="覆盖 config.json 的 hub_url，例如容器里的 http://hub:8000")
+    ap.add_argument("--if-empty", action="store_true", help="目录里已有 config.json 就什么都不做")
+    args = ap.parse_args()
+    home = args.home
+    if args.if_empty and (home / "config.json").exists():
+        print(f"mock home exists, skip: {home}")
+        return
     if home.exists():
-        shutil.rmtree(home)
+        for child in home.iterdir():
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
 
     plan = ex("lesson_plan")
     quiz = ex("quiz")
     out = home / "outbox" / quiz["lesson_id"]
 
-    write(home / "config.json", ex("config"))
+    config = ex("config")
+    if args.hub_url:
+        config["hub_url"] = args.hub_url
+    write(home / "config.json", config)
     write(home / "cache" / "syllabus.json", ex("syllabus"))
     write(home / "lesson_plans" / plan["class_id"] / f"{plan['date']}.json", plan)
     write(out / "segments.json", [ex("segment")])

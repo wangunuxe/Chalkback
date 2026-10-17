@@ -1,0 +1,50 @@
+# 开发与联调环境：学校 Hub + 老师控制台（mock 数据）。
+#
+#   docker compose up --build
+#   Hub      http://localhost:8000      （API 文档 /docs）
+#   控制台   http://localhost:4000      （只绑定本机）
+#
+# 不在这里的：screenpipe（桌面程序，要录老师的麦克风和屏幕）和 chalkback-pipe（由 screenpipe 启动）。
+# 它们只能跑在老师电脑上，见 docs/SETUP.md。
+
+name: chalkback
+
+services:
+  hub:
+    build:
+      context: .
+      dockerfile: hub/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - hub-data:/data
+    networks: [chalkback]
+
+  console:
+    build:
+      context: .
+      dockerfile: console/Dockerfile
+    # 必须只绑定 127.0.0.1：下面的 CONSOLE_TRUSTED_NETS 让老师页面信任容器网段，
+    # 如果端口对局域网开放，等于把老师页面开放给所有人。
+    # 因此容器里的 /play 也只能从本机打开；手机作答测试请直接在宿主机运行控制台（make console）。
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      CONSOLE_TRUSTED_NETS: 172.28.0.0/16
+      HUB_URL: http://hub:8000
+    volumes:
+      - console-data:/data   # 假的 ~/.chalkback；docker compose down -v 后会重新生成 mock
+    depends_on:
+      hub:
+        condition: service_healthy
+    networks: [chalkback]
+
+networks:
+  chalkback:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  hub-data:
+  console-data:

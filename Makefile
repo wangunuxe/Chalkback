@@ -1,6 +1,6 @@
 PY ?= python3
 
-.PHONY: help check validate-examples sync-schemas seed-mock console hub test
+.PHONY: help check validate-examples sync-schemas seed-mock console hub test up down reset-mock
 
 help:
 	@echo "make check            契约自检 + 全部测试"
@@ -9,6 +9,17 @@ help:
 	@echo "make seed-mock        用示例数据生成 .mock-home/（假的 ~/.chalkback）"
 	@echo "make console          启动控制台 :4000（使用 .mock-home）"
 	@echo "make hub              启动 Hub :8000"
+	@echo "make up / down        Docker：启动 / 停止 Hub + 控制台"
+	@echo "make reset-mock       Docker：清空数据卷，下次 up 重新生成 mock"
+
+up:
+	docker compose up --build -d
+
+down:
+	docker compose down
+
+reset-mock:
+	docker compose down -v
 
 validate-examples:
 	$(PY) pipe/scripts/validate.py --examples

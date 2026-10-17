@@ -35,6 +35,19 @@ make console        # :4000，读 .mock-home
 
 上游没完成就用 `contracts/examples/` 的 mock 开工，不要等。
 
+### 用 Docker
+
+```bash
+make up             # = docker compose up --build -d
+                    # Hub http://localhost:8000（/docs 看 API），控制台 http://localhost:4000
+make down           # 停止，数据保留
+make reset-mock     # 连数据卷一起删，下次 up 重新生成 mock
+```
+
+- 容器里只有 **Hub + 控制台（mock 数据）**。screenpipe 和 chalkback-pipe 必须跑在老师电脑上（要录麦克风和屏幕），不进容器。
+- 控制台容器只绑定 `127.0.0.1:4000`，学生手机连不进来。测试手机作答时请在宿主机上运行 `make console`。
+- 真实部署时，控制台直接跑在老师电脑上，不用 Docker；Hub 可以用 `hub/Dockerfile` 部署到云端。
+
 ## 规则速记
 
 - 契约（§5、§6）是硬约束，不得擅自修改。改了 `contracts/` 记得 `make sync-schemas`。
