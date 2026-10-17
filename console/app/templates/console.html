@@ -18,7 +18,6 @@
     body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
     header { background: var(--card); border-bottom: 3px solid #fde68a; padding: 12px 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
     header h1 { margin: 0; font-size: 20px; color: var(--sky); }
-    header nav a { margin-left: 14px; color: var(--sky); text-decoration: none; font-weight: 600; }
     main { max-width: 920px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
     section { background: var(--card); border: 2px solid var(--border); border-radius: 16px; padding: 16px 18px; }
     h2 { margin: 0 0 10px; font-size: 18px; }
@@ -59,9 +58,6 @@
     <h1>🖍️ ChalkBack Console</h1>
     <nav>
       <span class="muted">{{ "Teacher " ~ teacher_id if teacher_id else "Not set up yet" }}</span>
-      <a href="/console">Review</a>
-      <a href="/shares">Shares</a>
-      <a href="/style">Style</a>
     </nav>
   </header>
 

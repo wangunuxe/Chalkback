@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChalkBack — Syllabus Board</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=2">
 </head>
 <body>
 
@@ -44,7 +44,7 @@ const ROLE_LABEL = { teacher: "Teacher", head: "Department head", admin: "School
 const ROLE_ICON = { teacher: "🧑‍🏫", head: "📋", admin: "🏫" };
 const ACTION_LABEL = {
   join: "Joined the school", consent: "Gave consent", publish_quiz: "Published a quiz",
-  share_coverage: "Shared lesson coverage", revoke: "Revoked a share", approve_syllabus: "Approved a syllabus version",
+  share_coverage: "Shared lesson coverage", revoke: "Withdrew a shared lesson", approve_syllabus: "Approved a syllabus version",
 };
 // The teacher console runs on the teacher's own computer (bound to localhost only); verbatim quotes, screenshots and questions stay there
 const CONSOLE_URL = "https://localhost:4000";
@@ -138,40 +138,93 @@ function renderSummary(b) {
 
 // Privacy boundary: these are the only fields the Hub receives; a teacher can try sending an extra transcript live and watch the Hub reject it
 function samplePayload(b, classId) {
+  const [first, second] = b.syllabus.knowledge_points;
   return {
     lesson_id: "L-T1-20261017-1000", class_id: classId, date: "2026-10-17",
     syllabus_id: b.syllabus.syllabus_id, syllabus_version: b.syllabus.version,
-    points: [{ kp_id: b.syllabus.knowledge_points[0]?.kp_id ?? "KP01", covered: true, minutes: 4.5 }],
+    points: [
+      { kp_id: first?.kp_id ?? "KP01", covered: true, minutes: 4.5 },
+      ...(second ? [{ kp_id: second.kp_id, covered: false, minutes: 0 }] : []),
+    ],
   };
 }
 
+const longDate = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
 function privacyCard(b, classId, canTest) {
+  const sample = samplePayload(b, classId);
+  const title = (id) => b.syllabus.knowledge_points.find((kp) => kp.kp_id === id)?.title ?? id;
   return `<section class="card green">
     <h2>🛡️ Privacy check</h2>
-    <p class="sub">This is <strong>everything</strong> the school receives about a lesson. No audio, no transcript, no screenshot, no screenpipe ID.</p>
-    <pre class="payload">${esc(JSON.stringify(samplePayload(b, classId), null, 2))}</pre>
+    <p class="sub">When a teacher approves sharing a lesson, this is <strong>everything</strong> the school receives. For example:</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>What is shared</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td>Class</td><td><strong>${esc(sample.class_id)}</strong></td></tr>
+        <tr><td>Date of the lesson</td><td>${esc(longDate(sample.date))}</td></tr>
+        <tr><td>Syllabus</td><td>${esc(b.syllabus.subject)} ${esc(b.syllabus.level)}, version ${sample.syllabus_version}</td></tr>
+        ${sample.points.map((p) => `<tr><td>${esc(title(p.kp_id))}</td><td>${p.covered ? `✅ taught, ${p.minutes} min` : "❌ not taught"}</td></tr>`).join("")}
+      </tbody>
+    </table></div>
+    <div class="confidential">
+      <span class="lock" aria-hidden="true">🔒</span>
+      <div>
+        <strong>Confidential: never leaves the teacher's computer</strong>
+        <div class="conf-items">
+          <span>🎙️ Recordings</span><span>📝 What the teacher said</span><span>🖼️ Screenshots &amp; slides</span>
+          <span>❓ Quiz questions</span><span>🧒 Students' names &amp; answers</span>
+        </div>
+      </div>
+    </div>
+    <details><summary>Technical view (exactly what is sent)</summary><pre class="payload">${esc(JSON.stringify(sample, null, 2))}</pre></details>
     ${canTest ? `<div class="row" style="margin-top:12px">
-        <span class="muted">Anything extra is refused by the Hub itself, not only by the teacher's computer.</span>
-        <button class="primary" id="leak-btn">Try to send a transcript</button>
-      </div>${noteHtml("leak-msg")}` : ""}
+        <span class="muted">What if a teacher's computer tried to send more, for example what the teacher said in class?
+          The school server checks every lesson itself.</span>
+        <button class="primary" id="leak-btn">Test it: send a sentence from the lesson</button>
+      </div><div id="leak-result">${leakHtml()}</div>` : ""}
   </section>`;
+}
+
+// Result of the privacy test; kept here so it survives the 3-second redraw
+const LEAK_SENTENCE = "Aujourd'hui on révise le passé composé avec avoir…";
+let leakResult = null; // "blocked" | "leaked" | "error"
+let leakFresh = false; // animate only when the result first appears, not on every redraw
+
+function leakHtml() {
+  const fresh = leakFresh ? " fresh" : "";
+  leakFresh = false;
+  if (leakResult === "blocked") return `<div class="protected${fresh}">
+      <span class="lock" aria-hidden="true">🛡️</span>
+      <div>
+        <strong>Confidential data protected</strong>
+        <p>The school server refused this lesson because it contained what the teacher said in class:</p>
+        <blockquote>${esc(LEAK_SENTENCE)}</blockquote>
+        <p>Nothing was saved and the board did not change. Only knowledge points and minutes are ever accepted.</p>
+      </div>
+    </div>`;
+  if (leakResult === "leaked") return `<div class="msg err">⚠️ Not blocked: the school server accepted the sentence. This must be fixed before using ChalkBack with real lessons.</div>`;
+  if (leakResult === "error") return `<div class="msg err">Could not run the test right now. Try again in a moment.</div>`;
+  return "";
 }
 
 function bindPrivacy(b, classId) {
   const btn = $("leak-btn");
   if (!btn) return;
   btn.onclick = async () => {
-    const body = { ...samplePayload(b, classId), transcript: "Aujourd'hui on révise le passé composé avec avoir…" };
+    const body = { ...samplePayload(b, classId), transcript: LEAK_SENTENCE };
     const r = await api("/api/coverage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (r.status === 422) note("leak-msg", "🛡️ Rejected by the Hub (422): transcripts are not accepted. Nothing was stored.", true);
-    else note("leak-msg", `Unexpected answer from the Hub: ${r.status}`, false);
+    // Only count it as blocked if the server refused it because of the transcript, not for some other reason
+    const detail = r.ok ? "" : JSON.stringify(await r.json().catch(() => ({})));
+    leakResult = r.status === 422 && detail.includes("transcript") ? "blocked" : r.ok ? "leaked" : "error";
+    leakFresh = true;
+    $("leak-result").innerHTML = leakHtml();
   };
 }
 
 function renderTeacher(b, titles) {
   const consoleLink = `<section class="card green"><div class="row">
       <span><strong>Your ChalkBack console</strong><br><span class="muted">Review quizzes, approve or withdraw shares. Transcripts and screenshots stay there, on your computer.</span></span>
-      <a class="btn" href="${CONSOLE_URL}/review" target="_blank" rel="noopener">Open my console →</a>
+      <a class="btn" href="${CONSOLE_URL}/console" target="_blank" rel="noopener">Open my console →</a>
     </div></section>`;
   const privacy = privacyCard(b, b.classes[0]?.class_id ?? "4A", true);
   if (!b.classes.length) {
@@ -232,6 +285,34 @@ function forecast(b) {
   </section>`;
 }
 
+// One editable row per knowledge point; the ID is kept as-is so shares from earlier lessons still match
+function kpRow(kp = {}) {
+  return `<tr data-kp="${esc(kp.kp_id ?? "")}">
+    <td><input class="kp-title-in" value="${esc(kp.title ?? "")}" placeholder="e.g. L'imparfait"></td>
+    <td><input class="kp-keywords-in" value="${esc((kp.keywords ?? []).join(", "))}" placeholder="e.g. imparfait, description"></td>
+    <td><button class="kp-remove" title="Remove">✕</button></td>
+  </tr>`;
+}
+
+function readDraft() {
+  const rows = [...document.querySelectorAll("#kp-rows tr")];
+  const used = new Set(rows.map((r) => r.dataset.kp).filter(Boolean));
+  let next = Math.max(0, ...[...used].map((id) => Number(id.replace(/\D/g, "")) || 0)) + 1;
+  const points = [];
+  for (const r of rows) {
+    const title = r.querySelector(".kp-title-in").value.trim();
+    if (!title) continue;
+    let id = r.dataset.kp;
+    if (!id) { id = `KP${String(next++).padStart(2, "0")}`; }
+    const keywords = r.querySelector(".kp-keywords-in").value.split(",").map((k) => k.trim()).filter(Boolean);
+    points.push({ kp_id: id, title, keywords });
+  }
+  return {
+    syllabus_id: $("sy-id").value, subject: $("sy-subject").value.trim(), level: $("sy-level").value.trim(),
+    version: 1, status: "draft", knowledge_points: points,
+  };
+}
+
 async function renderHead(b, titles) {
   const risky = b.classes.filter((c) => c.at_risk);
   const current = await (await api("/api/syllabus/current")).json();
@@ -259,9 +340,21 @@ async function renderHead(b, titles) {
         : `<p class="muted">No pending drafts.</p>`}
       <details id="upload">
         <summary>Upload a new draft</summary>
-        <p class="muted">Edit the JSON below (it starts as the current version). Version and status are set by the Hub.</p>
-        <textarea id="draft-json">${esc(JSON.stringify(current, null, 2))}</textarea>
-        <div style="margin-top:10px"><button class="primary" id="upload-btn">Upload as draft</button></div>
+        <p class="muted">Starts from the current version: edit, add or remove knowledge points, then upload.
+          The Hub numbers the new version; teachers only get it after you approve it.</p>
+        <input type="hidden" id="sy-id" value="${esc(current.syllabus_id)}">
+        <div class="row" style="gap:12px; margin:8px 0">
+          <label style="flex:1">Subject <input id="sy-subject" value="${esc(current.subject)}"></label>
+          <label style="flex:1">Level <input id="sy-level" value="${esc(current.level)}"></label>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Knowledge point</th><th>Keywords teachers use when teaching it (comma-separated)</th><th></th></tr></thead>
+          <tbody id="kp-rows">${current.knowledge_points.map(kpRow).join("")}</tbody>
+        </table></div>
+        <div class="row" style="margin-top:10px">
+          <button id="kp-add">+ Add a knowledge point</button>
+          <button class="primary" id="upload-btn">Upload as draft</button>
+        </div>
       </details>
       ${noteHtml("syllabus-msg")}
     </section>`;
@@ -276,13 +369,18 @@ function bindHead() {
       else { b.disabled = false; note("syllabus-msg", `Could not approve (${r.status}).`); }
     };
   }
+  const rows = $("kp-rows");
+  if (rows) rows.onclick = (e) => { if (e.target.classList.contains("kp-remove")) e.target.closest("tr").remove(); };
+  const add = $("kp-add");
+  if (add) add.onclick = () => { rows.insertAdjacentHTML("beforeend", kpRow()); rows.lastElementChild.querySelector("input").focus(); };
   const up = $("upload-btn");
   if (up) up.onclick = async () => {
-    let body;
-    try { body = JSON.parse($("draft-json").value); } catch { return note("syllabus-msg", "This is not valid JSON."); }
+    const body = readDraft();
+    if (!body.subject || !body.level) return note("syllabus-msg", "Please fill in the subject and the level.");
+    if (!body.knowledge_points.length) return note("syllabus-msg", "Add at least one knowledge point.");
     const r = await api("/api/syllabus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (r.ok) { const d = await r.json(); $("upload").open = false; note("syllabus-msg", `Draft v${d.version} uploaded. It takes effect only after approval.`, true); await refresh(true); }
-    else if (r.status === 422) { const e = await r.json(); note("syllabus-msg", `Rejected: ${[].concat(e.detail).map((x) => x.msg || x).join("; ")}`); }
+    else if (r.status === 422) note("syllabus-msg", "The Hub could not accept this draft. Check that every knowledge point has a title.");
     else note("syllabus-msg", `Could not upload (${r.status}).`);
   };
 }
@@ -311,15 +409,25 @@ function renderAdmin(b) {
     </section>`;
 }
 
+// Audit targets are IDs (SH-…, fr-grammaire-4e@v2, W1); say what they are in words, keep the ID as a tooltip
+function targetLabel(e) {
+  const t = String(e.target_id);
+  const syllabus = t.match(/^(.+)@v(\d+)$/);
+  if (syllabus) return `syllabus ${syllabus[1]}, version ${syllabus[2]}`;
+  if (e.action === "share_coverage" || e.action === "revoke") return "one lesson's coverage";
+  if (e.action === "join") return "the school workspace";
+  return t;
+}
+
 function renderAudit(events) {
   const scope = { teacher: "Your own actions.", head: "All actions in the school.", admin: "All actions in the school. Content is never stored, only who did what and when." }[role];
   const rows = events.slice().reverse().slice(0, 20);
   $("audit").innerHTML = `<h2>Audit log 🧾</h2><p class="sub">${scope}</p>
     ${rows.length ? `<div class="table-wrap"><table>
-      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
-      <tbody>${rows.map((e) => `<tr data-event="${esc(e.event_id)}"><td class="muted">${esc(new Date(e.at).toLocaleString())}</td>
-        <td>${ROLE_ICON[e.actor.role] || ""} ${esc(e.actor.id)}</td><td>${esc(ACTION_LABEL[e.action] || e.action)}</td>
-        <td class="mono">${esc(e.target_id)}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>About</th></tr></thead>
+      <tbody>${rows.map((e) => `<tr data-event="${esc(e.event_id)}"><td class="muted">${esc(new Date(e.at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }))}</td>
+        <td>${ROLE_ICON[e.actor.role] || ""} ${esc(ROLE_LABEL[e.actor.role] || e.actor.role)} ${esc(e.actor.id)}</td><td>${esc(ACTION_LABEL[e.action] || e.action)}</td>
+        <td title="${esc(e.target_id)}">${esc(targetLabel(e))}</td></tr>`).join("")}</tbody>
     </table></div>` : `<div class="empty">No actions yet.</div>`}`;
 }
 
@@ -343,7 +451,7 @@ function announce(prev, now, events) {
     document.querySelector(`[data-event="${CSS.escape(e.event_id)}"]`)?.classList.add("flash");
     if (e.action === "share_coverage") toast(`📥 ${e.actor.id} shared a lesson. The board is updated.`);
     else if (e.action === "revoke") toast(`↩️ ${e.actor.id} withdrew a share. It is gone from the board.`);
-    else if (e.action === "approve_syllabus") toast(`✅ Syllabus ${e.target_id} approved.`);
+    else if (e.action === "approve_syllabus") toast(`✅ New ${targetLabel(e)} approved.`);
     else if (e.action === "join") toast(`👋 ${ROLE_LABEL[e.actor.role] || e.actor.role} ${e.actor.id} joined the school.`);
   }
 }
