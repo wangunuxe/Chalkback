@@ -159,6 +159,49 @@ def test_existing_id_given_twice_is_only_kept_once(model):
     assert ids == ["KP01", "KP05", "KP06"]
 
 
+CHINOIS = model_answer(subject="Chinois", level="Collège", knowledge_points=[
+    {"title": "Salutations et présentations", "keywords": ["你好"], "existing_kp_id": "KP01"},  # matched to a French point
+    {"title": "L'école en Chine", "keywords": [], "existing_kp_id": None},
+])
+
+
+def test_other_subject_becomes_a_separate_syllabus(model):
+    main = current()
+    model.answer = CHINOIS
+    body = post("chinois.pdf", b"%PDF").json()
+    draft = body["syllabus"]
+    assert body["subject_changed"] is True and body["new_syllabus"] is True
+    assert body["previous_subject"] == main["subject"]
+    assert draft["syllabus_id"] == "chinois-college"
+    assert [kp["kp_id"] for kp in draft["knowledge_points"]] == ["KP01", "KP02"]  # its own numbering
+    assert body["kept"] == [] and body["dropped"] == []
+
+    # Uploading and approving it adds a syllabus; the school's main syllabus is unchanged
+    assert client.post("/api/syllabus", json=draft, headers=HEAD).status_code == 200
+    drafts = client.get("/api/dashboard?view=head", headers=HEAD).json()["drafts"]
+    assert {"syllabus_id": "chinois-college", "version": 1} in drafts       # shown to approve, though v1 ≤ main's version
+    assert client.post("/api/syllabus/chinois-college/approve", headers=HEAD).status_code == 200
+    drafts = client.get("/api/dashboard?view=head", headers=HEAD).json()["drafts"]
+    assert not any(d["syllabus_id"] == "chinois-college" for d in drafts)
+    assert current() == main
+    assert "chinois-college" in [s["syllabus_id"] for s in client.get("/api/syllabus", headers=TEACHER).json()]
+
+    # Next import for that subject is a new version of it; identical titles keep their id
+    model.answer = model_answer(subject="Chinois", level="Collège", knowledge_points=[
+        {"title": "L'école en Chine", "keywords": [], "existing_kp_id": None},
+        {"title": "Les fêtes chinoises", "keywords": [], "existing_kp_id": None},
+    ])
+    again = post("chinois-v2.pdf", b"%PDF").json()
+    assert again["syllabus"]["syllabus_id"] == "chinois-college" and again["new_syllabus"] is False
+    assert [kp["kp_id"] for kp in again["syllabus"]["knowledge_points"]] == ["KP02", "KP03"]
+    assert again["dropped"] == ["KP01"]
+
+
+def test_same_subject_is_not_flagged(model):
+    model.answer = model_answer(subject="  FRANÇAIS ")
+    assert post("programme.txt", b"x").json()["subject_changed"] is False
+
+
 def test_chunk_text_never_exceeds_limit():
     text = "\n\n".join(["a" * 30, "b" * 30, "c" * 150, "d"])
     chunks = syllabus_extract.chunk_text(text, max_chars=60)

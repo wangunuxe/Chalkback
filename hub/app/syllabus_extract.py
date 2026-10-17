@@ -302,9 +302,25 @@ def _clean_keywords(words) -> list[str]:
     return out[:MAX_KEYWORDS]
 
 
-def build_draft(outputs: list[dict], existing: dict | None, syllabus_id: str) -> dict:
-    """Merge the chunks, keep existing kp_ids, number new points after the highest existing id, validate."""
+def subject_changed(outputs: list[dict], existing: dict | None) -> bool:
+    found = str((outputs[0] if outputs else {}).get("subject") or "")
+    return bool(existing and found.strip() and _norm(found) != _norm(existing["subject"]))
+
+
+def syllabus_slug(subject: str, level: str) -> str:
+    """Id for a new syllabus, e.g. Chinois + Collège → chinois-college."""
+    text = unicodedata.normalize("NFKD", f"{subject} {level}")
+    text = "".join(c for c in text if not unicodedata.combining(c)).casefold()
+    return re.sub(r"[^a-z0-9]+", "-", text).strip("-")[:60] or "syllabus"
+
+
+def build_draft(outputs: list[dict], existing: dict | None, syllabus_id: str, keep_ids: bool = True) -> dict:
+    """Merge the chunks, keep existing kp_ids, number new points after the highest existing id (never reusing an old id,
+    so coverage already shared can't be matched to a different point), validate.
+    keep_ids=False: the model's existing_kp_id refers to another syllabus than `existing`; only identical titles keep their id."""
     existing_ids = {kp["kp_id"] for kp in (existing or {}).get("knowledge_points", [])}
+    matchable = existing_ids if keep_ids else set()
+    by_title = {_norm(kp["title"]): kp["kp_id"] for kp in (existing or {}).get("knowledge_points", [])}
     merged: dict[str, dict] = {}
     for out in outputs:
         for kp in out.get("knowledge_points", []):
@@ -324,7 +340,9 @@ def build_draft(outputs: list[dict], existing: dict | None, syllabus_id: str) ->
     used: set[str] = set()
     points = []
     for p in merged.values():
-        kp_id = p["existing"] if p["existing"] in existing_ids and p["existing"] not in used else None
+        kp_id = p["existing"] if p["existing"] in matchable else by_title.get(_norm(p["title"]))
+        if kp_id in used:
+            kp_id = None
         if kp_id:
             used.add(kp_id)
         points.append({"kp_id": kp_id, "title": p["title"], "keywords": p["keywords"]})
@@ -351,15 +369,27 @@ def build_draft(outputs: list[dict], existing: dict | None, syllabus_id: str) ->
     return draft
 
 
-def extract(filename: str, content_base64: str, existing: dict | None, syllabus_id: str) -> dict:
+def extract(filename: str, content_base64: str, existing: dict | None, syllabus_id: str, find=None) -> dict:
+    """find(syllabus_id) → latest approved version of that syllabus or None (used when the file is for another subject)."""
     suffix, data = decode_upload(filename, content_base64)
     outputs, chunks = ask_model(suffix, data, existing)
-    draft = build_draft(outputs, existing, syllabus_id)
+    changed = subject_changed(outputs, existing)
+    previous = (existing or {}).get("subject")
+    if changed:
+        # Another subject: a separate syllabus next to the current one (one syllabus per subject), not a new version of it.
+        # If that subject already has a syllabus, this is its next version and identical titles keep their id.
+        first = outputs[0]
+        syllabus_id = syllabus_slug(str(first.get("subject", "")), str(first.get("level", "")))
+        existing = find(syllabus_id) if find else None
+    draft = build_draft(outputs, existing, syllabus_id, keep_ids=not changed)
     old = {kp["kp_id"] for kp in (existing or {}).get("knowledge_points", [])}
     kept = [kp["kp_id"] for kp in draft["knowledge_points"] if kp["kp_id"] in old]
     return {
         "syllabus": draft,
         "chunks": chunks,
+        "subject_changed": changed,
+        "previous_subject": previous,
+        "new_syllabus": existing is None,
         "kept": kept,
         "new": [kp["kp_id"] for kp in draft["knowledge_points"] if kp["kp_id"] not in old],
         "dropped": sorted(old - set(kept)),

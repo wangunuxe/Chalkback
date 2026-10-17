@@ -82,9 +82,12 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
                                  for p in s["points"] if p["covered"]}
                 c["peer_gaps"] = [p["kp_id"] for p in c["points"] if not p["covered"] and p["kp_id"] in peers_covered]
         elif view == "head":
+            # Drafts newer than the latest approved version of their own syllabus (one syllabus per subject)
             result["drafts"] = [dict(r) for r in conn.execute(
-                "SELECT syllabus_id, version FROM syllabi WHERE workspace_id = ? AND status = 'draft'"
-                " AND version > ? ORDER BY version", (ws, syllabus["version"]))]
+                "SELECT s.syllabus_id, s.version FROM syllabi s WHERE s.workspace_id = ? AND s.status = 'draft'"
+                " AND s.version > COALESCE((SELECT MAX(a.version) FROM syllabi a WHERE a.workspace_id = s.workspace_id"
+                " AND a.syllabus_id = s.syllabus_id AND a.status = 'approved'), 0)"
+                " ORDER BY s.syllabus_id, s.version", (ws,))]
         else:
             for c in classes:
                 del c["points"]
