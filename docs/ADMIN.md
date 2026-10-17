@@ -36,29 +36,39 @@ make up            # starts the Hub and a teacher console
   browser warns once. Choose *Advanced → Continue*.
 - Stop with `make down`. Data is kept in the `hub-data` Docker volume.
 - `docker compose down -v` deletes all Hub data. Do this after upgrading if the Hub fails to start.
+- `make up` runs the Hub in **test mode** (`HUB_MOCK_AUTH=1`): the public `DEMO-*` invite codes and
+  `mock-token-<id>` tokens work. Use it only on your own computer.
 
-Without Docker: `cd hub && pip install -r requirements.txt && uvicorn app.main:app --port 8000`.
+Without Docker: `pip install -r hub/requirements.txt && make hub` (<https://localhost:8000>, also in test mode).
 
 ### For a whole school
 
 `hub/Dockerfile` builds a standard container image. Run it on any container host and keep `/data` on a persistent
 volume. Every teacher laptop must be able to reach the Hub's address.
 
+The image starts in **production mode**: test tokens are refused and the `DEMO-*` codes do not work (they are
+published in this repository, so anyone could use them to join as admin). Set your own codes with `HUB_INVITES`
+before anyone joins. The built-in certificate is self-signed for `localhost`; on a public address, put the Hub
+behind a proxy or host that provides a real certificate.
+
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `HUB_DB` | `/data/chalkback.db` | SQLite database file |
 | `HUB_EXAM_DATE` | `2026-12-18` | Exam date used for the "won't finish before the exam" alert (`YYYY-MM-DD`) |
-| `HUB_MOCK_AUTH` | `1` | Accepts `mock-token-<id>` test tokens. **Set to `0` for a real school.** |
+| `HUB_INVITES` | — | Your school's invite codes: `teacher=CODE,head=CODE,admin=CODE`. Pick long, unguessable codes. Without it, nobody can join in production mode. |
+| `HUB_MOCK_AUTH` | off | `1` = test mode: accepts `mock-token-<id>` tokens and the `DEMO-*` codes. **Never set it on a public address.** |
 
 ## 2. Workspace and invite codes (school admin)
 
-On first start the Hub creates the workspace `W1` with **one invite code per role**:
+On first start the Hub creates the workspace `W1` with **one invite code per role**, taken from `HUB_INVITES`:
 
 | Invite code | Give it to | Role |
 | --- | --- | --- |
-| `DEMO-TEACHER` | every teacher | teacher |
-| `DEMO-HEAD` | department heads | head |
-| `DEMO-ADMIN` | yourself | admin |
+| your `teacher=` code | every teacher | teacher |
+| your `head=` code | department heads | head |
+| your `admin=` code | yourself | admin |
+
+In test mode (`make up`, `make hub`) the codes are `DEMO-TEACHER`, `DEMO-HEAD` and `DEMO-ADMIN`.
 
 - A code only works for its own role. Choosing *School admin* with the teacher code is refused (`403`), so a
   teacher cannot make themselves an admin.
@@ -90,7 +100,7 @@ curl -k -X POST https://localhost:8443/api/syllabus/fr-grammaire-4e/approve -H "
 ## 4. What each role sees
 
 Open the Hub home page, sign in, then switch roles with the buttons at the top of the dashboard. The page
-refreshes every 10 seconds.
+refreshes every 3 seconds.
 
 | | Teacher | Department head | School admin |
 | --- | --- | --- | --- |
@@ -109,8 +119,10 @@ A teacher "owns" a class once they have shared coverage for it.
 - After a lesson, the teacher reviews it in the console (`/review`) and clicks approve. Only then does the
   laptop send the coverage. The audit log records `share_coverage`.
 - If the same lesson is shared again, the new version replaces the old one, so minutes are never counted twice.
+- The Hub refuses (`422`) a share for another teacher's lesson, for a syllabus version that was never approved,
+  or with knowledge points that are not in that version.
 - The teacher can withdraw a share at any time in the console (`/shares`). The Hub deletes it, the dashboard
-  updates within 10 seconds, and the audit log records `revoke`. Only the teacher who shared it can withdraw it.
+  updates within 3 seconds, and the audit log records `revoke`. Only the teacher who shared it can withdraw it.
 
 ## 6. Exam alert
 
@@ -147,7 +159,7 @@ All requests except `join` need `Authorization: Bearer <token>`.
 
 ## 9. Rehearsal data
 
-With the Hub running:
+With the Hub running in test mode (`make up` or `make hub`; the script uses test tokens):
 
 ```bash
 python hub/scripts/seed_demo.py            # default https://localhost:8443
@@ -162,4 +174,7 @@ token* on the home page and enter `mock-token-T1`.
 - **Department heads currently see the whole school**, not only their grade, because the data formats don't yet
   map classes to grades. A demo with a single grade is not affected.
 - There is no screen yet for creating more workspaces, rotating invite codes or changing the exam date. These come
-  from the first start and from `HUB_EXAM_DATE`.
+  from the first start, `HUB_INVITES` and `HUB_EXAM_DATE`. To change a code, update `HUB_INVITES` and restart;
+  the old code keeps working until it is removed from the database.
+- Syllabus versions are numbered per syllabus, not per workspace, and the "current" syllabus is the newest
+  approved one in the workspace. This is fine for one school and one subject.

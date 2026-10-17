@@ -517,14 +517,14 @@ chalkback/
 ### 13.2 阻塞演示，优先修
 
 - [x] **控制台 HTTPS 在宿主机跑不起来**：`console/generate_cert.py` 改为写到自己所在的 `console/` 目录，已有证书就不重新生成；`make teacher` 已在 macOS 上实测 `https://127.0.0.1:4000` 可用。（C）
-- [ ] **Hub 同样的问题**：`hub/generate_cert.py:9` 仍把证书写到 Docker 路径 `/app/hub`；`make hub` 仍是 `http://localhost:8000`。（D）
+- [x] **Hub HTTPS 在宿主机跑不起来**：`hub/generate_cert.py` 写到自己所在的目录，`make hub` 改为 HTTPS。（D）
 - [x] **`edits.jsonl` 不符合 `edit_event`**：控制台现在写完整的 `edit_event`（`edit_id`、`quiz_id`、`before`、`after`），pipe 第 6 步 `style_inputs.py` 能读；`setup.py`、`shares.py` 不再写非契约记录。（C）
 - [x] **TC5 没有实现**：每次作答后重算 `state/kp_stats/{quiz_id}.json` 和 `state/weights.json`（默认 1.0；正确率 < 50% → 2.0；Kahoot 薄弱点 +0.5）。（C）
 - [x] **超时作答被判为正确**：现在一律算错；`mcq` 也不再把 `true` 当作下标 1。（C）
 - [x] **审核只记日志**：通过、修改、删除、拒绝都会改写 `quiz.json`；发布时重新生成 `game.html`；只有已发布的测验才能在 `/play` 打开（A2）；审核页有审核、发布、共享、撤回按钮。（C）
 - [x] **共享失败时显示成功**：Hub 不通或拒绝时返回 502，本机不记录；撤回时 Hub 删除成功才删本机记录。（C）
 - [x] **`read_reports.py` 编造薄弱点**：现在找不到报告输出 `[]`，出错写 `[]` 并退出 1。（A）
-- [ ] **公网 Hub 的安全**：`HUB_MOCK_AUTH` 默认开启，任何人用 `mock-token-ADM1` 就是管理员；首页公开 `DEMO-ADMIN`、`DEMO-HEAD` 邀请码；第一个真实加入的老师 id 是 `T1`，和 mock 的 T1 是同一身份。上公网前处理。（D）控制台已不再回落到 `mock-token-T1`（C，已修）。
+- [x] **公网 Hub 的安全**：mock token 和 `DEMO-*` 邀请码默认关闭，只在联调模式下可用；首页不再公开邀请码。（D）控制台也不再回落到 `mock-token-T1`（C）。正式模式没有 mock T1，真实加入的 T1 不会和它混淆。
 - [x] **mock 片段的 lesson_id**：`extract_segments.py --mock` 现在用 `--lesson-id` 和 `--start`，outbox 目录名和文件里的 `lesson_id` 一致。（A）
 - [x] **mock 课表不一致**：`current_lesson.py --mock` 固定处理示例课之后的周一那节课，seed 给它写了教案。（B）
 
@@ -592,12 +592,21 @@ chalkback/
 
 ### 13.6 角色 D
 
-- [ ] TD1 / H3 公网部署和地址（连同 13.2 的安全项）。
-- [ ] TD2 管理员不能创建工作区、轮换邀请码；成员 id 按计数生成，同时加入可能返回 500。
-- [ ] TD4 `POST /api/coverage` 不检查考纲版本是否已批准、`kp_id` 是否存在、`lesson_id` 里的老师是否与 token 一致。
-- [ ] 考纲版本号和“当前考纲”是全局的，不按工作区或学科区分。
+已修（Hub 测试从 40 个增加到 50 个）：
+
+- [x] Hub 默认是正式模式：不接受 `mock-token-*`，公开的 `DEMO-*` 邀请码失效（库里已有的也会删掉）；学校的邀请码用 `HUB_INVITES` 设置。`make hub` 和 `docker-compose.yml` 显式打开联调模式（`HUB_MOCK_AUTH=1`），`hub/Dockerfile` 不打开。
+- [x] Hub 首页不再公开显示 `DEMO-*` 邀请码。
+- [x] TD2 成员编号改为“已有最大编号 + 1”，两个人同时加入撞号时重算，不再返回 500。
+- [x] TD4 `POST /api/coverage` 检查 `lesson_id` 里的老师是上传者本人、考纲版本已批准、知识点在那个版本里，否则 422。
+- [x] `hub/generate_cert.py` 写到自己所在的目录；`make hub` 改为 `https://localhost:8000`，已在 macOS 上实测（`seed_demo.py` 也能跑通）。
+- [x] 文档：`docs/ADMIN.md`、`hub/README.md` 的刷新间隔改为 3 秒，写明正式模式、`HUB_INVITES`、上传检查和公网证书；`README.md` 的 `make hub` 说明更新。
+
+还没做：
+
+- [ ] TD1 / H3 公网部署和地址（部署时设置 `HUB_INVITES`，不要设置 `HUB_MOCK_AUTH`，并配正式证书）。
+- [ ] TD2 管理员没有页面可以创建工作区、轮换邀请码（现在只能改 `HUB_INVITES` 重启，旧码要手动从库里删）。
+- [ ] 考纲版本号和“当前考纲”按考纲 / 工作区全局计算：一所学校、一个学科没问题，多工作区或多学科要改表结构。
 - [ ] TD7 幻灯片（开场页、架构图、商业模式、隐私边界）不在仓库里，状态未知。
-- [ ] 文档：`docs/ADMIN.md`、`hub/README.md` 写每 10 秒刷新，代码是 3 秒；`README.md` 里“`make hub` 所有接口先返回 mock”已过时。
 
 ### 13.7 去掉手机端、改用 HTTPS 后要同步的地方
 

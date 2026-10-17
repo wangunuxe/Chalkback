@@ -29,7 +29,7 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 make check          # 示例全部通过契约 + 各组件测试
 make seed-mock      # 用示例生成 .mock-home/（假的 ~/.chalkback/）
-make hub            # :8000，所有接口先返回 mock
+make hub            # https://localhost:8000，联调模式（mock token、DEMO-* 邀请码）
 make teacher        # https://localhost:4000/console，读 .mock-home
 ```
 

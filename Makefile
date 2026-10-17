@@ -9,7 +9,7 @@ help:
 	@echo "make seed-mock        用示例数据生成 .mock-home/（假的 ~/.chalkback）"
 	@echo "make console          启动控制台 :4000（使用 .mock-home）"
 	@echo "make teacher          启动教师控制台 :4000 (https://localhost:4000)"
-	@echo "make hub              启动 Hub :8000"
+	@echo "make hub              启动 Hub https://localhost:8000（联调模式：mock token + DEMO-* 邀请码）"
 	@echo "make school           启动学校 Hub 与 Docker 服务 (https://localhost:8443)"
 	@echo "make up / down        Docker：启动 / 停止 Hub + 控制台"
 	@echo "make reset-mock       Docker：清空数据卷，下次 up 重新生成 mock"
@@ -36,7 +36,7 @@ console: seed-mock
 	cd console && $(PY) generate_cert.py && CHALKBACK_HOME=../.mock-home $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 hub:
-	cd hub && $(PY) -m uvicorn app.main:app --port 8000 --reload
+	cd hub && $(PY) generate_cert.py && HUB_MOCK_AUTH=1 $(PY) -m uvicorn app.main:app --port 8000 --reload --ssl-keyfile key.pem --ssl-certfile cert.pem
 
 test:
 	$(PY) -m pytest -q tests

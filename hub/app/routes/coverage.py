@@ -1,6 +1,7 @@
 """知识点覆盖表：接收批准的 coverage_share（A3）、撤回（A5）、按班级查询（TD4、TD5）。
 
 入口必须先按 coverage_share schema 校验——这是隐私边界在 Hub 侧的第二道检查。
+之后再检查内容：lesson_id 里的老师必须是上传者本人；考纲版本必须是本工作区已批准的版本；知识点必须在那个版本里。
 """
 import json
 import uuid
@@ -27,6 +28,30 @@ def audit(conn, member: Member, action: str, target_id: str, at: str) -> None:
     )
 
 
+def approved_syllabus(conn, workspace_id: str, syllabus_id: str, version: int) -> dict | None:
+    row = conn.execute(
+        "SELECT body FROM syllabi WHERE workspace_id = ? AND syllabus_id = ? AND version = ? AND status = 'approved'",
+        (workspace_id, syllabus_id, version),
+    ).fetchone()
+    return None if row is None else json.loads(row["body"])
+
+
+def content_errors(conn, coverage_share: dict, member: Member) -> list[str]:
+    errors = []
+    lesson_teacher = coverage_share["lesson_id"].split("-")[1]  # L-{teacher_id}-{YYYYMMDD}-{HHMM}
+    if lesson_teacher != member.id:
+        errors.append(f"lesson {coverage_share['lesson_id']} belongs to {lesson_teacher}, not to you ({member.id})")
+    syllabus = approved_syllabus(conn, member.workspace_id, coverage_share["syllabus_id"], coverage_share["syllabus_version"])
+    if syllabus is None:
+        errors.append(f"syllabus {coverage_share['syllabus_id']} v{coverage_share['syllabus_version']} is not an approved version")
+    else:
+        known = {kp["kp_id"] for kp in syllabus["knowledge_points"]}
+        unknown = sorted({p["kp_id"] for p in coverage_share["points"]} - known)
+        if unknown:
+            errors.append(f"knowledge points not in this syllabus version: {unknown}")
+    return errors
+
+
 @router.post("")
 def share(coverage_share: dict, member: Member = Depends(require("teacher"))):
     errors = [e.message for e in SCHEMA.iter_errors(coverage_share)]
@@ -35,6 +60,9 @@ def share(coverage_share: dict, member: Member = Depends(require("teacher"))):
     share_id = f"SH-{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     with closing(db.connect()) as conn, conn:
+        errors = content_errors(conn, coverage_share, member)
+        if errors:
+            raise HTTPException(422, errors)
         # 同一位老师重传同一节课：新的替换旧的，分钟数不重复计算
         conn.execute(
             "DELETE FROM coverage_shares WHERE teacher_id = ? AND lesson_id = ?",
