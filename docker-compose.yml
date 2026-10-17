@@ -16,6 +16,10 @@ services:
       dockerfile: hub/Dockerfile
     ports:
       - "8443:8000"
+    environment:
+      # 联调模式：接受 mock-token-<id>，开放 DEMO-* 邀请码（控制台的 mock config 用的就是 mock-token-T1）。
+      # 只用于本机联调；公网部署不要设置（hub/Dockerfile 默认关闭），见 docs/ADMIN.md。
+      HUB_MOCK_AUTH: "1"
     volumes:
       - hub-data:/data
     networks: [chalkback]

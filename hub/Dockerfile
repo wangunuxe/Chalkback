@@ -1,6 +1,8 @@
 # 学校 Hub（负责人 D）。构建上下文是仓库根目录：docker compose build hub
 FROM python:3.13-slim
 
+# 不设置 HUB_MOCK_AUTH：镜像默认是正式模式（不接受 mock token、没有 DEMO-* 邀请码，邀请码用 HUB_INVITES 设置）。
+# 本机联调由 docker-compose.yml 打开联调模式。
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HUB_DB=/data/chalkback.db
 WORKDIR /app
 

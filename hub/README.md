@@ -4,20 +4,20 @@
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --port 8000 --reload        # API 文档：http://localhost:8000/docs
+make hub                                         # 在仓库根目录：https://localhost:8000（联调模式），API 文档 /docs
 pytest
 ```
 
 全部接口都是真实实现，数据存在 SQLite（`HUB_DB`）。
 
-看板（TD6）：打开 Hub 首页登录（邀请码，或粘贴控制台 `config.json` 里的 token），进入 `/dashboard.html`。三种角色都登录过以后，顶部可以一键切换；页面每 10 秒刷新，老师撤回后看板会自动更新。页面不依赖外网资源。
+看板（TD6）：打开 Hub 首页登录（邀请码，或粘贴控制台 `config.json` 里的 token），进入 `/dashboard.html`。三种角色都登录过以后，顶部可以一键切换；页面每 3 秒刷新，老师撤回后看板会自动更新。页面不依赖外网资源。
 - 老师：只看自己的班，每个知识点是否讲过和分钟数，以及“别的班讲了、你还没讲”的知识点（不指明是哪个班）。
 - 组长：知识点 × 班级矩阵，考纲面板（上传草稿、批准），待批准草稿列表。
 - 管理员：各班进度汇总（不含知识点明细）、邀请码、各角色人数。
 - 三种角色都能看审计日志，范围按角色过滤。
 - 预警：`剩余未覆盖知识点数 > 距考试剩余周数 × 平均每周覆盖数`。平均每周覆盖数 = 已覆盖数 ÷ 从该班第一节上传课到今天的周数（最少按 1 周算）。考试日期默认 `2026-12-18`，用环境变量 `HUB_EXAM_DATE=YYYY-MM-DD` 覆盖。
 
-彩排数据：Hub 运行时执行 `python hub/scripts/seed_demo.py [Hub 地址]`（默认 `https://localhost:8443`，即 `make up` 的地址；直接用 uvicorn 运行时传 `http://localhost:8000`），会通过真实接口上传 3 个班的示例覆盖数据（4A 进度正常，4B 触发预警，T1 能看到同年级对比）。
+彩排数据：Hub 运行时执行 `python hub/scripts/seed_demo.py [Hub 地址]`（默认 `https://localhost:8443`，即 `make up` 的地址；用 `make hub` 运行时传 `https://localhost:8000`；脚本用 mock token，只能在联调模式下用），会通过真实接口上传 3 个班的示例覆盖数据（4A 进度正常，4B 触发预警，T1 能看到同年级对比）。
 
 覆盖表（TD4、TD5，审批 A3、A5）：
 - `POST /api/coverage`（老师）：严格按 `coverage_share` schema 校验，多一个字段都返回 422（隐私边界）。同一位老师重传同一节课，新的替换旧的。写审计 `share_coverage`。
@@ -36,7 +36,9 @@ pytest
 | `DEMO-ADMIN` | admin |
 
 `POST /api/join` 返回的 token 放在 `Authorization: Bearer <token>`。
-联调期仍接受 mock 认证：`Authorization: Bearer mock-token-<id>`，id 以 `H` 开头为组长、`ADM` 开头为管理员，其余为老师。设置 `HUB_MOCK_AUTH=0` 关闭。
+**联调模式**（`HUB_MOCK_AUTH=1`，`make hub` 和 `docker-compose.yml` 已设置）才接受 mock 认证 `Authorization: Bearer mock-token-<id>`（id 以 `H` 开头为组长、`ADM` 开头为管理员，其余为老师）和上面的 `DEMO-*` 邀请码。默认是正式模式（`hub/Dockerfile` 不设置）：mock token 一律 401，`DEMO-*` 码失效，学校的邀请码用 `HUB_INVITES="teacher=码,head=码,admin=码"` 设置。
+
+上传检查（TD4）：`POST /api/coverage` 除了 schema，还要求 `lesson_id` 里的老师是上传者本人、考纲版本已批准、知识点在那个版本里，否则 422。
 
 | 文件 | 内容 | 任务 |
 | --- | --- | --- |
