@@ -1,10 +1,19 @@
 {
-  "segment_id": "S-L-T1-20261017-1000-003",
+  "segment_id": "S-L-T1-20261017-1000-001",
   "lesson_id": "L-T1-20261017-1000",
-  "start": "2026-10-17T10:12:05+02:00",
-  "end": "2026-10-17T10:16:40+02:00",
-  "speech": "Avec avoir, le participe passé s'accorde avec le COD seulement quand il est placé avant le verbe : les pommes que j'ai mangées.",
-  "slide_text": "Accord du participe passé avec avoir — COD placé avant : accord",
+  "start": "2026-10-17T10:05:00+02:00",
+  "end": "2026-10-17T10:09:30+02:00",
+  "speech": "Bonjour à tous, asseyez-vous s'il vous plaît. Aujourd'hui nous allons réviser le passé composé avec l'auxiliaire avoir. La règle de base est simple : le participe passé ne s'accorde généralement pas avec le sujet. Par exemple, on écrit 'ils ont mangé' avec é, sans s. L'auxiliaire avoir sert ici à situer l'action terminée dans le passé.",
+  "slide_text": "Chapitre 3 : Le passé composé\n1. Règle générale avec l'auxiliaire AVOIR\n- Sujet + AVOIR au présent + Participe passé\n- Le participe passé reste invariable avec le sujet.\nExemples :\n- J'ai parlé toute la soirée.\n- Ils ont mangé une pomme.",
   "app_name": "PowerPoint",
-  "evidence": {"transcription_ids": [812, 813], "frame_ids": [5531]}
+  "evidence": {
+    "transcription_ids": [
+      812,
+      813,
+      814
+    ],
+    "frame_ids": [
+      5531
+    ]
+  }
 }
