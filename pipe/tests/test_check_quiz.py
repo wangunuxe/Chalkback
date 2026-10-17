@@ -117,3 +117,9 @@ def test_cli(write_json, quiz):
     bad["questions"][0]["answer"] = "1"  # mcq 答案必须是整数：schema 先拦下
     args[1] = str(write_json("bad.json", bad))
     assert main(args) == 1
+
+
+def test_short_quote_is_a_warning(quiz):
+    quiz["questions"][0]["source"]["quote"] = "j'ai mangées"
+    errors, warnings = run(quiz)
+    assert errors == [] and any("2 个词" in w for w in warnings)
