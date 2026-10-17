@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
 
 
 # 演示工作区：§6.4 没有“创建工作区”的接口，Hub 启动时自动建好（TD2）。
-DEMO_WORKSPACE = ("W1", "Collège Démo")
+DEMO_WORKSPACE = ("W1", "Collège Démo", "2026-12-18")  # 考试日期：设置接口未定义，HUB_EXAM_DATE 可覆盖（TD6）
 DEMO_INVITES = {"DEMO-TEACHER": "teacher", "DEMO-HEAD": "head", "DEMO-ADMIN": "admin"}
 # 演示考纲 v1（已批准），在组长上传新版本之前供 A/B/C 使用。H4 定稿后换成 demo/syllabus/ 里的文件。
 DEMO_SYLLABUS = EXAMPLES / "syllabus.json"
@@ -73,7 +73,7 @@ def connect() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     with conn:
-        conn.execute("INSERT OR IGNORE INTO workspaces (workspace_id, name) VALUES (?, ?)", DEMO_WORKSPACE)
+        conn.execute("INSERT OR IGNORE INTO workspaces (workspace_id, name, exam_date) VALUES (?, ?, ?)", DEMO_WORKSPACE)
         conn.executemany(
             "INSERT OR IGNORE INTO invites (invite_code, workspace_id, role) VALUES (?, ?, ?)",
             [(code, DEMO_WORKSPACE[0], role) for code, role in DEMO_INVITES.items()],

@@ -1,117 +1,248 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChalkBack - Department Board</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
-    body { font-family: 'Fredoka', 'Inter', sans-serif; }
-  </style>
+  <title>ChalkBack — Syllabus Board</title>
+  <link rel="stylesheet" href="/style.css">
 </head>
-<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col text-slate-700">
+<body>
 
-  <!-- Header -->
-  <header class="bg-white/80 backdrop-blur-md shadow-sm border-b-4 border-yellow-200 sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <span class="text-4xl animate-bounce">🖍️</span>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">🖍️</span>
       <div>
-        <h1 class="text-2xl font-bold tracking-wide text-sky-600">Department Board</h1>
-        <p class="text-xs font-semibold text-pink-500">Syllabus coverage & classroom playback tracking 📊✨</p>
+        <h1>Syllabus Board</h1>
+        <p id="workspace">Syllabus coverage across classes 📊✨</p>
       </div>
     </div>
-    <div class="flex items-center space-x-4">
-      <a href="/" class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-bold rounded-2xl border-2 border-yellow-300 transition transform hover:-translate-y-0.5 active:translate-y-0.5 shadow-sm">
-        🏠 Back to Hub
-      </a>
+    <div class="roles">
+      <span id="roles" class="roles"></span>
+      <button id="signout" title="Sign out of this role">Sign out</button>
     </div>
   </header>
 
-  <!-- Main Content -->
-  <main class="max-w-5xl w-full mx-auto p-6 flex-1 space-y-6">
-
-    <!-- GDPR Privacy Banner -->
-    <div class="bg-emerald-100 border-4 border-emerald-300 rounded-3xl p-4 shadow-md flex items-center space-x-4">
-      <span class="text-3xl">🔒</span>
+  <main>
+    <section class="card banner">
+      <span class="icon">🔒</span>
       <div>
-        <h3 class="font-bold text-emerald-900">100% RGPD Compliance & Privacy</h3>
-        <p class="text-xs text-emerald-800">Only approved syllabus coverage data is displayed. Raw recordings and screenpipe IDs remain strictly local on teachers' devices.</p>
-      </div>
-    </div>
-
-    <!-- Matrix Card -->
-    <section class="bg-white rounded-3xl p-6 border-4 border-sky-200 shadow-xl space-y-6">
-      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-        <div>
-          <h2 class="text-2xl font-bold text-slate-800">Coverage Matrix : Knowledge Items × Instructors 📚</h2>
-          <p class="text-xs text-slate-500">Current Semester - Class 4A/4B/4C</p>
-        </div>
-        <div class="flex space-x-2">
-          <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs">🟢 / ✅ Covered</span>
-          <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-xl font-bold text-xs">🔴 / ❌ Not Covered</span>
-        </div>
-      </div>
-
-      <!-- Responsive Table -->
-      <div class="overflow-x-auto rounded-2xl border-2 border-slate-100 shadow-inner">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-sky-50 text-sky-900 font-bold border-b-2 border-sky-200">
-              <th class="p-4">Knowledge Item (知识点)</th>
-              <th class="p-4 text-center">Prof. Martin (Class 4A)</th>
-              <th class="p-4 text-center">Prof. Dupont (Class 4B)</th>
-              <th class="p-4 text-center">Prof. Leroy (Class 4C)</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100 text-sm">
-            <tr class="hover:bg-yellow-50/50 transition">
-              <td class="p-4 font-bold text-slate-800">
-                <span>Core Vocabulary Item 1</span>
-                <span class="block text-xs text-slate-400 font-normal">Daily Life & Food</span>
-              </td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
-            </tr>
-            <tr class="hover:bg-yellow-50/50 transition">
-              <td class="p-4 font-bold text-slate-800">
-                <span>Time & Schedule Tracking</span>
-                <span class="block text-xs text-slate-400 font-normal">Daily Routine</span>
-              </td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-            </tr>
-            <tr class="hover:bg-yellow-50/50 transition">
-              <td class="p-4 font-bold text-slate-800">
-                <span>Cultural Traditions & Artifacts</span>
-                <span class="block text-xs text-slate-400 font-normal">Cultural Context</span>
-              </td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-            </tr>
-            <tr class="hover:bg-yellow-50/50 transition">
-              <td class="p-4 font-bold text-slate-800">
-                <span>Interactive Action Verbs</span>
-                <span class="block text-xs text-slate-400 font-normal">Grammar & Syntax</span>
-              </td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold">🔴 ❌</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-              <td class="p-4 text-center"><span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">🟢 ✅</span></td>
-            </tr>
-          </tbody>
-        </table>
+        <strong>Privacy by design</strong>
+        <p>Only coverage that a teacher approved is shown: knowledge point, covered or not, minutes. Recordings, transcripts and screenpipe IDs stay on teachers' computers.</p>
       </div>
     </section>
 
+    <section class="card" id="summary"></section>
+    <div id="view" style="display:grid; gap:20px"></div>
+    <section class="card" id="audit"></section>
   </main>
 
-  <!-- Footer -->
-  <footer class="text-center py-6 text-xs text-slate-400">
-    <p>ChalkBack Department Board © 2026</p>
-  </footer>
+  <footer>ChalkBack Hub © 2026 · refreshes every 10 s</footer>
 
+<script>
+const ROLE_LABEL = { teacher: "Teacher", head: "Department head", admin: "School admin" };
+const ROLE_ICON = { teacher: "🧑‍🏫", head: "📋", admin: "🏫" };
+const ACTION_LABEL = {
+  join: "Joined the school", consent: "Gave consent", publish_quiz: "Published a quiz",
+  share_coverage: "Shared lesson coverage", revoke: "Revoked a share", approve_syllabus: "Approved a syllabus version",
+};
+
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem("chalkback.sessions")) || {}; } catch { return {}; }
+}
+function store(sessions, active) {
+  try {
+    localStorage.setItem("chalkback.sessions", JSON.stringify(sessions));
+    if (active) localStorage.setItem("chalkback.active", active); else localStorage.removeItem("chalkback.active");
+  } catch {}
+}
+
+let sessions = loadSessions();
+let role = (() => { try { return localStorage.getItem("chalkback.active"); } catch { return null; } })();
+if (!sessions[role]) role = ["teacher", "head", "admin"].find((r) => sessions[r]);
+if (!role) location.href = "/";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (id) => document.getElementById(id);
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { ...(opts.headers || {}), Authorization: `Bearer ${sessions[role].token}` } });
+  if (r.status === 401) { delete sessions[role]; store(sessions, null); location.href = "/"; }
+  return r;
+}
+
+function renderRoles() {
+  $("roles").innerHTML = ["teacher", "head", "admin"].map((r) => sessions[r]
+    ? `<button class="btn${r === role ? " active" : ""}" data-role="${r}">${ROLE_ICON[r]} ${ROLE_LABEL[r]} · ${esc(sessions[r].name)}</button>`
+    : `<a class="btn add" href="/">+ ${ROLE_LABEL[r]}</a>`).join("");
+  for (const b of $("roles").querySelectorAll("button[data-role]")) {
+    b.onclick = () => { role = b.dataset.role; store(sessions, role); refresh(true); };
+  }
+}
+
+$("signout").onclick = () => {
+  delete sessions[role];
+  role = ["teacher", "head", "admin"].find((r) => sessions[r]);
+  store(sessions, role);
+  if (!role) location.href = "/"; else refresh(true);
+};
+
+const chip = (p) => p.covered
+  ? `<span class="chip yes">✅ ${p.minutes} min</span>`
+  : `<span class="chip no">❌ not yet</span>`;
+const status = (c) => c.at_risk
+  ? `<span class="chip risk">⚠️ Won't finish before the exam</span>`
+  : `<span class="chip ok">✓ On track</span>`;
+const bar = (c) => `<div class="bar"><span style="width:${c.total ? (100 * c.covered / c.total) : 0}%"></span></div>`;
+
+function riskText(c, board) {
+  if (!c.at_risk) return "";
+  const left = c.total - c.covered;
+  const reachable = board.weeks_left == null ? 0 : Math.floor(board.weeks_left * c.weekly_rate);
+  return `<div class="msg" style="background:var(--amber-bg); color:var(--amber)">
+    ${left} knowledge points left, but at ${c.weekly_rate} per week only about ${reachable} fit in the
+    ${board.weeks_left} weeks before the exam (${esc(board.exam_date)}).</div>`;
+}
+
+function renderSummary(b) {
+  const risky = b.classes.filter((c) => c.at_risk).length;
+  $("workspace").textContent = `${b.workspace.name} · ${ROLE_LABEL[b.view]} view`;
+  $("summary").innerHTML = `<div class="stats">
+    <span class="pill">📚 ${esc(b.syllabus.subject)} ${esc(b.syllabus.level)} · syllabus v${b.syllabus.version}</span>
+    <span class="pill">📅 Exam ${esc(b.exam_date ?? "not set")}${b.weeks_left != null ? ` · ${b.weeks_left} weeks left` : ""}</span>
+    <span class="pill">🏫 ${b.classes.length} class${b.classes.length === 1 ? "" : "es"}</span>
+    ${risky ? `<span class="chip risk">⚠️ ${risky} at risk</span>` : `<span class="chip ok">✓ all on track</span>`}
+  </div>`;
+}
+
+function renderTeacher(b, titles) {
+  if (!b.classes.length) {
+    return `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>`;
+  }
+  return b.classes.map((c) => `
+    <section class="card">
+      <div class="row"><h2>Class ${esc(c.class_id)}</h2>${status(c)}</div>
+      <p class="sub">${c.covered} of ${c.total} knowledge points covered · pace ${c.weekly_rate} per week</p>
+      ${bar(c)}
+      ${riskText(c, b)}
+      <div class="table-wrap" style="margin-top:16px"><table>
+        <thead><tr><th>Knowledge point</th><th class="c">Covered</th></tr></thead>
+        <tbody>${c.points.map((p) => `<tr><td><span class="kp-title">${esc(titles[p.kp_id])}</span><span class="kp-id">${esc(p.kp_id)}</span></td><td class="c">${chip(p)}</td></tr>`).join("")}</tbody>
+      </table></div>
+    </section>
+    ${c.peer_gaps.length ? `<section class="card amber">
+      <h3>💡 Covered in other classes, not yet in ${esc(c.class_id)}</h3>
+      <p class="sub">Only you see this comparison. Other classes are not named.</p>
+      <div class="stats">${c.peer_gaps.map((k) => `<span class="chip risk">${esc(titles[k])}</span>`).join("")}</div>
+    </section>` : ""}`).join("");
+}
+
+async function renderHead(b, titles) {
+  const risky = b.classes.filter((c) => c.at_risk);
+  const current = await (await api("/api/syllabus/current")).json();
+  const matrix = b.classes.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Knowledge point</th>${b.classes.map((c) => `<th class="c">Class ${esc(c.class_id)}</th>`).join("")}</tr></thead>
+      <tbody>
+        ${b.syllabus.knowledge_points.map((kp, i) => `<tr><td><span class="kp-title">${esc(kp.title)}</span><span class="kp-id">${esc(kp.kp_id)}</span></td>
+          ${b.classes.map((c) => `<td class="c">${chip(c.points[i])}</td>`).join("")}</tr>`).join("")}
+        <tr><td><strong>Progress</strong></td>${b.classes.map((c) => `<td class="c"><strong>${c.covered}/${c.total}</strong><br>${status(c)}</td>`).join("")}</tr>
+      </tbody></table></div>` : `<div class="empty">No class has shared coverage yet.</div>`;
+  return `
+    ${risky.length ? `<section class="card amber"><h3>⚠️ Exam alert</h3>${risky.map((c) => `<p style="margin:12px 0 0"><strong>Class ${esc(c.class_id)}</strong></p>${riskText(c, b)}`).join("")}</section>` : ""}
+    <section class="card">
+      <h2>Coverage matrix 📚</h2>
+      <p class="sub">Knowledge points × classes, from approved shares only.</p>
+      ${matrix}
+    </section>
+    <section class="card pink" id="syllabus-card">
+      <h2>Syllabus</h2>
+      <p class="sub">v${current.version} is approved. Teachers' consoles only ever use approved versions; drafts have no effect until you approve them.</p>
+      ${b.drafts.length ? b.drafts.map((d) => `<div class="row" style="margin:8px 0">
+          <span><span class="pill">📝 ${esc(d.syllabus_id)} v${d.version} · draft</span></span>
+          <button class="go" data-approve="${esc(d.syllabus_id)}">Approve v${d.version}</button></div>`).join("")
+        : `<p class="muted">No pending drafts.</p>`}
+      <details id="upload">
+        <summary>Upload a new draft</summary>
+        <p class="muted">Edit the JSON below (it starts as the current version). Version and status are set by the Hub.</p>
+        <textarea id="draft-json">${esc(JSON.stringify(current, null, 2))}</textarea>
+        <div style="margin-top:10px"><button class="primary" id="upload-btn">Upload as draft</button></div>
+      </details>
+      <div id="syllabus-msg" class="msg" hidden></div>
+    </section>`;
+}
+
+function bindHead() {
+  const msg = $("syllabus-msg");
+  const say = (text, ok) => { msg.textContent = text; msg.className = `msg ${ok ? "ok" : "err"}`; msg.hidden = false; };
+  for (const b of document.querySelectorAll("[data-approve]")) {
+    b.onclick = async () => {
+      b.disabled = true;
+      const r = await api(`/api/syllabus/${encodeURIComponent(b.dataset.approve)}/approve`, { method: "POST" });
+      if (r.ok) { const s = await r.json(); await refresh(true); say(`Version ${s.version} approved. Teachers' consoles now use it.`, true); }
+      else { b.disabled = false; say(`Could not approve (${r.status}).`); }
+    };
+  }
+  const up = $("upload-btn");
+  if (up) up.onclick = async () => {
+    let body;
+    try { body = JSON.parse($("draft-json").value); } catch { return say("This is not valid JSON."); }
+    const r = await api("/api/syllabus", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (r.ok) { const d = await r.json(); await refresh(true); say(`Draft v${d.version} uploaded. It takes effect only after approval.`, true); }
+    else if (r.status === 422) { const e = await r.json(); say(`Rejected: ${[].concat(e.detail).map((x) => x.msg || x).join("; ")}`); }
+    else say(`Could not upload (${r.status}).`);
+  };
+}
+
+function renderAdmin(b) {
+  const members = ["teacher", "head", "admin"].map((r) => `<span class="pill">${ROLE_ICON[r]} ${b.members[r] || 0} ${ROLE_LABEL[r].toLowerCase()}${(b.members[r] || 0) === 1 ? "" : "s"}</span>`).join("");
+  return `
+    <section class="card">
+      <h2>All classes</h2>
+      <p class="sub">Progress per class. Per-lesson details stay with teachers and department heads.</p>
+      ${b.classes.length ? `<div class="table-wrap"><table>
+        <thead><tr><th>Class</th><th style="min-width:160px">Progress</th><th class="c">Covered</th><th class="c">Pace / week</th><th>Status</th></tr></thead>
+        <tbody>${b.classes.map((c) => `<tr><td><strong>${esc(c.class_id)}</strong></td><td>${bar(c)}</td>
+          <td class="c">${c.covered}/${c.total}</td><td class="c">${c.weekly_rate}</td><td>${status(c)}</td></tr>`).join("")}</tbody>
+      </table></div>` : `<div class="empty">No class has shared coverage yet.</div>`}
+    </section>
+    <section class="card green">
+      <h2>Workspace & invite codes</h2>
+      <p class="sub">One code per role. A code used with the wrong role is rejected.</p>
+      <div class="stats" style="margin-bottom:14px">${members}</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Invite code</th><th>Role</th></tr></thead>
+        <tbody>${b.invites.map((i) => `<tr><td class="mono">${esc(i.invite_code)}</td><td>${ROLE_ICON[i.role]} ${ROLE_LABEL[i.role]}</td></tr>`).join("")}</tbody>
+      </table></div>
+    </section>`;
+}
+
+function renderAudit(events) {
+  const scope = { teacher: "Your own actions.", head: "All actions in the school.", admin: "All actions in the school. Content is never stored, only who did what and when." }[role];
+  const rows = events.slice().reverse().slice(0, 20);
+  $("audit").innerHTML = `<h2>Audit log 🧾</h2><p class="sub">${scope}</p>
+    ${rows.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
+      <tbody>${rows.map((e) => `<tr><td class="muted">${esc(new Date(e.at).toLocaleString())}</td>
+        <td>${ROLE_ICON[e.actor.role] || ""} ${esc(e.actor.id)}</td><td>${esc(ACTION_LABEL[e.action] || e.action)}</td>
+        <td class="mono">${esc(e.target_id)}</td></tr>`).join("")}</tbody>
+    </table></div>` : `<div class="empty">No actions yet.</div>`}`;
+}
+
+async function refresh(force = false) {
+  // 正在编辑考纲草稿时不自动刷新，免得内容被覆盖
+  if (!force && ($("upload")?.open || document.activeElement?.tagName === "TEXTAREA")) return;
+  renderRoles();
+  const [r, a] = await Promise.all([api(`/api/dashboard?view=${role}`), api("/api/audit")]);
+  if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
+  const b = await r.json();
+  const titles = Object.fromEntries(b.syllabus.knowledge_points.map((kp) => [kp.kp_id, kp.title]));
+  renderSummary(b);
+  if (role === "teacher") $("view").innerHTML = renderTeacher(b, titles);
+  else if (role === "head") { $("view").innerHTML = await renderHead(b, titles); bindHead(); }
+  else $("view").innerHTML = renderAdmin(b);
+  if (a.ok) renderAudit(await a.json());
+}
+
+if (role) { refresh(true); setInterval(refresh, 10000); }
+</script>
 </body>
 </html>

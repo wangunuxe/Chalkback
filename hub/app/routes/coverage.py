@@ -67,6 +67,32 @@ def revoke(share_id: str, member: Member = Depends(require("teacher"))):
     return Response(status_code=204)
 
 
+def current_syllabus(conn, workspace_id: str) -> dict | None:
+    row = conn.execute(
+        "SELECT body FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
+        " ORDER BY version DESC, approved_at DESC LIMIT 1",
+        (workspace_id,),
+    ).fetchone()
+    return None if row is None else json.loads(row["body"])
+
+
+def class_points(conn, workspace_id: str, class_id: str, syllabus: dict) -> list[dict]:
+    """按考纲列出每个知识点：covered 取“任一节讲过”，minutes 求和。"""
+    covered = {kp["kp_id"]: False for kp in syllabus["knowledge_points"]}
+    minutes = dict.fromkeys(covered, 0.0)
+    for row in conn.execute(
+        "SELECT body FROM coverage_shares WHERE workspace_id = ? AND class_id = ?", (workspace_id, class_id)
+    ):
+        body = json.loads(row["body"])
+        if body["syllabus_id"] != syllabus["syllabus_id"]:
+            continue
+        for point in body["points"]:
+            if point["kp_id"] in covered:
+                covered[point["kp_id"]] |= point["covered"]
+                minutes[point["kp_id"]] += point["minutes"]
+    return [{"kp_id": kp_id, "covered": covered[kp_id], "minutes": round(minutes[kp_id], 1)} for kp_id in covered]
+
+
 @router.get("")
 def by_class(class_id: str, member: Member = Depends(current_member)):
     with closing(db.connect()) as conn:
@@ -76,29 +102,7 @@ def by_class(class_id: str, member: Member = Depends(current_member)):
             (member.workspace_id, class_id, member.id),
         ).fetchone() is None:
             raise HTTPException(403, "not your class")
-        syllabus = conn.execute(
-            "SELECT body FROM syllabi WHERE workspace_id = ? AND status = 'approved'"
-            " ORDER BY version DESC, approved_at DESC LIMIT 1",
-            (member.workspace_id,),
-        ).fetchone()
+        syllabus = current_syllabus(conn, member.workspace_id)
         if syllabus is None:
             raise HTTPException(404, "no approved syllabus")
-        shares = conn.execute(
-            "SELECT body FROM coverage_shares WHERE workspace_id = ? AND class_id = ?",
-            (member.workspace_id, class_id),
-        ).fetchall()
-
-    syllabus = json.loads(syllabus["body"])
-    covered = {kp["kp_id"]: False for kp in syllabus["knowledge_points"]}
-    minutes = dict.fromkeys(covered, 0.0)
-    for row in shares:
-        body = json.loads(row["body"])
-        if body["syllabus_id"] != syllabus["syllabus_id"]:
-            continue
-        for point in body["points"]:
-            if point["kp_id"] in covered:
-                covered[point["kp_id"]] |= point["covered"]
-                minutes[point["kp_id"]] += point["minutes"]
-    return {"class_id": class_id, "points": [
-        {"kp_id": kp_id, "covered": covered[kp_id], "minutes": round(minutes[kp_id], 1)} for kp_id in covered
-    ]}
+        return {"class_id": class_id, "points": class_points(conn, member.workspace_id, class_id, syllabus)}
