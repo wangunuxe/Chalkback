@@ -1,19 +1,90 @@
 """GET /api/dashboard?view=teacher|head|admin（TD6）。
 
 预警规则：剩余未覆盖知识点数 > 距考试剩余周数 × 该班过去平均每周覆盖数 → “考前讲不完”。
+
+各视图按 §4 权限表：老师只看自己的班（含“别的班讲了、你还没讲”，不指明是哪个班）；
+组长看各班知识点明细和待批准的考纲草稿（班级→年级的对应关系待定，暂时看全校）；
+管理员只看各班汇总，外加邀请码和成员数。
 """
+import os
+from contextlib import closing
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from .. import db
 from ..auth import Member, current_member
+from .coverage import class_points, current_syllabus
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
+
+
+def class_summary(conn, workspace_id: str, class_id: str, syllabus: dict, weeks_left: float | None, today: date):
+    points = class_points(conn, workspace_id, class_id, syllabus)
+    covered = sum(p["covered"] for p in points)
+    first = conn.execute(
+        "SELECT MIN(json_extract(body, '$.date')) FROM coverage_shares WHERE workspace_id = ? AND class_id = ?",
+        (workspace_id, class_id),
+    ).fetchone()[0]
+    weeks_taught = max(1.0, (today - date.fromisoformat(first)).days / 7) if first else 1.0
+    rate = covered / weeks_taught
+    at_risk = weeks_left is not None and len(points) - covered > weeks_left * rate
+    return {"class_id": class_id, "covered": covered, "total": len(points),
+            "weekly_rate": round(rate, 2), "at_risk": at_risk, "points": points}
 
 
 @router.get("/dashboard")
 def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depends(current_member)):
     if view != member.role:
         raise HTTPException(403)
-    # TODO(TD6)
-    return {"view": view, "classes": [{"class_id": "4A", "covered": 1, "total": 4, "at_risk": False}]}
+    ws = member.workspace_id
+    today = date.today()
+    with closing(db.connect()) as conn:
+        syllabus = current_syllabus(conn, ws)
+        if syllabus is None:
+            raise HTTPException(404, "no approved syllabus")
+        workspace = conn.execute("SELECT name, exam_date FROM workspaces WHERE workspace_id = ?", (ws,)).fetchone()
+        exam_date = os.environ.get("HUB_EXAM_DATE") or (workspace["exam_date"] if workspace else None)
+        weeks_left = max(0.0, (date.fromisoformat(exam_date) - today).days / 7) if exam_date else None
+
+        all_classes = [r[0] for r in conn.execute(
+            "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? ORDER BY class_id", (ws,))]
+        if view == "teacher":
+            mine = {r[0] for r in conn.execute(
+                "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? AND teacher_id = ?", (ws, member.id))}
+            shown = [c for c in all_classes if c in mine]
+        else:
+            shown = all_classes
+        summaries = {c: class_summary(conn, ws, c, syllabus, weeks_left, today) for c in all_classes}
+        classes = [summaries[c] for c in shown]
+
+        result = {
+            "view": view,
+            "workspace": {"workspace_id": ws, "name": workspace["name"] if workspace else ws},
+            "exam_date": exam_date,
+            "weeks_left": None if weeks_left is None else round(weeks_left, 1),
+            "syllabus": {"syllabus_id": syllabus["syllabus_id"], "version": syllabus["version"],
+                         "subject": syllabus["subject"], "level": syllabus["level"],
+                         "knowledge_points": [{"kp_id": kp["kp_id"], "title": kp["title"]}
+                                              for kp in syllabus["knowledge_points"]]},
+            "classes": classes,
+        }
+
+        if view == "teacher":
+            for c in classes:
+                peers_covered = {p["kp_id"] for other, s in summaries.items() if other != c["class_id"]
+                                 for p in s["points"] if p["covered"]}
+                c["peer_gaps"] = [p["kp_id"] for p in c["points"] if not p["covered"] and p["kp_id"] in peers_covered]
+        elif view == "head":
+            result["drafts"] = [dict(r) for r in conn.execute(
+                "SELECT syllabus_id, version FROM syllabi WHERE workspace_id = ? AND status = 'draft'"
+                " AND version > ? ORDER BY version", (ws, syllabus["version"]))]
+        else:
+            for c in classes:
+                del c["points"]
+            result["invites"] = [dict(r) for r in conn.execute(
+                "SELECT invite_code, role FROM invites WHERE workspace_id = ? ORDER BY role", (ws,))]
+            result["members"] = {r["role"]: r["n"] for r in conn.execute(
+                "SELECT role, COUNT(*) AS n FROM members WHERE workspace_id = ? GROUP BY role", (ws,))}
+    return result
