@@ -28,9 +28,9 @@ Only the owner merges changes to a directory.
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 make check          # all examples pass the contracts + component tests
-make seed-mock      # generate .mock-home/ (a fake ~/.chalkback/) from the examples
 make hub            # https://localhost:8000, test mode (mock token, DEMO-* invite codes)
 make teacher        # https://localhost:4000/console, reads .mock-home
+make mock-local     # optional, with both running: load the demo data into them (see below)
 ```
 
 If upstream isn't done yet, start with the mocks in `contracts/examples/`; don't wait.
@@ -40,9 +40,20 @@ If upstream isn't done yet, start with the mocks in `contracts/examples/`; don't
 ```bash
 make up             # = docker compose up --build -d
                     # Hub https://localhost:8443 (API at /docs), console https://localhost:4000
+make mock           # optional: load the demo data into the running Hub + console
 make down           # stop, data is kept
-make reset-mock     # also delete the data volumes; the next up regenerates the mocks
+make reset          # also delete the data volumes; the next up starts empty
 ```
+
+**Mock data only exists if you ask for it.** `make up` (and `make hub` / `make teacher`) start empty: the Hub has no
+syllabus, no lessons and no courses, and the console shows "Not set up yet". `make mock` (or `make mock-local`) loads
+the demo data through the real API:
+- Hub: the French syllabus (main) and a maths syllabus, approved by department head H1; 9 shared lessons in classes 4A,
+  4B and 4C (4B triggers the exam alert); 5 courses, 3 of them with a summary sent to the department head.
+- Console: a mock `~/.chalkback/` from `contracts/examples` (teacher T1, one lesson with its quiz).
+
+You can run it again: the Hub keeps what it has and adds what is missing, while the console's data is replaced by the
+mock. To start from nothing, `make reset` then `make up`. Sign in with the `DEMO-*` invite codes (test mode only).
 
 - The containers hold only **the Hub + console (mock data)**. screenpipe and chalkback-pipe must run on the teacher's computer (they record the mic and screen) and do not go in a container.
 - The console container binds only `127.0.0.1:4000`. The student game also opens only on the teacher's computer; there is no mobile version.

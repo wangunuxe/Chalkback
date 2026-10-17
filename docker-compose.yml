@@ -1,4 +1,4 @@
-# Development and test environment: school Hub + teacher console (mock data).
+# Development and test environment: school Hub + teacher console. Both start empty; `make mock` loads the demo data.
 #
 #   docker compose up --build
 #   Hub      https://localhost:8443      (API docs at /docs)
@@ -41,7 +41,7 @@ services:
       CONSOLE_TRUSTED_NETS: 172.28.0.0/16
       HUB_URL: https://hub:8000
     volumes:
-      - console-data:/data   # fake ~/.chalkback; regenerated as mock after docker compose down -v
+      - console-data:/data   # fake ~/.chalkback; empty until `make mock`
     depends_on:
       hub:
         condition: service_healthy

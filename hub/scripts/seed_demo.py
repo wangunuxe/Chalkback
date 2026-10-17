@@ -1,22 +1,28 @@
-"""Load demo coverage data into a running Hub (for TD6 rehearsal and screenshots).
+"""Load the demo data into a running Hub (for TD6 rehearsal and screenshots). Usually run through `make mock`.
 
     python hub/scripts/seed_demo.py [https://localhost:8443]
+
+The Hub starts empty; this is the only place demo data comes from. As department head H1 it uploads and approves the
+French syllabus (contracts/examples/syllabus.json, approved first, so it is the school's main syllabus) and a maths syllabus.
 
 Goes through the real POST /api/coverage (same path as C's console upload), using mock tokens:
 - T1 -> 4A: normal progress (same identity as the console's mock teacher T1)
 - T2 -> 4B: only 1 knowledge point covered since the start of term -> triggers "won't finish before the exam"
 - T2 -> 4C: covered KP02, so T1's teacher view shows "another class covered it, you haven't yet"
 French knowledge points follow contracts/examples/syllabus.json (KP01-KP04). Update together once the demo syllabus (H4) is finalized.
-A second subject (maths, taught by T3 to 4A and 4B) is approved by the department head H1, so classes have several courses.
+Maths is taught by T3 to 4A and 4B, so classes have several courses.
 Courses: 5 courses in 3 classes; T1, T2 and T3 each sent one summary (demo text standing in for the screenpipe summary).
 Running the script again does not duplicate anything: lessons replace themselves, existing syllabi and courses are skipped.
 """
+import json
 import sys
+from pathlib import Path
 
 import httpx
 
 HEAD = {"Authorization": "Bearer mock-token-H1"}
-FRENCH = "fr-grammaire-4e"
+FRENCH_SYLLABUS = json.loads((Path(__file__).resolve().parents[2] / "contracts" / "examples" / "syllabus.json").read_text(encoding="utf-8"))
+FRENCH = FRENCH_SYLLABUS["syllabus_id"]
 MATHS = {
     "syllabus_id": "maths-4e", "version": 1, "status": "draft", "subject": "mathématiques", "level": "4e",
     "knowledge_points": [
@@ -68,13 +74,16 @@ def auth(teacher: str) -> dict:
     return {"Authorization": f"Bearer mock-token-{teacher}"}
 
 
-def seed_maths(client) -> None:
-    if any(s["syllabus_id"] == MATHS["syllabus_id"] for s in client.get("/api/syllabus", headers=HEAD).json()):
-        print("syllabus maths-4e: already approved")
-        return
-    client.post("/api/syllabus", json=MATHS, headers=HEAD).raise_for_status()
-    client.post(f"/api/syllabus/{MATHS['syllabus_id']}/approve", headers=HEAD).raise_for_status()
-    print("syllabus maths-4e: uploaded and approved by H1")
+def seed_syllabi(client) -> None:
+    """French first: the syllabus approved first is the school's main one (board, matrix, forecast)."""
+    for syllabus in (FRENCH_SYLLABUS, MATHS):
+        sid = syllabus["syllabus_id"]
+        if any(s["syllabus_id"] == sid for s in client.get("/api/syllabus", headers=HEAD).json()):
+            print(f"syllabus {sid}: already approved")
+            continue
+        client.post("/api/syllabus", json={**syllabus, "status": "draft"}, headers=HEAD).raise_for_status()
+        client.post(f"/api/syllabus/{sid}/approve", headers=HEAD).raise_for_status()
+        print(f"syllabus {sid}: uploaded and approved by H1")
 
 
 def seed_lessons(client) -> None:
@@ -113,7 +122,7 @@ def seed_courses(client) -> None:
 
 def main(hub: str) -> None:
     with httpx.Client(base_url=hub, verify=False) as client:  # the local Hub uses a self-signed certificate
-        seed_maths(client)
+        seed_syllabi(client)
         seed_lessons(client)
         seed_courses(client)
 

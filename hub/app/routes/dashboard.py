@@ -42,19 +42,18 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
     ws = member.workspace_id
     today = date.today()
     with closing(db.connect()) as conn:
+        # A new school has no approved syllabus yet: the board is empty until the department head publishes one
         syllabus = current_syllabus(conn, ws)
-        if syllabus is None:
-            raise HTTPException(404, "no approved syllabus")
         workspace = conn.execute("SELECT name, exam_date FROM workspaces WHERE workspace_id = ?", (ws,)).fetchone()
         exam_date = os.environ.get("HUB_EXAM_DATE") or (workspace["exam_date"] if workspace else None)
         weeks_left = max(0.0, (date.fromisoformat(exam_date) - today).days / 7) if exam_date else None
 
         # Only lessons of the board's syllabus; other subjects show up per course (GET /api/courses)
         of_syllabus = " AND json_extract(body, '$.syllabus_id') = ?"
-        all_classes = [r[0] for r in conn.execute(
+        all_classes = [] if syllabus is None else [r[0] for r in conn.execute(
             "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ?" + of_syllabus + " ORDER BY class_id",
             (ws, syllabus["syllabus_id"]))]
-        if view == "teacher":
+        if view == "teacher" and syllabus is not None:
             mine = {r[0] for r in conn.execute(
                 "SELECT DISTINCT class_id FROM coverage_shares WHERE workspace_id = ? AND teacher_id = ?" + of_syllabus,
                 (ws, member.id, syllabus["syllabus_id"]))}
@@ -69,10 +68,10 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
             "workspace": {"workspace_id": ws, "name": workspace["name"] if workspace else ws},
             "exam_date": exam_date,
             "weeks_left": None if weeks_left is None else round(weeks_left, 1),
-            "syllabus": {"syllabus_id": syllabus["syllabus_id"], "version": syllabus["version"],
-                         "subject": syllabus["subject"], "level": syllabus["level"],
-                         "knowledge_points": [{"kp_id": kp["kp_id"], "title": kp["title"]}
-                                              for kp in syllabus["knowledge_points"]]},
+            "syllabus": None if syllabus is None else {
+                "syllabus_id": syllabus["syllabus_id"], "version": syllabus["version"],
+                "subject": syllabus["subject"], "level": syllabus["level"],
+                "knowledge_points": [{"kp_id": kp["kp_id"], "title": kp["title"]} for kp in syllabus["knowledge_points"]]},
             "classes": classes,
         }
 
