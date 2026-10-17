@@ -48,7 +48,8 @@ permissions:
 - 时间一律 ISO 8601 带时区（Europe/Paris），例如 `2026-10-19T10:12:05+02:00`。
 - 每个产出文件写完都要通过 `validate.py`，失败就按错误修改后重试，同一步最多 3 轮。
 - 不修改已经有 `ready` 文件的 outbox 目录。
-- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`read_reports.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`，
+- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`
+  （`read_reports.py` 没有 `--mock`：连不上 screenpipe 时它自己返回演示数据），
   给 `doctor.py` 加 `--skip-screenpipe`（本地开发时没有 screenpipe）。
 
 ## 0. 环境自检
@@ -90,8 +91,10 @@ python $PIPE_DIR/scripts/validate.py coverage $OUT/coverage.json
 ## 4. 读 Kahoot 报告（A）
 
 ```bash
-python $PIPE_DIR/scripts/read_reports.py --days 7 > $WORK/reports.json
+python $PIPE_DIR/scripts/read_reports.py --days 7 --syllabus $CB/cache/syllabus.json --out $WORK/reports.json
 ```
+
+结果写在 `--out` 指定的文件里（标准输出只是一行日志，不要重定向）。
 
 失败时把 `$WORK/reports.json` 写成 `[]`，不影响后面的步骤（只是加分项）。
 

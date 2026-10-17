@@ -46,3 +46,15 @@ def test_each_script_supports_its_mock_flag():
 def test_every_script_referenced_in_pipe_md_exists():
     for script in set(re.findall(r"scripts/(\w+\.py)", PIPE_MD)):
         assert (SCRIPTS / script).exists(), f"pipe.md 引用了不存在的脚本 {script}"
+
+
+def test_every_flag_used_in_pipe_md_exists():
+    """pipe.md 命令里的每个参数，脚本都必须认识。A 和 B 各自改脚本或 pipe.md 时，这里会发现接口不一致。"""
+    for script, args in re.findall(r"scripts/(\w+\.py)([^\n`]*)", PIPE_MD):
+        flags = set(re.findall(r"(?<![\w-])(--[a-z][\w-]*)", args))
+        if not flags:
+            continue
+        help_text = subprocess.run([sys.executable, str(SCRIPTS / script), "--help"],
+                                   capture_output=True, text=True).stdout
+        unknown = sorted(f for f in flags if f not in help_text)
+        assert not unknown, f"pipe.md 给 {script} 传了它不认识的参数 {unknown}"
