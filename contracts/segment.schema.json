@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "segment",
+  "description": "讲解片段（转写 + 课件文字按时间戳对齐）。A → B。outbox segments.json 是 segment 数组。含原文和 screenpipe id，永不离开老师电脑。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["segment_id", "lesson_id", "start", "end", "speech", "slide_text", "app_name", "evidence"],
+  "properties": {
+    "segment_id": {"type": "string", "pattern": "^S-L-[A-Za-z0-9]+-\\d{8}-\\d{4}-\\d{3}$"},
+    "lesson_id": {"type": "string", "pattern": "^L-[A-Za-z0-9]+-\\d{8}-\\d{4}$"},
+    "start": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"},
+    "end": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"},
+    "speech": {"type": "string"},
+    "slide_text": {"type": "string"},
+    "app_name": {"type": "string"},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcription_ids", "frame_ids"],
+      "properties": {
+        "transcription_ids": {"type": "array", "items": {"type": "integer"}},
+        "frame_ids": {"type": "array", "items": {"type": "integer"}}
+      }
+    }
+  }
+}

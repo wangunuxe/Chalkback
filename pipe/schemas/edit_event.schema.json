@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "edit_event",
+  "description": "老师审核题目的动作。C → B。~/.chalkback/state/edits.jsonl 每行一条。before/after 是完整的题目对象（结构见 quiz.schema.json#/$defs/question）。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["edit_id", "quiz_id", "q_id", "action", "before", "after", "at"],
+  "properties": {
+    "edit_id": {"type": "string", "minLength": 1},
+    "quiz_id": {"type": "string", "pattern": "^Q-L-[A-Za-z0-9]+-\\d{8}-\\d{4}$"},
+    "q_id": {"type": "string", "minLength": 1},
+    "action": {"enum": ["edit", "delete", "approve", "reject"]},
+    "before": {"type": "object"},
+    "after": {"type": "object"},
+    "at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"}
+  }
+}

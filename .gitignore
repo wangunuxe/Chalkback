@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.env
+*.env
+
+# 本机数据：不进仓库
+.mock-home/
+hub/*.db
+config.json
+!contracts/examples/config.json
+
+# 演示录音、截图（只留在演示电脑上）
+demo/**/*.mp4
+demo/**/*.wav
+demo/**/*.png

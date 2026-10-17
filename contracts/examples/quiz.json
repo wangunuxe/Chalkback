@@ -1,0 +1,28 @@
+{
+  "quiz_id": "Q-L-T1-20261017-1000",
+  "lesson_id": "L-T1-20261017-1000",
+  "class_id": "4A",
+  "status": "pending",
+  "style_profile_version": 2,
+  "questions": [
+    {
+      "q_id": "Q1", "kp_id": "KP03", "type": "mcq",
+      "prompt": "Les pommes que j'ai ___ étaient délicieuses.",
+      "choices": ["mangé", "mangées", "mangés", "mangée"],
+      "answer": 1, "time_limit_s": 20,
+      "source": {"segment_id": "S-L-T1-20261017-1000-003", "quote": "les pommes que j'ai mangées", "frame_ids": [5531]}
+    },
+    {
+      "q_id": "Q2", "kp_id": "KP03", "type": "fill_blank",
+      "prompt": "J'ai vu les filles. → Je les ai ___ (voir).",
+      "answer": "vues", "time_limit_s": 30,
+      "source": {"segment_id": "S-L-T1-20261017-1000-003", "quote": "le participe passé s'accorde avec le COD seulement quand il est placé avant le verbe", "frame_ids": [5531]}
+    },
+    {
+      "q_id": "Q3", "kp_id": "KP03", "type": "true_false",
+      "prompt": "Avec avoir, le participe passé s'accorde toujours avec le sujet.",
+      "answer": false, "time_limit_s": 15,
+      "source": {"segment_id": "S-L-T1-20261017-1000-003", "quote": "s'accorde avec le COD seulement quand il est placé avant le verbe", "frame_ids": [5531]}
+    }
+  ]
+}

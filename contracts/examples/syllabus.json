@@ -1,0 +1,13 @@
+{
+  "syllabus_id": "fr-grammaire-4e",
+  "version": 1,
+  "status": "approved",
+  "subject": "français",
+  "level": "4e",
+  "knowledge_points": [
+    {"kp_id": "KP01", "title": "Le passé composé avec avoir", "keywords": ["passé composé", "avoir"]},
+    {"kp_id": "KP02", "title": "Le passé composé avec être", "keywords": ["passé composé", "être", "accord"]},
+    {"kp_id": "KP03", "title": "L'accord du participe passé", "keywords": ["participe passé", "accord", "COD"]},
+    {"kp_id": "KP04", "title": "L'imparfait", "keywords": ["imparfait", "description"]}
+  ]
+}

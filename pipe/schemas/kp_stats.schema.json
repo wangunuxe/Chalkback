@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "kp_stats",
+  "description": "按知识点的作答统计。C（本机统计）→ C。不离开老师电脑。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quiz_id", "class_id", "n_players", "by_kp"],
+  "properties": {
+    "quiz_id": {"type": "string", "pattern": "^Q-L-[A-Za-z0-9]+-\\d{8}-\\d{4}$"},
+    "class_id": {"type": "string", "minLength": 1},
+    "n_players": {"type": "integer", "minimum": 0},
+    "by_kp": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kp_id", "accuracy", "avg_time_ms"],
+        "properties": {
+          "kp_id": {"type": "string", "minLength": 1},
+          "accuracy": {"type": "number", "minimum": 0, "maximum": 1},
+          "avg_time_ms": {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  }
+}

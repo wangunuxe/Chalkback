@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "style_profile",
+  "description": "老师出题风格文件。B → B。~/.chalkback/state/style_profile.json。个人，永不上传。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["teacher_id", "version", "updated_at", "rules"],
+  "properties": {
+    "teacher_id": {"type": "string", "minLength": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "updated_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"},
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "origin", "evidence"],
+        "properties": {
+          "rule": {"type": "string", "minLength": 1},
+          "origin": {"enum": ["screen_history", "teacher_edit"]},
+          "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "frame_ids": {"type": "array", "items": {"type": "integer"}},
+              "timestamp": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"},
+              "edit_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+            }
+          }
+        }
+      }
+    }
+  }
+}

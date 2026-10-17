@@ -1,0 +1,13 @@
+{
+  "lesson_id": "L-T1-20261017-1000",
+  "teacher_id": "T1",
+  "class_id": "4A",
+  "syllabus_id": "fr-grammaire-4e",
+  "syllabus_version": 1,
+  "generated_at": "2026-10-17T11:05:00+02:00",
+  "points": [
+    {"kp_id": "KP01", "covered": false, "minutes": 0, "segment_ids": []},
+    {"kp_id": "KP02", "covered": false, "minutes": 0, "segment_ids": []},
+    {"kp_id": "KP03", "covered": true, "minutes": 4.5, "segment_ids": ["S-L-T1-20261017-1000-003"]}
+  ]
+}

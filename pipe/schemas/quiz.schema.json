@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "quiz",
+  "description": "测验。B → C。outbox quiz.json（+ game.html）。只在本机使用；游戏页面不显示 source。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quiz_id", "lesson_id", "class_id", "status", "style_profile_version", "questions"],
+  "properties": {
+    "quiz_id": {"type": "string", "pattern": "^Q-L-[A-Za-z0-9]+-\\d{8}-\\d{4}$"},
+    "lesson_id": {"type": "string", "pattern": "^L-[A-Za-z0-9]+-\\d{8}-\\d{4}$"},
+    "class_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["pending", "approved", "rejected", "published"]},
+    "style_profile_version": {"type": "integer", "minimum": 0},
+    "questions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/question"}}
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["q_id", "kp_id", "type", "prompt", "answer", "time_limit_s", "source"],
+      "properties": {
+        "q_id": {"type": "string", "minLength": 1},
+        "kp_id": {"type": "string", "minLength": 1},
+        "type": {"enum": ["mcq", "fill_blank", "true_false"]},
+        "prompt": {"type": "string", "minLength": 1},
+        "choices": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+        "answer": {},
+        "time_limit_s": {"type": "integer", "minimum": 1},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["segment_id", "quote", "frame_ids"],
+          "properties": {
+            "segment_id": {"type": "string", "pattern": "^S-L-[A-Za-z0-9]+-\\d{8}-\\d{4}-\\d{3}$"},
+            "quote": {"type": "string", "minLength": 1},
+            "frame_ids": {"type": "array", "items": {"type": "integer"}}
+          }
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"type": {"const": "mcq"}}},
+         "then": {"required": ["choices"], "properties": {"answer": {"type": "integer", "minimum": 0}}}},
+        {"if": {"properties": {"type": {"const": "fill_blank"}}},
+         "then": {"properties": {"answer": {"type": "string", "minLength": 1}}}},
+        {"if": {"properties": {"type": {"const": "true_false"}}},
+         "then": {"properties": {"answer": {"type": "boolean"}}}}
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "lesson_id": "L-T1-20261017-1000",
+  "class_id": "4A",
+  "date": "2026-10-17",
+  "syllabus_id": "fr-grammaire-4e",
+  "syllabus_version": 1,
+  "points": [
+    {"kp_id": "KP01", "covered": false, "minutes": 0},
+    {"kp_id": "KP02", "covered": false, "minutes": 0},
+    {"kp_id": "KP03", "covered": true, "minutes": 4.5}
+  ]
+}

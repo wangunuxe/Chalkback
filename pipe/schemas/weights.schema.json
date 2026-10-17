@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "weights",
+  "description": "按知识点的出题权重。C → B。~/.chalkback/state/weights.json。规则：默认 1.0；正确率 < 50% 设为 2.0；Kahoot 报告薄弱点 +0.5。§5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["class_id", "updated_at", "weights"],
+  "properties": {
+    "class_id": {"type": "string", "minLength": 1},
+    "updated_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?[+-]\\d{2}:\\d{2}$"},
+    "weights": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0}}
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "hub_url": "http://localhost:8000",
+  "token": "mock-token-T1",
+  "teacher_id": "T1",
+  "workspace_id": "W1",
+  "syllabus_id": "fr-grammaire-4e",
+  "timetable": [{"day": "MON", "start": "10:00", "end": "11:00", "class_id": "4A"}],
+  "auto_share": false,
+  "consent_at": "2026-10-17T09:30:00+02:00"
+}

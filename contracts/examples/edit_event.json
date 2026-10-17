@@ -1,0 +1,21 @@
+{
+  "edit_id": "E3",
+  "quiz_id": "Q-L-T1-20261017-1000",
+  "q_id": "Q1",
+  "action": "edit",
+  "before": {
+    "q_id": "Q1", "kp_id": "KP03", "type": "mcq",
+    "prompt": "Les pommes que j'ai ___ étaient délicieuses.",
+    "choices": ["mangé", "mangées", "manger", "mange"],
+    "answer": 1, "time_limit_s": 20,
+    "source": {"segment_id": "S-L-T1-20261017-1000-003", "quote": "les pommes que j'ai mangées", "frame_ids": [5531]}
+  },
+  "after": {
+    "q_id": "Q1", "kp_id": "KP03", "type": "mcq",
+    "prompt": "Les pommes que j'ai ___ étaient délicieuses.",
+    "choices": ["mangé", "mangées", "mangés", "mangée"],
+    "answer": 1, "time_limit_s": 20,
+    "source": {"segment_id": "S-L-T1-20261017-1000-003", "quote": "les pommes que j'ai mangées", "frame_ids": [5531]}
+  },
+  "at": "2026-10-17T11:20:00+02:00"
+}

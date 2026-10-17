@@ -1,0 +1,35 @@
+<!doctype html>
+<!--
+  学生游戏页面模板（TB3，负责人 B）。agent 据此为每节课生成 outbox/{lesson_id}/game.html，
+  控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
+
+  约束：
+  - 不显示任何题目的 source（原话、截图 id）。
+  - 支持 mcq / fill_blank / true_false 三种题型，逐题计时（time_limit_s），手机可用。
+  - 学生只输入昵称。
+  - 每题作答提交到控制台，由控制台写入 attempts.jsonl（attempt 契约）。
+
+  TODO(B+C): 作答提交的接口（路径、请求体、correct 由谁判定）技术文档没有写，
+  B 和 C 需在 H9 之前约定并补进 §6.3。下面的 /play/{quiz_id}/attempt 只是占位。
+-->
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChalkBack</title>
+</head>
+<body>
+  <main id="app">
+    <form id="join">
+      <label>Pseudo <input name="nickname" required maxlength="20" autocomplete="off"></label>
+      <button>Jouer</button>
+    </form>
+  </main>
+  <script>
+    // agent 生成时把 quiz.json 去掉 source 后注入这里
+    const QUIZ = /*QUIZ_JSON*/ null;
+    const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
+    // TODO(TB3): 渲染题目、计时、提交作答
+  </script>
+</body>
+</html>
