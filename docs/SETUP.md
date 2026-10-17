@@ -9,7 +9,7 @@ ChalkBack turns each of your lessons into a short quiz game for your students, r
 you planned but did not cover, and — only when you approve it — shares which syllabus points each class has covered
 with your department.
 
-**Time needed:** about 15 minutes. **You need:**
+**Time needed:** about 30–40 minutes, much of it waiting for downloads. **You need:**
 
 - a Windows 10/11 or macOS 13+ laptop that you teach with,
 - the **invite code** from your school administrator,
@@ -85,11 +85,52 @@ npx -y screenpipe@latest pipe install ./Chalkback-main/pipe
 ```
 </details>
 
-## Step 5 — Open the ChalkBack console and run the setup wizard (3 min)
+## Step 5 — Start the ChalkBack console and run the setup wizard (5 min)
 
-<!-- TODO(C): replace with the real way a teacher starts the console (installer, app, or one command). -->
-Start the ChalkBack console *(start instructions provided by the console team)*, then open
-<http://localhost:4000/setup> in your browser and follow the four screens:
+The console is a small web page that runs on your laptop. Only your laptop can open it — your students also
+play the quiz game on your laptop, one after another.
+
+1. If you have not already, download the project as a ZIP from <https://github.com/wangunuxe/Chalkback>
+   (*Code → Download ZIP*) and unzip it.
+2. Open a terminal in the unzipped folder, then install the console once:
+
+   **macOS**
+
+   ```bash
+   cd Chalkback-main/console
+   python3 -m venv .venv
+   .venv/bin/python -m pip install -r requirements.txt
+   ```
+
+   **Windows**
+
+   ```powershell
+   cd Chalkback-main\console
+   python -m venv .venv
+   .venv\Scripts\python -m pip install -r requirements.txt
+   ```
+
+3. Start the console (do this again whenever you want to use it; keep the terminal open while you do):
+
+   **macOS**
+
+   ```bash
+   .venv/bin/python generate_cert.py
+   .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --ssl-keyfile key.pem --ssl-certfile cert.pem
+   ```
+
+   **Windows**
+
+   ```powershell
+   .venv\Scripts\python generate_cert.py
+   .venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 4000 --ssl-keyfile key.pem --ssl-certfile cert.pem
+   ```
+
+4. Open <https://localhost:4000/setup>. The first time, your browser says the connection is not private: the
+   certificate was made by your own laptop, so this is expected. Click *Advanced → Proceed to localhost*.
+
+<!-- TODO(C): /setup 目前只有 JSON 接口，还没有向导页面（技术文档 §13.5）。向导做好后核对下面四步。 -->
+Follow the four screens:
 
 1. **Invite code** — joins your school's workspace.
 2. **Subject and classes** you teach.
@@ -116,21 +157,21 @@ After a lesson — or after talking for a few minutes with a slide open — run:
 npx -y screenpipe@latest pipe run chalkback
 ```
 
-You will get a notification when it is done (1–5 minutes). Open <http://localhost:4000/review>.
+You will get a notification when it is done (1–5 minutes). Open <https://localhost:4000/console>.
 
 ---
 
 ## Every day
 
-Nothing to do: teach as usual with screenpipe running. After each lesson you get a notification. Then, in
-<http://localhost:4000/review>:
+Nothing to do: teach as usual with screenpipe running. After each lesson you get a notification. Then start the
+console (step 5.3) and open <https://localhost:4000/console>:
 
 1. **Review the quiz** — approve, edit or delete each question (click a question's source to see what you said in class).
-2. **Publish** — show the QR code; students scan it with their phone on the school Wi-Fi and play.
+2. **Publish** — then click *Open game*. Students play in your laptop's browser, one after another, each with a nickname.
 3. **Approve sharing** of the syllabus coverage with your department, if you want to.
-4. Changed your mind? Withdraw anything you shared in <http://localhost:4000/shares>.
+4. Changed your mind? Click *Withdraw* next to anything you shared.
 
-The more you edit questions, the more ChalkBack writes them your way (see <http://localhost:4000/style>).
+The more you edit questions, the more ChalkBack writes them your way (see <https://localhost:4000/style>).
 
 ## Troubleshooting
 
@@ -138,11 +179,13 @@ The more you edit questions, the more ChalkBack writes them your way (see <http:
 | --- | --- |
 | `python` or `npx` is "not recognized" / "command not found" | Close and reopen the terminal after step 3. On macOS try `python3`. On Windows, turn off the App execution aliases (step 3). |
 | doctor: `[FAIL] screenpipe ... not reachable` | Start the screenpipe app and wait until it shows it is recording. |
-| doctor: `[FAIL] Teacher config` or `Syllabus` | Finish the setup wizard at <http://localhost:4000/setup>, then open the console once. |
+| doctor: `[FAIL] Teacher config` or `Syllabus` | Finish the setup wizard at <https://localhost:4000/setup>, then open the console once. |
 | doctor: `[warn] Time zone` | Fine if your laptop is set to Paris time. Otherwise run `python -m pip install tzdata`. |
 | No notification after a lesson | Check the timetable in the setup wizard. Run step 7 by hand and look at `npx -y screenpipe@latest pipe logs chalkback`. |
 | "Failed to extract accountId" in the logs | Your AI preset is not set: redo step 2. |
-| Students cannot open the game | Their phones must be on the same network as your laptop. If the school Wi-Fi isolates devices, turn on your laptop's hotspot and have students join it. |
+| The browser says the connection is not private | Expected: the console uses a certificate made by your own laptop. Click *Advanced → Proceed to localhost*. |
+| The game page says *Not Found* | Publish the quiz first in the console; only published quizzes can be played. |
+| `localhost:4000` does not open | The console is not running: start it again (step 5.3). |
 | The quiz says "nothing to quiz" | ChalkBack did not recognise any syllabus point in the lesson — check that your slides were on screen and your microphone was picked up. |
 
 ## Uninstall

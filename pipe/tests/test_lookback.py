@@ -136,3 +136,13 @@ def test_no_lesson_plan(lesson, coverage, home, screenpipe):
     lesson["lesson_plan"] = None
     result = run(lesson, coverage, home)
     assert result["has_lesson_plan"] is False and result["candidates"] == []
+
+
+def test_microphone_check_ignores_case(lesson, coverage, home, monkeypatch):
+    """screenpipe 的 device_type 可能是 "Input"（待 TA1 实测）：大小写不同也要算老师的麦克风。"""
+    items = [audio(702, "L'imparfait sert à décrire", "2026-10-13T10:25:00+02:00", device_type="Input"),
+             audio(703, "imparfait", "2026-10-13T10:26:00+02:00", device_type="Output")]
+    with FakeScreenpipe(items) as fake:
+        monkeypatch.setattr(extract_segments, "SCREENPIPE_URL", fake.url)
+        hits = by_kp(run(lesson, coverage, home))["KP04"]["search_hits"]
+    assert [h["id"] for h in hits] == [702]

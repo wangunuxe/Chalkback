@@ -526,7 +526,7 @@ chalkback/
 - [x] **`read_reports.py` 编造薄弱点**：现在找不到报告输出 `[]`，出错写 `[]` 并退出 1。（A）
 - [ ] **公网 Hub 的安全**：`HUB_MOCK_AUTH` 默认开启，任何人用 `mock-token-ADM1` 就是管理员；首页公开 `DEMO-ADMIN`、`DEMO-HEAD` 邀请码；第一个真实加入的老师 id 是 `T1`，和 mock 的 T1 是同一身份。上公网前处理。（D）控制台已不再回落到 `mock-token-T1`（C，已修）。
 - [x] **mock 片段的 lesson_id**：`extract_segments.py --mock` 现在用 `--lesson-id` 和 `--start`，outbox 目录名和文件里的 `lesson_id` 一致。（A）
-- [ ] **mock 课表不一致**：mock 课表是周一，mock 课是 2026-10-17（周六），`current_lesson.py` 选错课且 `lesson_plan` 为空。（B）
+- [x] **mock 课表不一致**：`current_lesson.py --mock` 固定处理示例课之后的周一那节课，seed 给它写了教案。（B）
 
 ### 13.3 角色 A
 
@@ -548,15 +548,23 @@ chalkback/
 
 ### 13.4 角色 B
 
-- [ ] TB2 没有 `pipe run chalkback` 跑出完整 outbox 的记录；mock 模式下 `lookback.py` 不搜索，所有候选都变成“漏讲”。
-- [ ] TB3 还没有用演示数据实际生成的 `quiz.json` 和 `game.html`；`source.quote` 超过 25 个词不检查。
+已修（pipe 测试增加到 153 个）：
+
+- [x] mock 课表不一致：`current_lesson.py --mock` 把“现在”固定为 2026-10-19 11:05（示例课表周一 10:00–11:00），`tools/seed_mock_home.py` 给那节课也写了教案；`pipe.md` 的 mock 说明加上了 `current_lesson.py`。本地 mock 跑第 0–7 步的脚本已验证能串起来。
+- [x] `lookback.py` 判断麦克风改用 `extract_segments.is_mic()`（`device_type` 大小写不敏感）。（`style_inputs.py` 只读屏幕文字，不涉及。）
+- [x] `check_quiz.py`：`source.quote` 超过 25 个词也会警告。
+- [x] `pipe.md` 第 4 步改为“`read_reports.py` 退出码 1 时已写好 `[]`”；mock 说明加上 `read_reports.py --mock`（A 改的，B 已确认）。
+- [x] `docs/SETUP.md` 第 5 步写明老师怎么启动控制台（虚拟环境 + `generate_cert.py` + `uvicorn`，按说明实测能启动），并说明第一次打开时的证书提示；时间改为 30–40 分钟，与测试卡一致。
+
+还没做：
+
+- [ ] TB2 没有 `pipe run chalkback` 让 agent 真正跑完一次、产出完整 outbox 的记录（要 screenpipe 和 AI 预设）。mock 模式下 `lookback.py` 不搜索，所有候选都变成“漏讲”——这是 mock 的设计，不是 bug。
+- [ ] TB3 还没有用演示数据实际生成的 `quiz.json` 和 `game.html`。
 - [ ] TB4 验收（区分“未讲”和“上周讲过”）需要真实录课数据（H6）。
 - [ ] TB5 缺 T1、T2 两份明显不同的风格文件。
-- [ ] TB6 实测：安装后 pipe 的名字（`chalkback` 还是 `pipe`）、`tree/main/pipe` 地址能否安装、`/notify` 的端口和请求体（`pipe/pipe.md:25-26,150`）；`docs/SETUP.md:90` 控制台启动说明（现在是 `make teacher`，见 `console/README.md`）。
-- [ ] TB7 新人测试没做，计时结果为空；`SETUP.md` 写“约 15 分钟”，测试卡写 30–40 分钟。
+- [ ] TB6 实测：安装后 pipe 的名字（`chalkback` 还是 `pipe`）、`tree/main/pipe` 地址能否安装、`/notify` 的端口和请求体（`pipe/pipe.md` 里的 TODO）。
+- [ ] TB7 新人测试没做，计时结果为空。
 - [ ] 实测一次 pipe 运行时间低于 `timeout: 900`。
-- [ ] `lookback.py`、`style_inputs.py` 判断麦克风用的是 `device_type == "input"`（区分大小写）；如果实测是 `Input` 会漏掉所有转写。A 的 `extract_segments.is_mic()` 已经兼容，可以直接复用。
-- [ ] A 改了 `pipe.md` 的 mock 说明一行：`read_reports.py` 现在有 `--mock`，不再自己返回演示数据（B 确认）。
 - [ ] 改 `pipe/scripts/build_game.py` 或 `check_quiz.normalize_answer` 时先告诉 C：控制台发布游戏和判分直接复用这两个函数（`console/app/contracts.py`）。
 
 ### 13.5 角色 C
@@ -597,9 +605,9 @@ chalkback/
 
 - [x] 控制台代码、测试、`Makefile`、`console/README.md`、`README.md`、`docker-compose.yml` 已改。（C）
 - [x] 本文档已改为本机游戏和 HTTPS：第 2 节、第 3 节第 7–8 步、第 6.3 节、第 6.4 节、第 8 节 TB3 / TC4 / TD1、第 10 节第 3 条、第 11 节 0:00 和 1:10 两行、第 12 节对应风险。（全员）
-- [ ] `docs/SETUP.md:129,145`（二维码、手机、热点）；`pipe/prompts/gen_quiz.md:5,47`（“用手机作答”“手机一屏”）；`pipe/templates/game.html:14`（不引用外部资源的规则保留，理由改为离线可用）。（B）
+- [x] `docs/SETUP.md`（二维码、手机、热点）、`pipe/prompts/gen_quiz.md`（“用手机作答”“手机一屏”）、`pipe/templates/game.html`（不引用外部资源的理由改为离线可用）。（B）
 - [x] `docs/DEMO.md` 的手机连接检查项改为本机游戏和全班作答数据。（A）
-- [ ] http 改 https：`pipe/pipe.md:140`、`pipe/scripts/doctor.py:96,101,107`、`docs/SETUP.md` 多处仍写 `http://localhost:4000`。（B）
+- [x] http 改 https：`pipe/pipe.md` 的通知链接、`pipe/scripts/doctor.py`、`docs/SETUP.md`。（B）
 
 ### 13.8 本文档自身
 

@@ -84,3 +84,17 @@ def test_no_lesson_in_window(home, capsys):
 def test_naive_now_rejected(home):
     with pytest.raises(SystemExit):
         current_lesson.main(["--now", "2026-10-19T11:05:00"])
+
+
+def test_mock_uses_fixed_time_and_finds_seeded_plan(tmp_path, monkeypatch, capsys):
+    """CHALKBACK_MOCK=1：不管哪天运行，都处理 seed 准备好的那节课（有教案、还没 ready）。"""
+    import subprocess
+    import sys
+    from conftest import ROOT
+    subprocess.run([sys.executable, str(ROOT / "tools" / "seed_mock_home.py"), "--home", str(tmp_path)], check=True,
+                   capture_output=True)
+    monkeypatch.setenv("CHALKBACK_HOME", str(tmp_path))
+    code, lesson = run(capsys, "--mock")
+    assert code == 0 and lesson["lesson_id"] == "L-T1-20261019-1000"
+    assert lesson["ready"] is False and lesson["lesson_plan"].endswith("4A/2026-10-19.json")
+    assert run(capsys, "--mock", "--now", "2026-10-26T11:05:00+01:00")[1]["date"] == "2026-10-26"  # --now 优先

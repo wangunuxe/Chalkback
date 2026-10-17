@@ -48,7 +48,7 @@ permissions:
 - 时间一律 ISO 8601 带时区（Europe/Paris），例如 `2026-10-19T10:12:05+02:00`。
 - 每个产出文件写完都要通过 `validate.py`，失败就按错误修改后重试，同一步最多 3 轮。
 - 不修改已经有 `ready` 文件的 outbox 目录。
-- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`read_reports.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`，
+- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `current_lesson.py`、`extract_segments.py`、`read_reports.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`，
   给 `doctor.py` 加 `--skip-screenpipe`（本地开发时没有 screenpipe）。
 
 ## 0. 环境自检
@@ -95,7 +95,7 @@ python $PIPE_DIR/scripts/read_reports.py --days 7 --syllabus $CB/cache/syllabus.
 
 结果写在 `--out` 指定的文件里（标准输出只是一行日志，不要重定向）。
 
-失败时把 `$WORK/reports.json` 写成 `[]`，不影响后面的步骤（只是加分项）。
+退出码 1（连不上 screenpipe 或读不到考纲）时脚本已经把 `$WORK/reports.json` 写成 `[]`，继续下一步即可（只是加分项）。
 
 ## 5. 漏讲提醒（B）
 
@@ -136,7 +136,7 @@ python $PIPE_DIR/scripts/build_game.py --quiz $OUT/quiz.json --out $OUT/game.htm
 
 ```bash
 curl -s -X POST http://localhost:11435/notify -H "Content-Type: application/json" \
-  -d '{"title": "ChalkBack", "body": "<class_id> 的课后测验和提醒已生成，请到控制台审核：http://localhost:4000/review"}'
+  -d '{"title": "ChalkBack", "body": "<class_id> 的课后测验和提醒已生成，请到控制台审核：https://localhost:4000/console"}'
 ```
 
 **失败**（第 2、3、5、7 步中某一步重试 3 轮仍不通过；第 4、6 步失败不算）：**不要**创建 `ready`；保留已生成的文件便于排查，通知老师：
