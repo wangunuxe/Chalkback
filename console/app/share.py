@@ -1,6 +1,6 @@
-"""coverage → coverage_share：唯一允许离开老师电脑的覆盖数据（§5，A3）。
+"""coverage -> coverage_share: the only coverage data allowed to leave the teacher's computer (§5, A3).
 
-用白名单逐字段复制，而不是从 coverage 里删字段——这样 coverage 以后多了字段也不会被带出去。
+Fields are copied one by one from an allowlist rather than deleted from coverage -- so if coverage gains new fields later, they will not leak out.
 """
 from __future__ import annotations
 

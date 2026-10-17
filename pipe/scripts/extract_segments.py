@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""按时间窗取麦克风转写和课件文字，按时间戳对齐成讲解片段（TA2，负责人 A）。
+"""Fetch microphone transcripts and slide text for a time window and align them by timestamp into teaching segments (TA2, owner A).
 
     python extract_segments.py --lesson-id L-T1-20261017-1000 \
         --start 2026-10-17T10:00:00+02:00 --end 2026-10-17T11:00:00+02:00 \
         --out ~/.chalkback/outbox/L-T1-20261017-1000/segments.json [--mock]
 
-输出：segment 对象数组，须通过 `validate.py segment`。
-约束（§6.1）：只用 screenpipe `GET /search`；音频只取 device_type=input（麦克风）；
-请求带 Authorization: Bearer $SCREENPIPE_LOCAL_API_KEY。
+Output: an array of segment objects that must pass `validate.py segment`.
+Constraints (§6.1): only screenpipe `GET /search` is used; audio is taken only from device_type=input (the microphone);
+requests carry Authorization: Bearer $SCREENPIPE_LOCAL_API_KEY.
 
-切分规则：
-- 屏幕文字（ocr + accessibility）明显变化（相似度 < 70%）算换页；每页成为一段。
-- 短于 2 分钟的页并入相邻的段（换页太快、切到别的窗口一下）；不同 app 的短暂画面只并时间，不并文字。
-- 长于 5 分钟的段平均切开。没有任何屏幕文字时，整节课按 5 分钟切。
-- 没有讲话的段不输出（不是讲解）。整节课都没录到讲话时输出 []，pipe 第 2 步按失败处理。
-- 邮件、聊天、密码管理器等窗口的文字一律丢弃（SCREEN_DENY_*），不进 slide_text。
-- 时间统一为 Europe/Paris 偏移。
+Splitting rules:
+- A clear change in screen text (ocr + accessibility; similarity < 70%) counts as a slide change; each slide becomes a segment.
+- Slides shorter than 2 minutes are merged into the adjacent segment (slides flipped too fast, a quick switch to another window); brief screens from a different app merge only their time, not their text.
+- Segments longer than 5 minutes are split evenly. With no screen text at all, the whole lesson is cut into 5-minute pieces.
+- Segments with no speech are not output (they are not teaching). If no speech was recorded for the whole lesson the output is [], which pipe step 2 treats as a failure.
+- Text from mail, chat, password-manager and similar windows is always discarded (SCREEN_DENY_*) and never goes into slide_text.
+- All times use the Europe/Paris offset.
 
-screenpipe 返回字段以 demo/screenpipe_test_record.md 为准；accessibility 的字段名、
-device_type 的大小写还没有实测（TA1），这里都按宽松方式解析。
+The fields screenpipe returns follow demo/screenpipe_test_record.md; the accessibility field names and
+the casing of device_type have not been tested yet (TA1), so both are parsed leniently here.
 """
 from __future__ import annotations
 
@@ -43,13 +43,13 @@ MIN_SEGMENT = timedelta(minutes=2)
 MAX_SEGMENT = timedelta(minutes=5)
 MAX_FRAME_IDS = 5
 
-# 这些 app / 窗口的屏幕文字可能是私人内容，不能当作课件文字（只在老师电脑上，但也不该进题目出处）
+# Screen text from these apps / windows may be private and must not be treated as slide text (it stays on the teacher's computer, but should not end up as a question source either)
 SCREEN_DENY_APPS = ("mail", "outlook", "messages", "slack", "whatsapp", "telegram", "signal", "discord", "1password", "bitwarden")
 SCREEN_DENY_WINDOWS = ("gmail", "inbox", "boîte de réception", "messenger", "incognito", "privée", "private browsing")
 
 
 def paris() -> tzinfo:
-    """Europe/Paris。Windows 上 Python 没有自带时区库（需要 tzdata 包），退回本机时区。"""
+    """Europe/Paris. On Windows, Python has no bundled time zone database (it needs the tzdata package), so fall back to the local time zone."""
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo("Europe/Paris")
@@ -58,12 +58,12 @@ def paris() -> tzinfo:
 
 
 def parse_iso(ts: str) -> datetime:
-    """解析带 Z 或时区偏移的 ISO 8601，统一转成 Europe/Paris。"""
+    """Parse ISO 8601 with Z or a UTC offset and convert it to Europe/Paris."""
     return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(paris())
 
 
 def search(**params) -> dict:
-    """GET /search 的薄封装。参数：content_type、start_time、end_time、q、window_name、limit、offset 等。"""
+    """Thin wrapper around GET /search. Parameters: content_type, start_time, end_time, q, window_name, limit, offset, etc."""
     url = f"{SCREENPIPE_URL}/search?{urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})}"
     api_key = os.environ.get("SCREENPIPE_LOCAL_API_KEY", "")
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -73,7 +73,7 @@ def search(**params) -> dict:
 
 
 def fetch_all(content_type: str, start: str, end: str, **params) -> list[dict]:
-    """分页拉取时间窗内的全部记录。"""
+    """Fetch every record in the time window, page by page."""
     items: list[dict] = []
     offset = 0
     while True:
@@ -86,7 +86,7 @@ def fetch_all(content_type: str, start: str, end: str, **params) -> list[dict]:
 
 
 def is_mic(content: dict) -> bool:
-    """只要老师的麦克风（device_type = input），不要电脑播放的声音。大小写不敏感。"""
+    """Only the teacher's microphone (device_type = input), not sound played by the computer. Case-insensitive."""
     device_type = str(content.get("device_type") or "").casefold()
     if device_type:
         return device_type == "input"
@@ -111,7 +111,7 @@ def denied(app: str, window: str) -> bool:
 
 
 def screen_records(items: list[dict]) -> list[dict]:
-    """ocr 和 accessibility 的屏幕文字。只有 OCR 有 frame_id（能回看截图）。"""
+    """Screen text from ocr and accessibility. Only OCR has a frame_id (so the screenshot can be looked back at)."""
     records = []
     for item in items:
         c = item.get("content", {})
@@ -127,12 +127,12 @@ def screen_records(items: list[dict]) -> list[dict]:
 
 
 def slide_changed(a: str, b: str) -> bool:
-    """过滤 OCR 抖动：内容相似度低于 70% 才算换页。"""
+    """Filter OCR jitter: only a content similarity below 70% counts as a slide change."""
     return difflib.SequenceMatcher(None, a.strip(), b.strip()).ratio() < SLIDE_CHANGE_RATIO
 
 
 def slides(screen: list[dict], start: datetime, end: datetime) -> list[dict]:
-    """把屏幕文字按换页切成 [start, end) 的页；第一页从上课开始算，保证开头的讲话不漏。"""
+    """Cut screen text into [start, end) slides at each slide change; the first slide starts at the beginning of the lesson so opening speech is not lost."""
     pages: list[dict] = []
     for r in screen:
         if pages and not slide_changed(pages[-1]["text"], r["text"]):
@@ -146,7 +146,7 @@ def slides(screen: list[dict], start: datetime, end: datetime) -> list[dict]:
 
 
 def merge_short(pages: list[dict]) -> list[dict]:
-    """短于 MIN_SEGMENT 的页并进前一段（第一页并进后一段）。不同 app 的短暂画面只并时间，不并文字。"""
+    """Merge slides shorter than MIN_SEGMENT into the previous segment (the first slide into the next one). Brief screens from a different app merge only their time, not their text."""
     merged: list[dict] = []
     for page in pages:
         if merged and page["end"] - page["start"] < MIN_SEGMENT:
@@ -171,7 +171,7 @@ def split_long(pages: list[dict]) -> list[dict]:
     out = []
     for page in pages:
         span = page["end"] - page["start"]
-        n = max(1, -(-span // MAX_SEGMENT))  # 向上取整
+        n = max(1, -(-span // MAX_SEGMENT))  # round up
         step = span / n
         for i in range(n):
             out.append({**page, "start": page["start"] + step * i,
@@ -189,8 +189,8 @@ def extract(lesson_id: str, start: str, end: str) -> list[dict]:
     screen_items = fetch_all("ocr", start, end)
     try:
         screen_items += fetch_all("accessibility", start, end)
-    except urllib.error.HTTPError as e:  # 旧版 screenpipe 不支持 accessibility
-        print(f"[extract_segments] accessibility 不可用（{e.code}），只用 ocr", file=sys.stderr)
+    except urllib.error.HTTPError as e:  # older screenpipe versions do not support accessibility
+        print(f"[extract_segments] accessibility unavailable ({e.code}), using ocr only", file=sys.stderr)
     screen = screen_records(screen_items)
 
     if screen:
@@ -220,7 +220,7 @@ def extract(lesson_id: str, start: str, end: str) -> list[dict]:
 
 
 def mock(lesson_id: str, start: str) -> list[dict]:
-    """示例片段，换成这节课的 lesson_id，时间按示例里相对上课开始的偏移平移到 --start。"""
+    """The example segment, switched to this lesson's lesson_id, with its time shifted to --start using its offset from the start of the example lesson."""
     seg = json.loads(MOCK.read_text(encoding="utf-8"))
     example_start = datetime.strptime(seg["lesson_id"][-13:], "%Y%m%d-%H%M").replace(tzinfo=parse_iso(seg["start"]).tzinfo)
     shift = parse_iso(start) - example_start
@@ -236,13 +236,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--start", required=True)
     ap.add_argument("--end", required=True)
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--mock", action="store_true", help="上游未完成时：输出 contracts/examples 的示例片段（换成本节课的 id 和时间）")
+    ap.add_argument("--mock", action="store_true", help="While upstream is unfinished: output the example segment from contracts/examples (with this lesson's id and time)")
     args = ap.parse_args(argv)
 
     segments = mock(args.lesson_id, args.start) if args.mock else extract(args.lesson_id, args.start, args.end)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(segments, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[extract_segments] {len(segments)} 个片段 -> {args.out}")
+    print(f"[extract_segments] {len(segments)} segments -> {args.out}")
     return 0
 
 

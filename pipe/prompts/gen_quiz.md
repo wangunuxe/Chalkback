@@ -1,64 +1,64 @@
-<!-- 负责人：B（TB3）。由 pipe.md 第 7 步引用。 -->
+<!-- Owner: B (TB3). Referenced by step 7 of pipe.md. -->
 
-# 出题：gen_quiz
+# Quiz generation: gen_quiz
 
-你要为刚结束的这节课写一份课后小测验，学生在老师电脑的浏览器里作答（不做手机端）。老师会先审核每一道题（审批 A2），
-所以每道题都必须能追溯到课上老师说过的原话。
+You are writing a short post-lesson quiz for the lesson that just ended; students answer it in a browser on the teacher's computer (no mobile version). The teacher reviews every question first (approval A2),
+so every question must be traceable to a quote the teacher actually said in class.
 
-## 输入
+## Input
 
-| 文件 | 内容 |
+| File | Content |
 | --- | --- |
-| `$WORK/plan.json` | `plan_quiz.py` 的输出。`allocation` 规定每个知识点出几题，**必须严格照做** |
-| `$OUT/coverage.json` | 本节课覆盖表。每个知识点的 `segment_ids` 是讲这个点的片段 |
-| `$OUT/segments.json` | 片段：`speech` 是老师的转写原文，`slide_text` 是当时的课件文字，`evidence.frame_ids` 是截图 id |
-| `$CB/cache/syllabus.json` | 考纲：知识点标题和关键词 |
-| `$CB/state/style_profile.json` | 这位老师的出题风格（可能不存在） |
+| `$WORK/plan.json` | Output of `plan_quiz.py`. `allocation` sets how many questions each knowledge point gets; **follow it exactly** |
+| `$OUT/coverage.json` | This lesson's coverage table. Each knowledge point's `segment_ids` are the segments that teach it |
+| `$OUT/segments.json` | Segments: `speech` is the teacher's verbatim transcript, `slide_text` is the slide text at the time, `evidence.frame_ids` are screenshot ids |
+| `$CB/cache/syllabus.json` | Syllabus: knowledge point titles and keywords |
+| `$CB/state/style_profile.json` | This teacher's question-writing style (may not exist) |
 
-## 输出
+## Output
 
-写 `$OUT/quiz.json`，格式如下（契约 `quiz`，不得增删字段）：
+Write `$OUT/quiz.json` in the following format (contract `quiz`; do not add or remove fields):
 
 ```json
 {"quiz_id": "Q-<lesson_id>", "lesson_id": "<lesson_id>", "class_id": "<class_id>", "status": "pending",
- "style_profile_version": <风格文件的 version；没有风格文件时为 0>,
+ "style_profile_version": <the style profile's version; 0 when there is no style profile>,
  "questions": [
    {"q_id": "Q1", "kp_id": "KP03", "type": "mcq", "prompt": "…", "choices": ["…", "…", "…", "…"], "answer": 1,
     "time_limit_s": 20,
-    "source": {"segment_id": "S-…-003", "quote": "<从 speech 原样复制的一句>", "frame_ids": [5531]}}
+    "source": {"segment_id": "S-…-003", "quote": "<one sentence copied verbatim from speech>", "frame_ids": [5531]}}
  ]}
 ```
 
-- `type`：`mcq`（`answer` 是选项下标，从 0 开始）、`fill_blank`（`answer` 是字符串，不要 `choices`）、
-  `true_false`（`answer` 是 `true` / `false`，不要 `choices`）。
-- `q_id` 依次为 `Q1`、`Q2`……
-- `time_limit_s` 默认：mcq 20，true_false 15，fill_blank 30。风格文件另有要求时照风格。
+- `type`: `mcq` (`answer` is the choice index, starting from 0), `fill_blank` (`answer` is a string; no `choices`),
+  `true_false` (`answer` is `true` / `false`; no `choices`).
+- `q_id` runs `Q1`, `Q2`, … in order.
+- `time_limit_s` defaults: mcq 20, true_false 15, fill_blank 30. If the style profile says otherwise, follow the style.
 
-## 怎么写
+## How to write it
 
-1. **只考讲过的内容。** 每道题考的知识点和题数按 `allocation`。题目内容只能来自这节课讲这个知识点的片段
-   （`coverage.json` 中该知识点的 `segment_ids`），不要考课上没讲的东西，即使考纲里有。
-2. **先找原话，再出题。** 在片段的 `speech` 里选一句能支撑这道题的话，**逐字复制**到 `source.quote`
-   （5–25 个词，连续的一段；标点可以不同，词不能改）。转写里没有合适原话的内容不要出题。
-   原话要**单独拿出来就能支撑这道题**：老师审核时只看这一句，所以规则和它的条件要一起引用，
-   不要截掉“只有……时”“除非……”这类条件（例：要引用 “s'accorde avec le COD seulement quand il est placé
-   avant le verbe”，不能只引用 “s'accorde avec le COD seulement”）。
-   `source.frame_ids` 从同一片段的 `evidence.frame_ids` 里选（不确定就全部放上），不要编 id。
-3. **用课堂的语言出题**，和转写同一种语言。题干简短，一屏能看完，不用滚动。
-4. **按老师的风格写。** 风格文件里每条 `rule` 都要体现，例如“偏好填空题”就多出填空题，
-   “干扰项用学生常见错误”就用常见错误做干扰项。没有风格文件时：以 mcq 为主，至少一道 fill_blank 或 true_false。
-5. **每种题型的要求：**
-   - mcq：4 个选项，只有一个正确；干扰项要像真的（常见错误、相近形式），不要明显离谱或互相重复；正确答案的位置要变化。
-   - fill_blank：题干里用 `___` 标出唯一的空；答案是一个词或很短的词组，**只有一种正确写法**（判分忽略大小写和多余空格，
-     但不忽略重音和拼写）；题干不能直接透露答案。
-   - true_false：陈述要么明确对、要么明确错，不要“部分正确”；错的陈述用学生容易犯的错误。
-6. **题目之间尽量考不同的内容、引用不同的原话。** 但如果这个知识点只讲了一两句，原话不够分，
-   就让几道题**引用同一句完整的原话**，靠题目本身变化（不同例词、正反两种情况、不同题型），
-   **不要为了避免重复而把一句话切成几段**。
+1. **Only test what was taught.** The knowledge point and number of questions follow `allocation`. Question content may only come from the segments of this lesson that teach that knowledge point
+   (that knowledge point's `segment_ids` in `coverage.json`); do not test anything not taught in class, even if it is in the syllabus.
+2. **Find the quote first, then write the question.** Pick a sentence in a segment's `speech` that supports the question and **copy it word for word** into `source.quote`
+   (5–25 words, one contiguous stretch; punctuation may differ, words may not be changed). Do not write questions on content that has no suitable quote in the transcript.
+   The quote must **support the question on its own**: the teacher looks only at this sentence during review, so quote the rule together with its conditions,
+   and do not cut off conditions like "only when …" or "unless …" (e.g. quote "s'accorde avec le COD seulement quand il est placé
+   avant le verbe", not just "s'accorde avec le COD seulement").
+   Choose `source.frame_ids` from the same segment's `evidence.frame_ids` (if unsure, include them all); do not make up ids.
+3. **Write in the language of the lesson**, the same language as the transcript. Keep the question stem short, readable on one screen without scrolling.
+4. **Write in the teacher's style.** Every `rule` in the style profile must be reflected, e.g. "prefers fill-in-the-blank" means more fill-in-the-blank questions,
+   "distractors use common student mistakes" means using common mistakes as distractors. With no style profile: mostly mcq, with at least one fill_blank or true_false.
+5. **Requirements per question type:**
+   - mcq: 4 choices, exactly one correct; distractors must be plausible (common mistakes, similar forms), not obviously absurd or duplicating each other; vary the position of the correct answer.
+   - fill_blank: mark the single blank in the stem with `___`; the answer is one word or a very short phrase with **only one correct spelling** (grading ignores case and extra spaces,
+     but not accents or spelling); the stem must not give away the answer.
+   - true_false: the statement must be clearly true or clearly false, never "partly true"; false statements should use mistakes students commonly make.
+6. **Questions should test different content and cite different quotes where possible.** But if the knowledge point was only taught in a sentence or two and there aren't enough quotes to go round,
+   let several questions **cite the same complete quote** and vary the questions themselves (different example words, positive and negative cases, different question types);
+   **do not split one sentence into pieces just to avoid repetition**.
 
-## 自检（必须做）
+## Self-check (mandatory)
 
-依次运行，任何一步失败都按错误信息修改 `quiz.json` 后重跑，最多 3 轮：
+Run these in order; if any fails, fix `quiz.json` according to the error messages and rerun, at most 3 rounds:
 
 ```bash
 python $PIPE_DIR/scripts/validate.py quiz $OUT/quiz.json
@@ -66,10 +66,10 @@ python $PIPE_DIR/scripts/check_quiz.py --quiz $OUT/quiz.json --segments $OUT/seg
   --coverage $OUT/coverage.json --plan $WORK/plan.json
 ```
 
-`check_quiz.py` 报“quote 找不到”时，重新从 `speech` 原样复制，不要改写原话去迁就题目。
+When `check_quiz.py` reports that a `source.quote` cannot be found in the segment's transcript, copy it again verbatim from `speech`; do not rewrite the quote to fit the question.
 
-## 规则
+## Rules
 
-- `status` 必须是 `pending`：没有老师审核就不会发布。
-- 不要发明契约之外的字段。
-- 原话和 screenpipe id 只写在本机的 `quiz.json` 里；学生页面由 `build_game.py` 生成，它会去掉这些内容。
+- `status` must be `pending`: nothing is published without the teacher's review.
+- Do not invent fields outside the contract.
+- Quotes and screenpipe ids are written only in the local `quiz.json`; the student page is generated by `build_game.py`, which strips them out.

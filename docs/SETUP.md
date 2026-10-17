@@ -129,7 +129,7 @@ play the quiz game on your laptop, one after another.
 4. Open <https://localhost:4000/setup>. The first time, your browser says the connection is not private: the
    certificate was made by your own laptop, so this is expected. Click *Advanced → Proceed to localhost*.
 
-<!-- TODO(C): /setup 目前只有 JSON 接口，还没有向导页面（技术文档 §13.5）。向导做好后核对下面四步。 -->
+<!-- TODO(C): /setup currently has only a JSON API, no wizard page yet (TODO.md §5). Check the four steps below once the wizard is done. -->
 Follow the four screens:
 
 1. **Invite code** — joins your school's workspace.

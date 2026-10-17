@@ -40,13 +40,13 @@ def test_correct_alerts_pass(alerts):
 
 def test_missing_candidate(alerts):
     alerts["missed"] = []
-    assert any("KP02" in e and "必须" in e for e in run(alerts))
+    assert any("KP02" in e and "must" in e for e in run(alerts))
 
 
 def test_candidate_in_both_lists(alerts):
     alerts["missed"].append({"kp_id": "KP01", "note": "x"})
     errors = run(alerts)
-    assert any("KP01" in e and "重复" in e for e in errors)
+    assert any("KP01" in e and "more than once" in e for e in errors)
     assert any("KP01" in e and "outbox" in e for e in errors)
 
 
@@ -58,17 +58,17 @@ def test_covered_now_must_not_appear(alerts):
 def test_outbox_evidence_cannot_be_called_missed(alerts):
     alerts["covered_before"] = alerts["covered_before"][1:]
     alerts["missed"].append({"kp_id": "KP01", "note": "x"})
-    assert any("应放进 covered_before" in e for e in run(alerts))
+    assert any("should go into covered_before" in e for e in run(alerts))
 
 
 def test_outbox_time_must_match(alerts):
     alerts["covered_before"][0]["last_covered_at"] = "2026-10-12T10:00:00+02:00"
-    assert any("outbox 记录" in e for e in run(alerts))
+    assert any("outbox record" in e for e in run(alerts))
 
 
 def test_invented_time_rejected(alerts):
     alerts["covered_before"][1]["last_covered_at"] = "2026-10-15T10:15:00+02:00"
-    assert any("不对应任何回查证据" in e for e in run(alerts))
+    assert any("does not match any look-back evidence" in e for e in run(alerts))
 
 
 def test_same_instant_in_utc_accepted(alerts):
@@ -85,6 +85,6 @@ def test_cli(write_json, alerts):
     args = ["--alerts", str(write_json("alerts.json", alerts)), "--lookback", str(write_json("lookback.json", LOOKBACK)),
             "--reports", str(write_json("reports.json", REPORTS)), "--syllabus", str(write_json("syllabus.json", example("syllabus")))]
     assert main(args) == 0
-    alerts["missed"][0]["note"] = 42  # schema 先拦下
+    alerts["missed"][0]["note"] = 42  # the schema catches it first
     args[1] = str(write_json("bad.json", alerts))
     assert main(args) == 1

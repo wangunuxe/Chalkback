@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "edit_event",
-  "description": "老师审核题目的动作。C → B。~/.chalkback/state/edits.jsonl 每行一条。before/after 是完整的题目对象（结构见 quiz.schema.json#/$defs/question）。§5",
+  "description": "A teacher's review action on a question. C → B. ~/.chalkback/state/edits.jsonl, one per line. before/after are complete question objects (structure: see quiz.schema.json#/$defs/question). §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["edit_id", "quiz_id", "q_id", "action", "before", "after", "at"],

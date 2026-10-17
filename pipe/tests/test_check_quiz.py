@@ -42,7 +42,7 @@ def test_normalize_quote_ignores_punctuation():
 def test_invented_quote_rejected(quiz):
     quiz["questions"][0]["source"]["quote"] = "les poires que j'ai mangées"
     errors, _ = run(quiz)
-    assert any("找不到" in e for e in errors)
+    assert any("not found" in e for e in errors)
 
 
 def test_quote_with_different_punctuation_accepted(quiz):
@@ -53,7 +53,7 @@ def test_quote_with_different_punctuation_accepted(quiz):
 def test_uncovered_point_rejected(quiz):
     quiz["questions"][0]["kp_id"] = "KP02"
     errors, _ = run(quiz, plan=None)
-    assert any("KP02" in e and "没有讲过" in e for e in errors)
+    assert any("KP02" in e and "was not taught" in e for e in errors)
 
 
 def test_invented_frame_id_rejected(quiz):
@@ -65,17 +65,17 @@ def test_invented_frame_id_rejected(quiz):
 def test_unknown_segment_rejected(quiz):
     quiz["questions"][0]["source"]["segment_id"] = "S-L-T1-20261017-1000-099"
     errors, _ = run(quiz)
-    assert any("不是本节的片段" in e for e in errors)
+    assert any("is not a segment of this lesson" in e for e in errors)
 
 
 def test_mcq_answer_out_of_range(quiz):
     quiz["questions"][0]["answer"] = 4
-    assert any("超出" in e for e in run(quiz)[0])
+    assert any("out of range" in e for e in run(quiz)[0])
 
 
 def test_mcq_duplicate_choices(quiz):
     quiz["questions"][0]["choices"] = ["mangé", "Mangé", "mangés", "mangée"]
-    assert any("重复" in e for e in run(quiz)[0])
+    assert any("duplicate choices" in e for e in run(quiz)[0])
 
 
 def test_fill_blank_needs_blank_marker(quiz):
@@ -85,14 +85,14 @@ def test_fill_blank_needs_blank_marker(quiz):
 
 def test_allocation_mismatch(quiz):
     errors, _ = run(quiz, plan={"n": 5, "allocation": {"KP03": 5}})
-    assert any("不一致" in e for e in errors)
+    assert any("do not match" in e for e in errors)
 
 
 def test_duplicate_q_ids_and_wrong_ids(quiz):
     quiz["questions"][1]["q_id"] = "Q1"
     quiz["quiz_id"] = "Q-other"
     errors, _ = run(quiz)
-    assert any("重复" in e for e in errors) and any("quiz_id" in e for e in errors)
+    assert any("is duplicated" in e for e in errors) and any("quiz_id" in e for e in errors)
 
 
 def test_must_be_pending(quiz):
@@ -114,7 +114,7 @@ def test_cli(write_json, quiz):
             "--plan", str(write_json("plan.json", PLAN))]
     assert main(args) == 0
     bad = copy.deepcopy(quiz)
-    bad["questions"][0]["answer"] = "1"  # mcq 答案必须是整数：schema 先拦下
+    bad["questions"][0]["answer"] = "1"  # an mcq answer must be an integer: the schema catches it first
     args[1] = str(write_json("bad.json", bad))
     assert main(args) == 1
 
@@ -122,14 +122,14 @@ def test_cli(write_json, quiz):
 def test_short_quote_is_a_warning(quiz):
     quiz["questions"][0]["source"]["quote"] = "j'ai mangées"
     errors, warnings = run(quiz)
-    assert errors == [] and any("2 个词" in w for w in warnings)
+    assert errors == [] and any("only 2 words" in w for w in warnings)
 
 
 def test_overlong_quote_warned(quiz):
-    """gen_quiz.md 要求原话 5–25 个词：太长的引用只警告，不算错。"""
+    """gen_quiz.md requires quotes of 5–25 words: an overly long quote is only a warning, not an error."""
     segment = example("segment")
-    long_quote = " ".join(["on répète"] * 13)  # 26 个词
+    long_quote = " ".join(["on répète"] * 13)  # 26 words
     segment["speech"] += " " + long_quote
     quiz["questions"][0]["source"]["quote"] = long_quote
     errors, warnings = check(quiz, [segment], example("coverage"), PLAN)
-    assert errors == [] and any("26 个词，太长了" in w for w in warnings)
+    assert errors == [] and any("26 words, too long" in w for w in warnings)

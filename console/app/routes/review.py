@@ -1,9 +1,9 @@
-"""/review：列出 outbox、漏讲提醒、逐题审核（A2）、出处、批准共享覆盖数据（A3）（TC3）。
+"""/review: list the outbox, missed-topic reminders, per-question review (A2), sources, approve sharing coverage data (A3) (TC3).
 
-- 审核动作见 quizzes.py：改写 quiz.json，追加 edit_event 到 state/edits.jsonl。
-- 批准共享时用 share.to_coverage_share() 生成上传内容，先用 coverage_share schema 校验再发；
-  Hub 不通或拒绝时返回 502，本机不记录为已共享。
-- /console 是老师看的审核页面（HTML），其余是 JSON 接口。
+- Review actions live in quizzes.py: rewrite quiz.json and append an edit_event to state/edits.jsonl.
+- When sharing is approved, share.to_coverage_share() builds the upload, which is validated against the coverage_share schema before sending;
+  if the Hub is unreachable or refuses, return 502 and do not record it locally as shared.
+- /console is the review page (HTML) for the teacher; everything else is a JSON API.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 class ReviewActionRequest(BaseModel):
     action: str  # approve / edit / delete / reject
     q_id: str
-    changes: dict | None = None  # 只用于 edit：type / prompt / choices / answer / time_limit_s
+    changes: dict | None = None  # only for edit: type / prompt / choices / answer / time_limit_s
 
 
 def lesson_data(lesson_id: str) -> dict:
@@ -85,7 +85,7 @@ def share_coverage_to_hub(lesson_id: str):
     except Exception as e:
         raise hub_error(e)
 
-    # Hub 对同一节课的重传是替换旧的，本机记录也一样替换
+    # The Hub replaces an earlier upload of the same lesson, and the local record is replaced the same way
     shares = [s for s in read_json(paths.SHARES, []) if s["lesson_id"] != lesson_id]
     shares.append({"share_id": share_id, "lesson_id": lesson_id, "class_id": coverage["class_id"], "shared_at": now_iso()})
     write_json(paths.SHARES, shares)

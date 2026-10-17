@@ -1,7 +1,7 @@
-"""知识点覆盖表：接收批准的 coverage_share（A3）、撤回（A5）、按班级查询（TD4、TD5）。
+"""Knowledge point coverage table: receive approved coverage_share (A3), withdraw (A5), query by class (TD4, TD5).
 
-入口必须先按 coverage_share schema 校验——这是隐私边界在 Hub 侧的第二道检查。
-之后再检查内容：lesson_id 里的老师必须是上传者本人；考纲版本必须是本工作区已批准的版本；知识点必须在那个版本里。
+Input must first be validated against the coverage_share schema -- this is the Hub-side second check of the privacy boundary.
+Then the content is checked: the teacher in lesson_id must be the uploader; the syllabus version must be an approved version in this workspace; the knowledge points must be in that version.
 """
 import json
 import uuid
@@ -63,7 +63,7 @@ def share(coverage_share: dict, member: Member = Depends(require("teacher"))):
         errors = content_errors(conn, coverage_share, member)
         if errors:
             raise HTTPException(422, errors)
-        # 同一位老师重传同一节课：新的替换旧的，分钟数不重复计算
+        # Same teacher re-uploads the same lesson: the new one replaces the old one, so minutes are not counted twice
         conn.execute(
             "DELETE FROM coverage_shares WHERE teacher_id = ? AND lesson_id = ?",
             (member.id, coverage_share["lesson_id"]),
@@ -105,7 +105,7 @@ def current_syllabus(conn, workspace_id: str) -> dict | None:
 
 
 def class_points(conn, workspace_id: str, class_id: str, syllabus: dict) -> list[dict]:
-    """按考纲列出每个知识点：covered 取“任一节讲过”，minutes 求和。"""
+    """List every knowledge point of the syllabus: covered means "taught in any lesson", minutes are summed."""
     covered = {kp["kp_id"]: False for kp in syllabus["knowledge_points"]}
     minutes = dict.fromkeys(covered, 0.0)
     for row in conn.execute(
@@ -124,7 +124,7 @@ def class_points(conn, workspace_id: str, class_id: str, syllabus: dict) -> list
 @router.get("")
 def by_class(class_id: str, member: Member = Depends(current_member)):
     with closing(db.connect()) as conn:
-        # §4：老师只看自己的班（上传过覆盖数据的班）；组长暂时看全校（班级→年级的对应关系待定）
+        # §4: a teacher only sees their own classes (classes they uploaded coverage for); a department head sees the whole school for now (class -> grade mapping TBD)
         if member.role == "teacher" and conn.execute(
             "SELECT 1 FROM coverage_shares WHERE workspace_id = ? AND class_id = ? AND teacher_id = ?",
             (member.workspace_id, class_id, member.id),

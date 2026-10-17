@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""quiz.json 的语义检查（pipe 第 7 步，负责人 B）。schema 只管格式，这里管内容是否可信。
+"""Semantic checks for quiz.json (pipe step 7, owner B). The schema only checks the format; this checks whether the content can be trusted.
 
     python check_quiz.py --quiz <outbox>/quiz.json --segments <outbox>/segments.json \
         --coverage <outbox>/coverage.json [--plan plan.json]
 
-检查（错误 → 退出码 1；警告只打印）：
-- quiz 先通过 quiz schema；quiz_id = "Q-" + lesson_id；status = pending；q_id 不重复
-- 只考本节讲过的知识点；给了 --plan（plan_quiz.py 的输出）时，每个知识点的题数与分配一致
-- source.segment_id 是本节的片段；source.quote 规范化后是该片段 speech 的子串（不许编造原话）
-- source.frame_ids 都来自该片段的 evidence（不许编造截图 id）
-- mcq：答案下标在范围内，选项规范化后不重复；fill_blank：题干有 ___，答案规范化后非空
-- 警告：片段不在 coverage 给这个知识点记的 segment_ids 里；原话少于 5 个或多于 25 个词
+Checks (errors → exit code 1; warnings are only printed):
+- the quiz first passes the quiz schema; quiz_id = "Q-" + lesson_id; status = pending; no duplicate q_id
+- only knowledge points taught in this lesson are tested; with --plan (output of plan_quiz.py), the number of questions per knowledge point matches the allocation
+- source.segment_id is a segment of this lesson; source.quote, normalized, is a substring of that segment's speech (no invented quotes)
+- source.frame_ids all come from that segment's evidence (no invented screenshot ids)
+- mcq: the answer index is in range and the normalized choices are distinct; fill_blank: the prompt contains ___ and the normalized answer is non-empty
+- warnings: the segment is not among the segment_ids coverage records for this knowledge point; the quote has fewer than 5 or more than 25 words
 
-normalize_answer() 是填空题判分规则的草案，控制台判分必须用同一套规则（待写进 contracts/）。
+normalize_answer() is the draft scoring rule for fill-in-the-blank questions; the console must score with the same rule (to be written into contracts/).
 """
 from __future__ import annotations
 
@@ -33,13 +33,13 @@ APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'", "`": "'", "«": 
 
 
 def normalize_answer(s: str) -> str:
-    """填空题判分：Unicode NFC、统一撇号、忽略大小写和多余空白。保留重音（vues ≠ vûes），待全员确认。"""
+    """Fill-in-the-blank scoring: Unicode NFC, unified apostrophes, ignore case and extra whitespace. Accents are kept (vues ≠ vûes); pending team-wide confirmation."""
     s = unicodedata.normalize("NFC", s).translate(APOSTROPHES).casefold()
     return re.sub(r"\s+", " ", s).strip()
 
 
 def normalize_quote(s: str) -> str:
-    """原话比对：在 normalize_answer 基础上去掉标点（转写的标点不可靠），保留撇号（j'ai）。"""
+    """Quote matching: normalize_answer plus punctuation removal (transcript punctuation is unreliable), keeping apostrophes (j'ai)."""
     s = normalize_answer(s)
     s = "".join(" " if unicodedata.category(c).startswith("P") and c != "'" else c for c in s)
     return re.sub(r"\s+", " ", s).strip()
@@ -51,56 +51,56 @@ def check(quiz: dict, segments: list[dict], coverage: dict, plan: dict | None) -
     points = {p["kp_id"]: p for p in coverage["points"]}
 
     if quiz["lesson_id"] != coverage["lesson_id"]:
-        errors.append(f"lesson_id {quiz['lesson_id']} 与 coverage 的 {coverage['lesson_id']} 不一致")
+        errors.append(f"lesson_id {quiz['lesson_id']} does not match coverage's {coverage['lesson_id']}")
     if quiz["quiz_id"] != f"Q-{quiz['lesson_id']}":
-        errors.append(f"quiz_id 应为 Q-{quiz['lesson_id']}")
+        errors.append(f"quiz_id should be Q-{quiz['lesson_id']}")
     if quiz["status"] != "pending":
-        errors.append("新生成的 quiz status 必须是 pending（发布要经老师审核 A2）")
+        errors.append("a newly generated quiz must have status pending (publishing requires teacher review, A2)")
 
     q_ids = Counter(q["q_id"] for q in quiz["questions"])
-    errors += [f"q_id {q} 重复" for q, n in q_ids.items() if n > 1]
+    errors += [f"q_id {q} is duplicated" for q, n in q_ids.items() if n > 1]
 
     for q in quiz["questions"]:
         where = q["q_id"]
         kp = q["kp_id"]
         if not points.get(kp, {}).get("covered"):
-            errors.append(f"{where}: {kp} 本节没有讲过，不能出题")
+            errors.append(f"{where}: {kp} was not taught in this lesson, no questions allowed")
 
         src = q["source"]
         seg = seg_by_id.get(src["segment_id"])
         if seg is None:
-            errors.append(f"{where}: source.segment_id {src['segment_id']} 不是本节的片段")
+            errors.append(f"{where}: source.segment_id {src['segment_id']} is not a segment of this lesson")
         else:
             if normalize_quote(src["quote"]) not in normalize_quote(seg["speech"]):
-                errors.append(f"{where}: source.quote 在片段 {seg['segment_id']} 的转写里找不到：{src['quote']!r}")
+                errors.append(f"{where}: source.quote not found in the transcript of segment {seg['segment_id']}: {src['quote']!r}")
             extra = set(src["frame_ids"]) - set(seg["evidence"]["frame_ids"])
             if extra:
-                errors.append(f"{where}: source.frame_ids {sorted(extra)} 不属于片段 {seg['segment_id']}")
+                errors.append(f"{where}: source.frame_ids {sorted(extra)} do not belong to segment {seg['segment_id']}")
             if kp in points and src["segment_id"] not in points[kp]["segment_ids"]:
-                warnings.append(f"{where}: 片段 {src['segment_id']} 没有被 coverage 记在 {kp} 下")
+                warnings.append(f"{where}: segment {src['segment_id']} is not recorded under {kp} in coverage")
         words = len(normalize_quote(src["quote"]).split())
         if words < MIN_QUOTE_WORDS:
-            warnings.append(f"{where}: 原话只有 {words} 个词，可能不足以支撑这道题（要求 {MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} 个词）")
+            warnings.append(f"{where}: quote has only {words} words, possibly not enough to support this question ({MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} words required)")
         elif words > MAX_QUOTE_WORDS:
-            warnings.append(f"{where}: 原话有 {words} 个词，太长了，只引用支撑这道题的那一句（要求 {MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} 个词）")
+            warnings.append(f"{where}: quote has {words} words, too long; quote only the sentence that supports this question ({MIN_QUOTE_WORDS}–{MAX_QUOTE_WORDS} words required)")
 
         if q["type"] == "mcq":
             choices = q.get("choices", [])
             if not 0 <= q["answer"] < len(choices):
-                errors.append(f"{where}: answer 下标 {q['answer']} 超出选项范围")
+                errors.append(f"{where}: answer index {q['answer']} is out of range of the choices")
             if len({normalize_answer(c) for c in choices}) != len(choices):
-                errors.append(f"{where}: 选项有重复")
+                errors.append(f"{where}: duplicate choices")
         elif q["type"] == "fill_blank":
             if "___" not in q["prompt"]:
-                errors.append(f"{where}: 填空题题干要用 ___ 标出空格")
+                errors.append(f"{where}: fill-in-the-blank prompt must mark the blank with ___")
             if not normalize_answer(q["answer"]):
-                errors.append(f"{where}: 填空题答案为空")
+                errors.append(f"{where}: fill-in-the-blank answer is empty")
 
     if plan is not None:
         got = Counter(q["kp_id"] for q in quiz["questions"])
         want = plan["allocation"]
         if dict(got) != want:
-            errors.append(f"各知识点题数 {dict(got)} 与 plan_quiz 分配 {want} 不一致")
+            errors.append(f"questions per knowledge point {dict(got)} do not match the plan_quiz allocation {want}")
 
     return errors, warnings
 
@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quiz", required=True, type=Path)
     ap.add_argument("--segments", required=True, type=Path)
     ap.add_argument("--coverage", required=True, type=Path)
-    ap.add_argument("--plan", type=Path, help="plan_quiz.py 的输出")
+    ap.add_argument("--plan", type=Path, help="output of plan_quiz.py")
     args = ap.parse_args(argv)
 
     schema_errors = validate_file("quiz", args.quiz)

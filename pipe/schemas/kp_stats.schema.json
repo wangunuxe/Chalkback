@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "kp_stats",
-  "description": "按知识点的作答统计。C（本机统计）→ C。不离开老师电脑。§5",
+  "description": "Answer statistics per knowledge point. C (local statistics) → C. Never leaves the teacher's computer. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["quiz_id", "class_id", "n_players", "by_kp"],

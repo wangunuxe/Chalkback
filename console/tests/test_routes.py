@@ -1,4 +1,4 @@
-"""所有页面只允许本机访问，包括学生游戏 /play（§6.3：不做手机端）。"""
+"""Every page is local-only, including the student game /play (§6.3: no mobile version)."""
 from fastapi.testclient import TestClient
 
 from .conftest import LESSON, QUIZ
@@ -43,8 +43,8 @@ def test_console_page_shows_real_lesson_without_external_resources(client):
     html = client.get("/console").text
     assert LESSON in html
     assert "Les pommes que j&#39;ai ___ étaient délicieuses." in html
-    assert "Le passé composé" in html  # 知识点标题来自 cache/syllabus.json
-    assert "{&#39;kp_id&#39;" not in html  # 提醒不再显示成 Python dict
+    assert "Le passé composé" in html  # knowledge point titles come from cache/syllabus.json
+    assert "{&#39;kp_id&#39;" not in html  # reminders are no longer shown as a Python dict
     for external in ("https://", "http://", "cdn.", "fonts.googleapis"):
         assert external not in html, external
 

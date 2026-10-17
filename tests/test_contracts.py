@@ -1,4 +1,4 @@
-"""contracts/ 自检：示例全部通过、pipe/schemas 与 contracts 同步、坏数据会被拒绝。"""
+"""contracts/ self-check: all examples pass, pipe/schemas is in sync with contracts, bad data is rejected."""
 import json
 import subprocess
 import sys
@@ -28,7 +28,7 @@ def test_every_contract_has_valid_example(schema_path):
 
 @pytest.mark.parametrize("schema_path", SCHEMAS, ids=name)
 def test_pipe_schemas_in_sync(schema_path):
-    assert (ROOT / "pipe" / "schemas" / schema_path.name).read_bytes() == schema_path.read_bytes(), "运行 make sync-schemas"
+    assert (ROOT / "pipe" / "schemas" / schema_path.name).read_bytes() == schema_path.read_bytes(), "run make sync-schemas"
 
 
 def test_coverage_share_rejects_private_fields():
@@ -48,7 +48,7 @@ def test_timestamps_require_offset():
 def test_quiz_answer_type_matches_question_type():
     v = Draft202012Validator(load(CONTRACTS / "quiz.schema.json"))
     quiz = load(CONTRACTS / "examples" / "quiz.json")
-    quiz["questions"][2]["answer"] = "false"  # true_false 必须是布尔值
+    quiz["questions"][2]["answer"] = "false"  # true_false must be a boolean
     assert not v.is_valid(quiz)
 
 

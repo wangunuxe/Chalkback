@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""alerts.json 的语义检查（pipe 第 5 步，TB4，负责人 B）。防止 agent 漏判或编造“以前讲过”。
+"""Semantic checks for alerts.json (pipe step 5, TB4, owner B). Stops the agent from missing a point or inventing "taught before".
 
     python check_alerts.py --alerts $OUT/alerts.json --lookback $WORK/lookback.json \
         [--reports $WORK/reports.json] [--syllabus ~/.chalkback/cache/syllabus.json]
 
-检查（错误 → 退出码 1）：
-- 先通过 alerts schema；lesson_id 与 lookback 一致
-- 教案计划讲、本节没讲的每个知识点，恰好出现在 missed 或 covered_before 之一
-- 本节讲过的、教案没计划的知识点不能出现在 missed / covered_before
-- from_outbox 有记录的点必须进 covered_before，且 last_covered_at 等于那条记录
-- 其余 covered_before 的 last_covered_at 必须等于某条 search_hits 的 timestamp（不许编时间）
-- weak_from_reports 只能来自 read_reports.py 的输出，且知识点在考纲里
+Checks (errors → exit code 1):
+- first passes the alerts schema; lesson_id matches lookback
+- every knowledge point planned in the lesson plan but not taught in this lesson appears in exactly one of missed or covered_before
+- knowledge points taught in this lesson, or not planned in the lesson plan, must not appear in missed / covered_before
+- points with a from_outbox record must go into covered_before, with last_covered_at equal to that record
+- for the remaining covered_before entries, last_covered_at must equal the timestamp of some search_hits entry (no invented times)
+- weak_from_reports may only come from the output of read_reports.py, and its knowledge points must be in the syllabus
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def same_time(a: str, b: str) -> bool:
 def check(alerts: dict, lookback: dict, reports: list[dict] | None, syllabus: dict | None) -> list[str]:
     errors = []
     if alerts["lesson_id"] != lookback["lesson_id"]:
-        errors.append(f"lesson_id {alerts['lesson_id']} 与 lookback 的 {lookback['lesson_id']} 不一致")
+        errors.append(f"lesson_id {alerts['lesson_id']} does not match lookback's {lookback['lesson_id']}")
 
     cands = {c["kp_id"]: c for c in lookback["candidates"]}
     missed = [m["kp_id"] for m in alerts["missed"]]
@@ -42,12 +42,12 @@ def check(alerts: dict, lookback: dict, reports: list[dict] | None, syllabus: di
 
     for kp, n in seen.items():
         if kp not in cands:
-            errors.append(f"{kp} 不是“教案计划讲、本节没讲”的知识点，不应出现在 missed / covered_before")
+            errors.append(f"{kp} is not a knowledge point 'planned in the lesson plan but not taught in this lesson', so it must not appear in missed / covered_before")
         elif n > 1:
-            errors.append(f"{kp} 同时或重复出现在 missed / covered_before")
+            errors.append(f"{kp} appears in both or more than once in missed / covered_before")
     for kp in cands:
         if kp not in seen:
-            errors.append(f"{kp} 教案计划讲、本节没讲，必须放进 missed 或 covered_before")
+            errors.append(f"{kp} was planned in the lesson plan but not taught in this lesson, so it must go into missed or covered_before")
 
     for kp, b in before.items():
         cand = cands.get(kp)
@@ -55,21 +55,21 @@ def check(alerts: dict, lookback: dict, reports: list[dict] | None, syllabus: di
             continue
         if cand["from_outbox"]:
             if not same_time(b["last_covered_at"], cand["from_outbox"]["last_covered_at"]):
-                errors.append(f"{kp}: last_covered_at 应为 outbox 记录的 {cand['from_outbox']['last_covered_at']}")
+                errors.append(f"{kp}: last_covered_at should be the outbox record's {cand['from_outbox']['last_covered_at']}")
         elif not any(same_time(b["last_covered_at"], h["timestamp"]) for h in cand["search_hits"]):
-            errors.append(f"{kp}: last_covered_at {b['last_covered_at']} 不对应任何回查证据")
+            errors.append(f"{kp}: last_covered_at {b['last_covered_at']} does not match any look-back evidence")
     for kp in missed:
         if cands.get(kp, {}).get("from_outbox"):
-            errors.append(f"{kp}: outbox 显示 {cands[kp]['from_outbox']['lesson_id']} 讲过，应放进 covered_before")
+            errors.append(f"{kp}: outbox shows it was taught in {cands[kp]['from_outbox']['lesson_id']}, so it should go into covered_before")
 
     if reports is not None:
         allowed = {(r["kp_id"], r["seen_at"]) for r in reports}
         for w in alerts["weak_from_reports"]:
             if not any(kp == w["kp_id"] and same_time(at, w["seen_at"]) for kp, at in allowed):
-                errors.append(f"weak_from_reports {w['kp_id']} 不在 read_reports.py 的输出里")
+                errors.append(f"weak_from_reports {w['kp_id']} is not in the output of read_reports.py")
     if syllabus is not None:
         known = {kp["kp_id"] for kp in syllabus["knowledge_points"]}
-        errors += [f"weak_from_reports {w['kp_id']} 不在考纲里" for w in alerts["weak_from_reports"] if w["kp_id"] not in known]
+        errors += [f"weak_from_reports {w['kp_id']} is not in the syllabus" for w in alerts["weak_from_reports"] if w["kp_id"] not in known]
     return errors
 
 

@@ -1,4 +1,4 @@
-"""tools/seed_mock_home.py：生成的假 ~/.chalkback/ 要和 pipe 的真实产出一样可用。"""
+"""tools/seed_mock_home.py: the generated fake ~/.chalkback/ must be as usable as pipe's real output."""
 import json
 import subprocess
 import sys
@@ -14,7 +14,7 @@ def test_seeded_game_has_quiz_injected_without_answers(tmp_path):
     html = (out / "game.html").read_text(encoding="utf-8")
 
     assert (out / "ready").exists()
-    assert "/*QUIZ_JSON*/ null" not in html, "游戏页面必须由 build_game.py 注入题目"
+    assert "/*QUIZ_JSON*/ null" not in html, "the game page must have its questions injected by build_game.py"
     assert quiz["questions"][0]["prompt"] in html
     assert '"answer"' not in html and quiz["questions"][0]["source"]["quote"] not in html
 

@@ -1,15 +1,15 @@
-# 学校 Hub（负责人 D）。构建上下文是仓库根目录：docker compose build hub
+# School Hub (owner: D). The build context is the repo root: docker compose build hub
 FROM python:3.13-slim
 
-# 不设置 HUB_MOCK_AUTH：镜像默认是正式模式（不接受 mock token、没有 DEMO-* 邀请码，邀请码用 HUB_INVITES 设置）。
-# 本机联调由 docker-compose.yml 打开联调模式。
+# HUB_MOCK_AUTH is not set: the image defaults to production mode (no mock tokens, no DEMO-* invite codes; invite codes are set with HUB_INVITES).
+# Local testing turns on test mode via docker-compose.yml.
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HUB_DB=/data/chalkback.db
 WORKDIR /app
 
 COPY hub/requirements.txt hub/requirements.txt
 RUN pip install --no-cache-dir -r hub/requirements.txt
 
-# app/mock.py 在 TD1 阶段读取 contracts/examples
+# app/mock.py reads contracts/examples during the TD1 phase
 COPY contracts contracts
 COPY hub hub
 

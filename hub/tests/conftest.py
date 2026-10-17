@@ -1,5 +1,5 @@
-"""测试用临时数据库，不碰 hub/chalkback.db。必须在 import app 之前设置 HUB_DB。
-测试用 mock token，所以打开联调模式（HUB_MOCK_AUTH=1）；正式模式的行为在 test_join.py 里单独测。"""
+"""Temporary database for tests; does not touch hub/chalkback.db. HUB_DB must be set before importing app.
+Tests use mock tokens, so test mode is turned on (HUB_MOCK_AUTH=1); production mode behaviour is tested separately in test_join.py."""
 import os
 import tempfile
 from pathlib import Path

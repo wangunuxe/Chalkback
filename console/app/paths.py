@@ -1,4 +1,4 @@
-"""~/.chalkback/ 的目录布局（技术文档 §6.2）。开发时用 CHALKBACK_HOME 指向 mock 目录。"""
+"""Directory layout of ~/.chalkback/ (DESIGN.md §6.2). During development, CHALKBACK_HOME points to a mock directory."""
 from __future__ import annotations
 
 import os
@@ -17,7 +17,7 @@ EDITS = STATE / "edits.jsonl"
 WEIGHTS = STATE / "weights.json"
 SHARES = STATE / "shares.json"
 ATTEMPTS = STATE / "attempts.jsonl"
-KP_STATS = STATE / "kp_stats"  # kp_stats/{quiz_id}.json，只在本机（§5 kp_stats：C → C）
+KP_STATS = STATE / "kp_stats"  # kp_stats/{quiz_id}.json, stays on this machine only (§5 kp_stats: C -> C)
 
 
 def lesson_plan(class_id: str, date: str) -> Path:

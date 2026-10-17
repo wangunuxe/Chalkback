@@ -3,16 +3,16 @@ PY ?= python
 .PHONY: help check validate-examples sync-schemas seed-mock console hub test up down reset-mock teacher school
 
 help:
-	@echo "make check            契约自检 + 全部测试"
-	@echo "make validate-examples 校验 contracts/examples"
-	@echo "make sync-schemas     把 contracts/*.schema.json 复制到 pipe/schemas/"
-	@echo "make seed-mock        用示例数据生成 .mock-home/（假的 ~/.chalkback）"
-	@echo "make console          启动控制台 :4000（使用 .mock-home）"
-	@echo "make teacher          启动教师控制台 :4000 (https://localhost:4000)"
-	@echo "make hub              启动 Hub https://localhost:8000（联调模式：mock token + DEMO-* 邀请码）"
-	@echo "make school           启动学校 Hub 与 Docker 服务 (https://localhost:8443)"
-	@echo "make up / down        Docker：启动 / 停止 Hub + 控制台"
-	@echo "make reset-mock       Docker：清空数据卷，下次 up 重新生成 mock"
+	@echo "make check            contract self-check + all tests"
+	@echo "make validate-examples validate contracts/examples"
+	@echo "make sync-schemas     copy contracts/*.schema.json to pipe/schemas/"
+	@echo "make seed-mock        generate .mock-home/ from the sample data (a fake ~/.chalkback)"
+	@echo "make console          start the console on :4000 (uses .mock-home)"
+	@echo "make teacher          start the teacher console on :4000 (https://localhost:4000)"
+	@echo "make hub              start the Hub at https://localhost:8000 (test mode: mock token + DEMO-* invite codes)"
+	@echo "make school           start the school Hub with Docker services (https://localhost:8443)"
+	@echo "make up / down        Docker: start / stop Hub + console"
+	@echo "make reset-mock       Docker: wipe the data volumes; the next up regenerates the mock"
 
 up:
 	docker compose up --build -d

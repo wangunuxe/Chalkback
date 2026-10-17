@@ -1,20 +1,20 @@
-# Demo 步骤与备用方案
+# Demo steps and fallback plan
 
-<!-- 负责人：A（TA7）。3 分钟，剧本见技术文档 §11。 -->
+<!-- Owner: A (TA7). 3 minutes; script in DESIGN.md §11. -->
 
-## 演示前检查
+## Pre-demo checks
 
-- [ ] Hub 公网地址可访问
-- [ ] 游戏在老师电脑的浏览器里能打开（`https://localhost:4000`，已确认过证书提示）
-- [ ] 多个昵称的全班作答数据已准备（统计和加权要有数据才看得出来）
-- [ ] 所有演示数据已提前生成
-- [ ] 备用录屏可播放
+- [ ] Hub public URL is reachable
+- [ ] Game opens in the browser on the teacher's computer (`https://localhost:4000`, certificate warning already accepted)
+- [ ] Whole-class answer data from several nicknames is prepared (stats and weighting only show up with data)
+- [ ] All demo data generated in advance
+- [ ] Backup screen recording plays
 
-## 步骤
+## Steps
 
-| 时间 | 画面 | 操作 | 负责 |
+| Time | Screen | Action | Owner |
 | --- | --- | --- | --- |
 
-## 备用方案
+## Fallback plan
 
-## 彩排记录
+## Rehearsal log

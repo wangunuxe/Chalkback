@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "style_profile",
-  "description": "老师出题风格文件。B → B。~/.chalkback/state/style_profile.json。个人，永不上传。§5",
+  "description": "The teacher's question-writing style profile. B → B. ~/.chalkback/state/style_profile.json. Personal; never uploaded. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["teacher_id", "version", "updated_at", "rules"],

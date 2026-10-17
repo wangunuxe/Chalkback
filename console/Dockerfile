@@ -1,6 +1,6 @@
-# 老师控制台（负责人 C）——只用于开发和联调，数据是 contracts/examples 的 mock。
-# 真实部署时控制台直接跑在老师电脑上：它要读 ~/.chalkback/、调用本机 screenpipe，并且只对本机开放老师页面。
-# 构建上下文是仓库根目录：docker compose build console
+# Teacher console (owner: C) -- only for development and test mode; the data is the mock from contracts/examples.
+# In a real deployment the console runs directly on the teacher's computer: it reads ~/.chalkback/, calls the local screenpipe, and serves the teacher pages to this machine only.
+# The build context is the repo root: docker compose build console
 FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 CHALKBACK_HOME=/data
@@ -9,7 +9,7 @@ WORKDIR /app
 COPY console/requirements.txt console/requirements.txt
 RUN pip install --no-cache-dir -r console/requirements.txt
 
-# seed_mock_home.py 需要 contracts/examples、game.html 模板和 build_game.py
+# seed_mock_home.py needs contracts/examples, the game.html template and build_game.py
 COPY contracts contracts
 COPY pipe/templates pipe/templates
 COPY pipe/scripts pipe/scripts

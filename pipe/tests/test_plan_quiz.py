@@ -9,7 +9,7 @@ def test_single_point_gets_all_questions():
 
 
 def test_every_point_gets_one_then_largest_remainder():
-    # 剩余 3 题按 3:1 分 → 2.25 / 0.75 → 整数部分 2 / 0，余数 0.75 更大的拿最后 1 题
+    # the remaining 3 questions split 3:1 → 2.25 / 0.75 → integer parts 2 / 0, the larger remainder (0.75) takes the last question
     assert allocate({"A": 3.0, "B": 1.0}, 5) == {"A": 3, "B": 2}
 
 

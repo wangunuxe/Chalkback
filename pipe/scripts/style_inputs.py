@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""收集学习老师出题风格的材料（pipe 第 6 步，TB5，负责人 B）。
+"""Collect material for learning the teacher's question-writing style (pipe step 6, TB5, owner B).
 
     python style_inputs.py [--days 30] [--now <ISO>] [--mock]
 
-什么时候需要更新（§6.1 第 6 步）：风格文件不存在，或 edits.jsonl 里有比风格文件 updated_at 更新的记录。
-不需要更新时只输出 {"needs_update": false, "reason": ...}，不调用 screenpipe。
+When an update is needed (§6.1 step 6): the style profile does not exist, or edits.jsonl has records newer than the style profile's updated_at.
+When no update is needed, only {"needs_update": false, "reason": ...} is output and screenpipe is not called.
 
-需要更新时收集：
-- screen_history：过去 --days 天窗口标题含出题平台（Kahoot、Quizlet、Google/Microsoft Forms）的屏幕文字，
-  用 /search 的 window_name 过滤并**显式传入**起止时间；已有风格文件时只取 updated_at 之后的。
-  同一窗口同样文字的帧只留最近一帧，最多 MAX_FRAMES 帧，每帧文字截到 MAX_TEXT 个字符。
-- edits：比风格文件新的审核记录，附上 changed（edit 时改了哪些字段）。
+When an update is needed, collect:
+- screen_history: screen text from the past --days days whose window title contains a quiz platform (Kahoot, Quizlet, Google/Microsoft Forms),
+  filtered with /search's window_name and with start/end times **passed explicitly**; if a style profile exists, only what is after updated_at.
+  For frames with the same window and same text only the most recent is kept, at most MAX_FRAMES frames, each frame's text truncated to MAX_TEXT characters.
+- edits: review records newer than the style profile, with changed (which fields an edit changed).
 
-输出到 $WORK/style_inputs.json（只在本机）。agent 按 prompts/learn_style.md 写新风格文件，
-version 必须等于 next_version，updated_at 用 now。
+Output goes to $WORK/style_inputs.json (local only). The agent writes the new style profile following prompts/learn_style.md;
+version must equal next_version and updated_at uses now.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from current_lesson import chalkback_home, paris  # noqa: E402
 from lookback import iso, load_json  # noqa: E402
-import extract_segments  # noqa: E402  A 的 screenpipe 客户端
+import extract_segments  # noqa: E402  A's screenpipe client
 
 PLATFORMS = {"Kahoot": "kahoot", "Quizlet": "quizlet", "Google Forms": "google_forms",
              "Formulaires Google": "google_forms", "Microsoft Forms": "microsoft_forms"}
@@ -69,7 +69,7 @@ def screen_history(since: datetime, until: datetime) -> list[dict]:
                 c = item.get("content", {})
                 window = c.get("window_name") or ""
                 text = (c.get("text") or "").strip()
-                # 不确定 window_name 是否按子串过滤，这里再筛一次
+                # not sure whether window_name filters by substring, so filter again here
                 if (item.get("type") != "OCR" or term.casefold() not in window.casefold() or not text
                         or not c.get("timestamp") or c.get("frame_id") is None):
                     continue
@@ -105,7 +105,7 @@ def collect(home: Path, now: datetime, days: int, mock: bool) -> dict:
     if not mock:
         try:
             frames = screen_history(since, now)
-        except Exception as e:  # screenpipe 不可用时只用审核记录
+        except Exception as e:  # when screenpipe is unavailable, use only the review records
             error = f"{type(e).__name__}: {e}"
 
     if not frames and not new_edits:
@@ -128,11 +128,11 @@ def collect(home: Path, now: datetime, days: int, mock: bool) -> dict:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=30)
-    ap.add_argument("--now", type=datetime.fromisoformat, help="ISO 8601 带时区；默认当前时间")
-    ap.add_argument("--mock", action="store_true", help="不调用 screenpipe，只用审核记录")
+    ap.add_argument("--now", type=datetime.fromisoformat, help="ISO 8601 with time zone; defaults to the current time")
+    ap.add_argument("--mock", action="store_true", help="do not call screenpipe, use only the review records")
     args = ap.parse_args(argv)
     if args.now and args.now.tzinfo is None:
-        ap.error("--now 必须带时区")
+        ap.error("--now must include a time zone")
     now = (args.now or datetime.now(paris())).astimezone(paris())
 
     json.dump(collect(chalkback_home(), now, args.days, args.mock), sys.stdout, ensure_ascii=False, indent=2)

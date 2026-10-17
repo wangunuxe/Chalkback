@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""按覆盖时长和权重分配题量（pipe 第 7 步，负责人 B）。
+"""Allocate the number of questions by coverage time and weights (pipe step 7, owner B).
 
     python plan_quiz.py --coverage <outbox>/coverage.json [--weights ~/.chalkback/state/weights.json] [--n 5]
 
-只考本节讲过（covered=true）的知识点。分数 = minutes × weight（weights.json 里没有的点按 1.0）。
-- 讲过的点不多于 n 个：每点先保底 1 题，剩下的按分数用最大余数法分。
-- 讲过的点多于 n 个：取分数最高的 n 个，每个 1 题。
-分数相同时按 kp_id 排序，保证结果可复现。
+Only knowledge points taught in this lesson (covered=true) are tested. Score = minutes × weight (points missing from weights.json count as 1.0).
+- At most n points taught: each point gets 1 question guaranteed, and the rest are split by score using the largest remainder method.
+- More than n points taught: the n highest-scoring points get 1 question each.
+Ties are ordered by kp_id so results are reproducible.
 
-输出：{"n": 5, "allocation": {"KP03": 3, "KP01": 2}, "scores": {...}}
-本节没有讲过任何知识点时输出空分配并退出码 2（这节课不出题）。
+Output: {"n": 5, "allocation": {"KP03": 3, "KP01": 2}, "scores": {...}}
+When no knowledge point was taught in this lesson, outputs an empty allocation with exit code 2 (no quiz for this lesson).
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def allocate(scores: dict[str, float], n: int) -> dict[str, int]:
     alloc = {kp: 1 for kp in ranked}
     remaining = n - len(ranked)
     total = sum(scores.values())
-    # 全部分数为 0（讲过但时长为 0）时平均分
+    # when every score is 0 (taught but with zero duration), split evenly
     shares = {kp: (scores[kp] / total if total > 0 else 1 / len(ranked)) * remaining for kp in ranked}
     for kp in ranked:
         alloc[kp] += int(shares[kp])
@@ -45,7 +45,7 @@ def scores_from(coverage: dict, weights: dict | None) -> dict[str, float]:
         if weights.get("class_id") == coverage["class_id"]:
             w = weights["weights"]
         else:
-            print(f"weights.json 属于班级 {weights.get('class_id')}，不是 {coverage['class_id']}，忽略", file=sys.stderr)
+            print(f"weights.json belongs to class {weights.get('class_id')}, not {coverage['class_id']}; ignoring", file=sys.stderr)
     return {p["kp_id"]: p["minutes"] * w.get(p["kp_id"], 1.0) for p in coverage["points"] if p["covered"]}
 
 

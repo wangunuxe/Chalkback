@@ -1,10 +1,10 @@
-"""老师控制台，https://localhost:4000（§6.3，负责人 C）。
+"""Teacher console, https://localhost:4000 (§6.3, owner: C).
 
-所有页面（包括学生游戏 /play 和作答接口）都只允许本机访问：学生在老师电脑的浏览器里作答，不做手机端。
-启动：make teacher（生成自签证书后绑定 127.0.0.1:4000）
+Every page (including the student game /play and the answer endpoint) is local-only: students answer in the browser on the teacher's computer; there is no mobile version.
+Start: make teacher (generates a self-signed certificate, then binds 127.0.0.1:4000)
 
-CONSOLE_TRUSTED_NETS（逗号分隔的网段）只给 Docker 开发环境用：容器内看到的来源是网桥地址而不是 127.0.0.1。
-只有在宿主机端口绑定到 127.0.0.1 时才能设置，否则等于把老师页面开放给局域网。
+CONSOLE_TRUSTED_NETS (comma-separated networks) is only for the Docker dev environment: inside the container, the source address is the bridge address, not 127.0.0.1.
+Only set it when the host port is bound to 127.0.0.1; otherwise it opens the teacher pages to the LAN.
 """
 from __future__ import annotations
 

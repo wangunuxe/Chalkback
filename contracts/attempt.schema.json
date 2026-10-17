@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "attempt",
-  "description": "学生一次作答。学生游戏 → C。~/.chalkback/state/attempts.jsonl 每行一条。学生只用昵称。§5",
+  "description": "One student attempt. Student game → C. ~/.chalkback/state/attempts.jsonl, one per line. Students use nicknames only. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["quiz_id", "nickname", "q_id", "response", "correct", "time_ms", "at"],

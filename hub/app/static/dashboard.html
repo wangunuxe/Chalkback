@@ -46,7 +46,7 @@ const ACTION_LABEL = {
   join: "Joined the school", consent: "Gave consent", publish_quiz: "Published a quiz",
   share_coverage: "Shared lesson coverage", revoke: "Revoked a share", approve_syllabus: "Approved a syllabus version",
 };
-// 老师控制台跑在老师自己的电脑上（只绑定本机），原话、截图、题目只在那里
+// The teacher console runs on the teacher's own computer (bound to localhost only); verbatim quotes, screenshots and questions stay there
 const CONSOLE_URL = "https://localhost:4000";
 
 function loadSessions() {
@@ -73,7 +73,7 @@ async function api(path, opts = {}) {
   return r;
 }
 
-// 页面每 3 秒整体重绘，提示信息存在这里，重绘后仍然显示
+// The page is fully redrawn every 3 seconds; notices are kept here so they still show after a redraw
 const notes = {};
 function note(id, text, ok) {
   notes[id] = { text, ok };
@@ -136,7 +136,7 @@ function renderSummary(b) {
   </div>`;
 }
 
-// 隐私边界：Hub 收到的就只有这些字段；老师可以现场试着多发一个 transcript，看 Hub 拒收
+// Privacy boundary: these are the only fields the Hub receives; a teacher can try sending an extra transcript live and watch the Hub reject it
 function samplePayload(b, classId) {
   return {
     lesson_id: "L-T1-20261017-1000", class_id: classId, date: "2026-10-17",
@@ -196,7 +196,7 @@ function renderTeacher(b, titles) {
     </section>` : ""}`).join("") + privacy;
 }
 
-// 考前预测：按目前每周速度，剩余知识点要几周讲完，和考试日期比较
+// Pre-exam forecast: at the current weekly pace, how many weeks the remaining knowledge points will take, compared with the exam date
 function forecast(b) {
   if (b.weeks_left == null || !b.classes.length) return "";
   const fmt = (weeks) => new Date(Date.now() + weeks * 7 * 864e5).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -323,7 +323,7 @@ function renderAudit(events) {
     </table></div>` : `<div class="empty">No actions yet.</div>`}`;
 }
 
-// 实时提示：和上一次刷新比较，变化的格子闪一下，新的审计记录弹出提示（切换角色时不提示）
+// Live notices: compared with the previous refresh, changed cells flash and new audit entries pop up a notice (no notices when switching roles)
 let previous = null;
 function snapshot(b, events) {
   const cells = {};
@@ -350,7 +350,7 @@ function announce(prev, now, events) {
 
 let busy = false;
 async function refresh(force = false) {
-  // 正在编辑考纲草稿时不自动刷新，免得内容被覆盖
+  // Do not auto-refresh while a syllabus draft is being edited, so the content is not overwritten
   if (busy || (!force && ($("upload")?.open || document.activeElement?.tagName === "TEXTAREA"))) return;
   busy = true;
   try {

@@ -1,22 +1,22 @@
-# screenpipe /search 实测记录（TA1）
+# screenpipe /search test log (TA1)
 
-<!-- 每种 content_type 贴一份真实返回（删掉敏感内容），记录字段名、权限规则实测结果。 -->
+<!-- Paste one real response per content_type (with sensitive content removed), and record field names and permission rule test results. -->
 
-## 环境
+## Environment
 
-- 机器 / 系统：
-- screenpipe 版本：
+- Machine / OS:
+- screenpipe version:
 
-## audio（device_type = input）
+## audio (device_type = input)
 
 ## ocr
 
 ## accessibility
 
-## 权限规则实测
+## Permission rule tests
 
-| 规则 | 预期 | 实测 |
+| Rule | Expected | Actual |
 | --- | --- | --- |
-| `Content(audio, ocr, accessibility)` | 放行 | |
-| `/raw_sql` | 拒绝 | |
-| `App(1Password)` | 拒绝 | |
+| `Content(audio, ocr, accessibility)` | Allow | |
+| `/raw_sql` | Deny | |
+| `App(1Password)` | Deny | |

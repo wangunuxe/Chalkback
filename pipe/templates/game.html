@@ -1,20 +1,20 @@
 <!doctype html>
 <!--
-  学生游戏页面模板（TB3，负责人 B；视觉设计来自前端 PR #3）。scripts/build_game.py 把 quiz.json 去掉
-  answer / source / kp_id 后注入下面的 /*QUIZ_JSON*/，生成 outbox/{lesson_id}/game.html；
-  控制台在 /play/{quiz_id} 提供（TC4，负责人 C）。
+  Student game page template (TB3, owner B; visual design from frontend PR #3). scripts/build_game.py strips
+  answer / source / kp_id from quiz.json, injects it into /*QUIZ_JSON*/ below, and produces outbox/{lesson_id}/game.html;
+  the console serves it at /play/{quiz_id} (TC4, owner C).
 
-  作答接口（H9，控制台判分）：
+  Answer endpoint (H9, graded by the console):
     POST /play/{quiz_id}/attempt
-    请求 {nickname, q_id, response, time_ms}
-    返回 {correct, answer}（answer 是正确答案，用于显示反馈）
-  response 类型：mcq 为选项下标，fill_blank 为字符串，true_false 为布尔值；超时为 null（待 C 确认契约）。
+    request {nickname, q_id, response, time_ms}
+    returns {correct, answer} (answer is the correct answer, used to show feedback)
+  response types: choice index for mcq, string for fill_blank, boolean for true_false; null on timeout (contract pending C's confirmation).
 
-  约束：
-  - 不引用任何外部资源（CDN、网络字体都不行）：游戏由老师电脑本机的控制台提供，教室里可能没有外网，离线也要能用。
-    PR #3 的 Tailwind 样式已翻译成下面的内联 CSS，颜色取 Tailwind 同名色值。
-  - 所有题目文字用 textContent 插入。
-  - tests/test_build_game.py 会检查这两条，以及页面确实使用 QUIZ 并提交作答。
+  Constraints:
+  - No external resources at all (no CDN, no web fonts): the game is served by the console on the teacher's own computer, the classroom may have no internet access, and it must work offline.
+    The Tailwind styles from PR #3 have been translated into the inline CSS below, using the colour values of the Tailwind colours with the same names.
+  - All question text is inserted with textContent.
+  - tests/test_build_game.py checks these two constraints, and that the page really uses QUIZ and submits answers.
 -->
 <html lang="en">
 <head>
@@ -243,7 +243,7 @@
             body: JSON.stringify(payload),
           });
           if (res.ok) return await res.json();
-        } catch (_) { /* 网络抖动，重试 */ }
+        } catch (_) { /* network glitch, retry */ }
         await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
       }
       return null;

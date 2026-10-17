@@ -1,7 +1,7 @@
-"""contracts/examples/ 是全员共用的一套 mock：每个文件单独合法还不够，彼此之间也必须对得上。
+"""contracts/examples/ is one set of mocks shared by the whole team: each file being valid on its own is not enough, they must also agree with each other.
 
-改其中一个示例时，必须同时改所有引用它的示例（技术文档 §0：改契约需全员同意）。
-真实的演示数据请放在 demo/，不要放在这里。
+When you change one example, change every example that references it at the same time (DESIGN.md §0: changing a contract needs the whole team's agreement).
+Put real demo data in demo/, not here.
 """
 import json
 import subprocess
@@ -12,7 +12,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "contracts" / "examples"
-HINT = "contracts/examples 必须整套一致；演示数据请放 demo/"
+HINT = "contracts/examples must be consistent as a set; put demo data in demo/"
 
 
 @pytest.fixture(scope="module")
@@ -23,18 +23,18 @@ def ex():
 def test_same_lesson_everywhere(ex):
     lesson = ex["coverage"]["lesson_id"]
     for name in ("segment", "quiz", "alerts", "coverage_share"):
-        assert ex[name]["lesson_id"] == lesson, f"{name}.lesson_id ≠ coverage.lesson_id；{HINT}"
+        assert ex[name]["lesson_id"] == lesson, f"{name}.lesson_id ≠ coverage.lesson_id; {HINT}"
     assert ex["quiz"]["quiz_id"] == f"Q-{lesson}"
     for name in ("edit_event", "attempt", "kp_stats"):
-        assert ex[name]["quiz_id"] == ex["quiz"]["quiz_id"], f"{name}.quiz_id ≠ quiz.quiz_id；{HINT}"
+        assert ex[name]["quiz_id"] == ex["quiz"]["quiz_id"], f"{name}.quiz_id ≠ quiz.quiz_id; {HINT}"
 
 
 def test_segment_references_exist(ex):
     known = {ex["segment"]["segment_id"]}
     for p in ex["coverage"]["points"]:
-        assert set(p["segment_ids"]) <= known, f"coverage 引用了示例里没有的片段 {set(p['segment_ids']) - known}；{HINT}"
+        assert set(p["segment_ids"]) <= known, f"coverage references segments not in the examples {set(p['segment_ids']) - known}; {HINT}"
     for q in ex["quiz"]["questions"]:
-        assert q["source"]["segment_id"] in known, f"quiz {q['q_id']} 引用了示例里没有的片段；{HINT}"
+        assert q["source"]["segment_id"] in known, f"quiz {q['q_id']} references a segment not in the examples; {HINT}"
 
 
 def test_coverage_share_is_coverage_without_private_fields(ex):
@@ -51,11 +51,11 @@ def test_knowledge_points_exist_in_syllabus(ex):
         | set(ex["weights"]["weights"])
         | {a["kp_id"] for key in ("missed", "covered_before", "weak_from_reports") for a in ex["alerts"][key]}
     )
-    assert used <= kps, f"这些知识点不在 syllabus 示例里：{used - kps}"
+    assert used <= kps, f"these knowledge points are not in the syllabus example: {used - kps}"
 
 
 def test_quiz_example_passes_check_quiz(ex, tmp_path):
-    """B 的语义检查（只考讲过的点、原话来自转写）对示例也必须成立。"""
+    """B's semantic checks (only taught points are tested, quotes come from the transcript) must hold for the examples too."""
     files = {}
     for name, data in (("quiz", ex["quiz"]), ("segments", [ex["segment"]]), ("coverage", ex["coverage"])):
         files[name] = tmp_path / f"{name}.json"

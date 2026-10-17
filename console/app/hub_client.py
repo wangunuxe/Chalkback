@@ -1,4 +1,4 @@
-"""与学校 Hub 的通信（§6.4）。只有 coverage_share 和 join 请求会经过这里。"""
+"""Communication with the school Hub (§6.4). Only coverage_share and join requests go through here."""
 from __future__ import annotations
 
 import httpx
@@ -33,7 +33,7 @@ class HubClient:
         return r.json()["share_id"]
 
     def revoke(self, share_id: str) -> None:
-        """撤回（A5）。Hub 上已经不存在（404）也算撤回成功。"""
+        """Withdraw (A5). If the share no longer exists on the Hub (404), the withdrawal also counts as successful."""
         r = self._http.delete(f"/api/coverage/{share_id}")
         if r.status_code != 404:
             r.raise_for_status()
@@ -45,7 +45,7 @@ class HubClient:
 
 
 def from_config() -> HubClient:
-    """用 config.json 里的 hub_url 和 token。没完成 /setup 就不能和 Hub 通信，不回落到 mock token。"""
+    """Use hub_url and token from config.json. Without finishing /setup we cannot talk to the Hub; no fallback to a mock token."""
     cfg = read_json(paths.CONFIG)
     if not cfg or not cfg.get("hub_url") or not cfg.get("token"):
         raise HTTPException(409, "Not set up yet: complete /setup first")
@@ -53,7 +53,7 @@ def from_config() -> HubClient:
 
 
 def hub_error(e: Exception) -> HTTPException:
-    """Hub 不通或拒绝时，如实告诉老师，不假装成功。"""
+    """When the Hub is unreachable or refuses, tell the teacher truthfully instead of pretending it worked."""
     if isinstance(e, httpx.HTTPStatusError):
         return HTTPException(502, f"Hub refused the request ({e.response.status_code}): {e.response.text[:200]}")
     return HTTPException(502, f"Hub unreachable: {e}")

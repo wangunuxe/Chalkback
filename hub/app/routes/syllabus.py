@@ -1,4 +1,4 @@
-"""考纲草稿、组长批准、版本（TD3，审批 A4）。未批准的版本不生效。"""
+"""Syllabus drafts, department head approval, versions (TD3, approval A4). Unapproved versions have no effect."""
 import json
 import uuid
 from contextlib import closing
@@ -31,7 +31,7 @@ def current(member: Member = Depends(current_member)):
 
 @router.post("")
 def create_draft(syllabus: dict, member: Member = Depends(require("head"))):
-    # 版本号和状态由 Hub 决定，不信任上传者填写的值
+    # Version number and status are decided by the Hub; values filled in by the uploader are not trusted
     draft = {**syllabus, "version": 1, "status": "draft"}
     errors = [e.message for e in SCHEMA.iter_errors(draft)]
     if errors:

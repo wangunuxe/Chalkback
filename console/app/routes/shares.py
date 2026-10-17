@@ -1,7 +1,7 @@
-"""/shares：已上传记录（state/shares.json）与撤回（A5）（TC6）。
+"""/shares: upload records (state/shares.json) and withdrawal (A5) (TC6).
 
-state/shares.json 格式：[{share_id, lesson_id, class_id, shared_at}]，每节课最多一条（重传替换）。
-撤回时先让 Hub 删除；Hub 删除成功（或 Hub 上已不存在）才删本机记录，否则返回 502，记录保留。
+state/shares.json format: [{share_id, lesson_id, class_id, shared_at}], at most one per lesson (re-uploading replaces it).
+To withdraw, first ask the Hub to delete; only when the Hub delete succeeds (or the share no longer exists on the Hub) is the local record removed; otherwise return 502 and keep the record.
 """
 from __future__ import annotations
 

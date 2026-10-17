@@ -1,9 +1,9 @@
-# 给 AI 协作者
+# For AI assistants
 
-开始写代码前：
+Before writing code:
 
-1. 读 `ChalkBack 技术文档.md` 的 §0，再读 §5–§9 中与当前角色相关的部分。
-2. **问清楚你在帮哪个角色（A / B / C / D）**，只在该角色拥有的文件里写代码（见 README 的负责人表、技术文档 §7）。
-3. 不要修改 `contracts/` 或发明新的数据格式、接口。文档没写清楚的，提出问题，由对应队员决定。
-4. 隐私边界：原文、截图、screenpipe id 不能出现在任何发往 Hub 的数据里。
-5. 完成 = 满足 §8 的验收标准，并且 `make check` 通过。
+1. Read §0 of `DESIGN.md`, then the parts of §5–§9 relevant to the current role.
+2. **Ask which role you are helping (A / B / C / D)**, and only write code in files that role owns (see the owner table in README and DESIGN.md §7).
+3. Do not modify `contracts/` or invent new data formats or interfaces. If the docs are unclear, raise a question and let the responsible teammate decide.
+4. Privacy boundary: raw transcripts, screenshots and screenpipe ids must never appear in any data sent to the Hub.
+5. Done = meets the acceptance criteria in §8, and `make check` passes.

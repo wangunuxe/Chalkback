@@ -1,10 +1,10 @@
-"""GET /api/dashboard?view=teacher|head|admin（TD6）。
+"""GET /api/dashboard?view=teacher|head|admin (TD6).
 
-预警规则：剩余未覆盖知识点数 > 距考试剩余周数 × 该班过去平均每周覆盖数 → “考前讲不完”。
+Alert rule: remaining uncovered knowledge points > weeks left until the exam x the class's average coverage per week so far -> "won't finish before the exam".
 
-各视图按 §4 权限表：老师只看自己的班（含“别的班讲了、你还没讲”，不指明是哪个班）；
-组长看各班知识点明细和待批准的考纲草稿（班级→年级的对应关系待定，暂时看全校）；
-管理员只看各班汇总，外加邀请码和成员数。
+Each view follows the §4 permission table: teachers only see their own classes (including "another class covered it, you haven't yet", without naming which class);
+department heads see per-class knowledge point details and syllabus drafts awaiting approval (class -> grade mapping TBD, whole school for now);
+admins only see per-class summaries, plus invite codes and member counts.
 """
 import os
 from contextlib import closing

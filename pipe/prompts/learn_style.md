@@ -1,67 +1,67 @@
-<!-- 负责人：B（TB5）。由 pipe.md 第 6 步引用。 -->
+<!-- Owner: B (TB5). Referenced by step 6 of pipe.md. -->
 
-# 学老师风格：learn_style
+# Learn the teacher's style: learn_style
 
-同一份 pipe 分发给全校，但每位老师的 agent 要学到**这位老师自己的**出题风格：从他过去在出题平台上的画面，
-以及他在控制台里怎么修改你出的题。风格文件会显示给老师看（控制台 `/style`），也是 `gen_quiz.md` 出题的依据，
-所以每条规则都要具体、能照着执行，并且有证据。
+The same pipe is distributed to the whole school, but each teacher's agent must learn **that teacher's own** question-writing style: from their past screens on quiz platforms,
+and from how they edit your questions in the console. The style profile is shown to the teacher (console `/style`) and is also what `gen_quiz.md` writes questions from,
+so every rule must be concrete, actionable, and backed by evidence.
 
-## 输入：`$WORK/style_inputs.json`（`style_inputs.py` 的输出）
+## Input: `$WORK/style_inputs.json` (output of `style_inputs.py`)
 
-| 字段 | 内容 |
+| Field | Content |
 | --- | --- |
-| `current_profile` | 现在的风格文件，没有时为 `null` |
-| `next_version`、`now` | 新文件的 `version` 和 `updated_at`，**原样使用** |
-| `screen_history` | 老师在 Kahoot / Quizlet / Forms 窗口里的屏幕文字，每帧有 `frame_id`、`timestamp`、`platform`、`text` |
-| `edits` | 老师在控制台审核题目的新记录。`action`：`edit`（`changed` 列出改了的字段，`before` / `after` 是完整题目）、`approve`、`reject`、`delete` |
+| `current_profile` | The current style profile, or `null` if there is none |
+| `next_version`, `now` | The new file's `version` and `updated_at`; **use them verbatim** |
+| `screen_history` | Screen text from the teacher's Kahoot / Quizlet / Forms windows; each frame has `frame_id`, `timestamp`, `platform`, `text` |
+| `edits` | New records of the teacher reviewing questions in the console. `action`: `edit` (`changed` lists the changed fields, `before` / `after` are the full questions), `approve`, `reject`, `delete` |
 
-## 输出
+## Output
 
-写到 **`$WORK/style_profile.json`**（先不要覆盖 `$CB/state/`），格式（契约 `style_profile`）：
+Write to **`$WORK/style_profile.json`** (do not overwrite `$CB/state/` yet), in this format (contract `style_profile`):
 
 ```json
 {"teacher_id": "<teacher_id>", "version": <next_version>, "updated_at": "<now>",
  "rules": [
-   {"rule": "Privilégier les questions à trous", "origin": "screen_history", "evidence": {"frame_ids": [4410], "timestamp": "<其中一帧的 timestamp>"}},
+   {"rule": "Privilégier les questions à trous", "origin": "screen_history", "evidence": {"frame_ids": [4410], "timestamp": "<timestamp of one of those frames>"}},
    {"rule": "Distracteurs : erreurs fréquentes des élèves (accords oubliés)", "origin": "teacher_edit", "evidence": {"edit_ids": ["E3"]}}
  ]}
 ```
 
-## 看什么
+## What to look at
 
-从屏幕文字里看老师**自己出的题**（编辑题目、题目列表、预览页），注意这些方面：
+In the screen text, look at the questions **the teacher wrote themselves** (question editor, question list, preview page), paying attention to:
 
-- **题型偏好**：多选、填空、判断各占多少；
-- **选项**：几个选项；干扰项是常见错误、形近词，还是明显错误；
-- **题干**：长短，用不用完整例句或情境，称呼学生用 tu 还是 vous，语气正式还是轻松；
-- **难度和时限**：每题给多少秒；
-- **其他明显习惯**：例如每题都考一个具体例句，或者总把正确答案放在不同位置。
+- **Question type preference**: the share of multiple choice, fill-in-the-blank, and true/false;
+- **Choices**: how many choices; whether distractors are common mistakes, look-alike words, or obviously wrong;
+- **Question stem**: length; whether it uses full example sentences or a scenario; whether students are addressed as tu or vous; formal or casual tone;
+- **Difficulty and time limit**: how many seconds per question;
+- **Other clear habits**: e.g. every question tests one concrete example sentence, or the correct answer is always placed in different positions.
 
-从 `edits` 里看老师对你出的题**不满意什么**：
-- `edit`：比较 `before` 和 `after` 的 `changed` 字段。例如老师把干扰项换成了常见错误、缩短了题干、把多选改成了填空，
-  每一种都是一条规则的证据。**规则只能来自 `changed` 里列出的字段**：老师没改的地方（例如改前改后都是 4 个选项）
-  不能当成这位老师的偏好，那只是你原来的写法。
-- `reject` / `delete`：这类题老师不要，写成“避免……”规则。
-- `approve`：老师接受的题，可以佐证已有规则，但不要单凭 approve 发明新规则。
+In `edits`, look at **what the teacher was unhappy with** in your questions:
+- `edit`: compare the `changed` fields between `before` and `after`. For example, the teacher replaced distractors with common mistakes, shortened the stem, or changed multiple choice to fill-in-the-blank;
+  each of these is evidence for a rule. **Rules may only come from fields listed in `changed`**: what the teacher did not change (e.g. 4 choices both before and after)
+  must not be taken as this teacher's preference; that is just how you originally wrote it.
+- `reject` / `delete`: the teacher doesn't want this kind of question; write it as an "Avoid …" rule.
+- `approve`: questions the teacher accepted; they can corroborate existing rules, but do not invent a new rule from approvals alone.
 
-## 怎么写规则
+## How to write rules
 
-1. **具体、可执行**：写“干扰项用学生常见的拼写或配合错误”，不要写“题目质量高”。
-2. **每条规则都有证据**：
-   - `origin: "screen_history"`：`frame_ids` 列出支撑它的帧，`timestamp` 原样复制其中一帧的 `timestamp`；
-   - `origin: "teacher_edit"`：`edit_ids` 列出支撑它的修改记录。
-   同时来自两种证据时，选更有力的那种。**找不到证据的规则不要写。**
-3. **在旧文件基础上更新**：`current_profile` 里仍然成立的规则保留（连同原来的证据）；被新修改推翻的规则改写或删掉；
-   新发现的规则加上。老师亲手修改（`teacher_edit`）的分量比屏幕历史大，两者冲突时听修改的。
-4. **3–8 条**，不要重复，不要互相矛盾。用简短的一句话，语言与课堂相同。
-5. 规则里不要抄学生信息，也不要整段照抄题目原文；需要举例时只举一个短词。
+1. **Concrete and actionable**: write "distractors use common student spelling or agreement mistakes", not "high-quality questions".
+2. **Every rule has evidence**:
+   - `origin: "screen_history"`: `frame_ids` lists the frames supporting it, and `timestamp` is copied verbatim from the `timestamp` of one of those frames;
+   - `origin: "teacher_edit"`: `edit_ids` lists the edit records supporting it.
+   When a rule is supported by both kinds of evidence, choose the stronger one. **Do not write a rule you cannot find evidence for.**
+3. **Update on top of the old file**: keep rules from `current_profile` that still hold (together with their original evidence); rewrite or delete rules overturned by new edits;
+   add newly discovered rules. The teacher's own edits (`teacher_edit`) weigh more than screen history; when the two conflict, follow the edits.
+4. **3–8 rules**, no duplicates, no contradictions. One short sentence each, in the same language as the lesson.
+5. Do not copy student information into rules, and do not copy whole question texts; when an example is needed, give just one short word.
 
-## 自检（必须做）
+## Self-check (mandatory)
 
 ```bash
 python $PIPE_DIR/scripts/validate.py style_profile $WORK/style_profile.json
 python $PIPE_DIR/scripts/check_style.py --profile $WORK/style_profile.json --inputs $WORK/style_inputs.json
 ```
 
-失败就按错误信息修改后重跑，最多 3 轮。都通过后，再把 `$WORK/style_profile.json` 复制到 `$CB/state/style_profile.json`。
-3 轮仍不通过：**不要**覆盖旧文件，这一步算失败但不影响出题（沿用旧风格文件）。
+If either fails, fix according to the error messages and rerun, at most 3 rounds. Once both pass, copy `$WORK/style_profile.json` to `$CB/state/style_profile.json`.
+Still failing after 3 rounds: **do not** overwrite the old file; this step counts as failed but does not affect quiz generation (the old style profile is kept).

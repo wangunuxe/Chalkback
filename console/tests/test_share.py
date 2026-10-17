@@ -1,4 +1,4 @@
-"""隐私边界：上传的 coverage_share 只能含白名单字段。"""
+"""Privacy boundary: an uploaded coverage_share may only contain allowlisted fields."""
 import json
 
 from app.share import to_coverage_share

@@ -1,7 +1,7 @@
-"""内置 MiniValidator 必须和 jsonschema 判断一致：老师电脑上没有 jsonschema 时靠它守住契约。
+"""The built-in MiniValidator must agree with jsonschema: it guards the contracts when the teacher's computer has no jsonschema.
 
-差分测试：对每个契约示例生成大量变体（删字段、加字段、换类型、改值），两种引擎对每个变体的
-“合法 / 不合法”结论必须相同。
+Differential test: generate many variants of each contract example (drop fields, add fields, change types, change values); both engines must reach
+the same "valid / invalid" verdict for every variant.
 """
 import copy
 import json
@@ -77,7 +77,7 @@ def test_quiz_answer_types_by_question_type():
     mini = MiniValidator(json.loads((ROOT / "contracts" / "quiz.schema.json").read_text(encoding="utf-8")))
     quiz = json.loads((EXAMPLES / "quiz.json").read_text(encoding="utf-8"))
     assert mini.is_valid(quiz)
-    for i, bad in ((0, True), (1, 3), (2, "false")):   # mcq 不能是布尔、fill_blank 不能是数字、true_false 不能是字符串
+    for i, bad in ((0, True), (1, 3), (2, "false")):   # mcq cannot be a boolean, fill_blank cannot be a number, true_false cannot be a string
         assert not mini.is_valid(set_at(quiz, ("questions", i, "answer"), bad))
 
 
@@ -94,7 +94,7 @@ def test_unsupported_keyword_fails_loudly():
 
 
 def test_cli_works_without_jsonschema_installed(tmp_path):
-    """模拟老师电脑：jsonschema 无法导入，validate.py 仍能校验全部示例并拒绝坏文件。"""
+    """Simulate the teacher's computer: jsonschema cannot be imported, yet validate.py still validates every example and rejects bad files."""
     blocker = tmp_path / "jsonschema.py"
     blocker.write_text("raise ImportError('not installed')")
     env = {"PYTHONPATH": str(tmp_path), "PATH": ""}

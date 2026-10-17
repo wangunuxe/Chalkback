@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""用 templates/game.html 生成本节课的学生游戏页面（pipe 第 7 步，负责人 B）。
+"""Generate this lesson's student game page from templates/game.html (pipe step 7, owner B).
 
     python build_game.py --quiz <outbox>/quiz.json --out <outbox>/game.html
 
-控制台判分（H9 约定）：页面里只放题目，不放 answer、source、kp_id。
-学生用浏览器“查看源代码”也拿不到答案和课上原话。生成后再检查一遍，发现泄露就报错且不写文件。
+The console does the scoring (H9 convention): the page contains only the questions, never answer, source or kp_id.
+Even with the browser's "view source", students cannot get the answers or quotes from the lesson. The output is checked again after generation; on any leak it errors out and writes no file.
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ def public_quiz(quiz: dict) -> dict:
 
 def render(template: str, quiz: dict) -> str:
     if template.count(PLACEHOLDER) != 1:
-        raise ValueError(f"模板里必须恰好有一个 {PLACEHOLDER!r}")
-    # 防止题目文字里的 </script> 提前结束脚本
+        raise ValueError(f"the template must contain exactly one {PLACEHOLDER!r}")
+    # keep a </script> in question text from ending the script early
     payload = json.dumps(public_quiz(quiz), ensure_ascii=False).replace("</", "<\\/")
     return template.replace(PLACEHOLDER, payload)
 
@@ -38,12 +38,12 @@ def leaks(html: str, quiz: dict) -> list[str]:
     for q in quiz["questions"]:
         src = q["source"]
         if src["quote"] in html:
-            found.append(f"{q['q_id']}: 课上原话出现在页面里")
+            found.append(f"{q['q_id']}: a quote from the lesson appears in the page")
         if src["segment_id"] in html:
-            found.append(f"{q['q_id']}: segment_id 出现在页面里")
+            found.append(f"{q['q_id']}: segment_id appears in the page")
     for key in ('"answer"', '"source"', '"frame_ids"'):
         if key in html:
-            found.append(f"页面里出现了 {key} 字段")
+            found.append(f"the page contains the {key} field")
     return found
 
 

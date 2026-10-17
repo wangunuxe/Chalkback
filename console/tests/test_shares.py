@@ -1,4 +1,4 @@
-"""共享（A3）、撤回（A5）、安装（A1）：Hub 失败时如实报错，不假装成功，不写 mock token。"""
+"""Share (A3), withdraw (A5), setup (A1): when the Hub fails, report the error truthfully, do not pretend success, do not write a mock token."""
 import json
 
 import httpx
@@ -24,7 +24,7 @@ def test_share_records_hub_share_id(client, home, monkeypatch):
     monkeypatch.setattr(HubClient, "share_coverage", lambda self, body: sent.append(body) or f"SH-{len(sent)}")
     assert client.post(f"/review/{LESSON}/share").json() == {"status": "shared", "share_id": "SH-1"}
     assert sent == [load_example("coverage_share")]
-    # 重传同一节课：Hub 替换旧的，本机也只留最新一条
+    # Re-uploading the same lesson: the Hub replaces the old one, and locally only the latest record is kept
     client.post(f"/review/{LESSON}/share")
     assert [s["share_id"] for s in shares(home)] == ["SH-2"]
     assert client.get(f"/review/{LESSON}").json()["share"]["share_id"] == "SH-2"
@@ -48,7 +48,7 @@ def test_withdraw(client, home, monkeypatch):
 
     monkeypatch.setattr(HubClient, "revoke", hub_down)
     assert client.delete("/shares/SH-1").status_code == 502
-    assert len(shares(home)) == 1  # Hub 没删掉，本机记录保留
+    assert len(shares(home)) == 1  # the Hub did not delete it, so the local record is kept
 
     revoked = []
     monkeypatch.setattr(HubClient, "revoke", lambda self, share_id: revoked.append(share_id))
@@ -96,7 +96,7 @@ def test_setup_writes_config_from_join(client, home, monkeypatch, schema):
     schema("config").validate(config)
     assert (config["token"], config["workspace_id"], config["syllabus_id"]) == ("tok-7", "W9", syllabus["syllabus_id"])
     assert json.loads((home / "cache" / "syllabus.json").read_text(encoding="utf-8")) == syllabus
-    assert (home / "state" / "edits.jsonl").read_text(encoding="utf-8") == edits_before  # 不往 edits.jsonl 写非契约记录
+    assert (home / "state" / "edits.jsonl").read_text(encoding="utf-8") == edits_before  # no non-contract records are written to edits.jsonl
 
 
 def test_hub_error_messages():

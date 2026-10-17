@@ -1,9 +1,9 @@
-"""审核题目（A2，TC3）：逐题通过 / 修改 / 删除 / 拒绝，发布或整份拒绝。
+"""Quiz review (A2, TC3): approve / edit / delete / reject each question, then publish or reject the whole quiz.
 
-- 每个动作改写 outbox 里的 quiz.json（改完整份过 quiz schema），并追加一条 edit_event 到 state/edits.jsonl，
-  pipe 第 6 步据此学习老师的风格（`pipe/scripts/style_inputs.py`）。
-- 只有 status = published 的测验才会在 /play 提供；发布时用 pipe 的 build_game 重新生成 game.html，
-  保证学生看到的是审核后的题目，页面里也不含答案和课上原话。
+- Every action rewrites quiz.json in the outbox (the whole file is re-validated against the quiz schema) and appends an edit_event to state/edits.jsonl;
+  pipe step 6 uses these to learn the teacher's style (`pipe/scripts/style_inputs.py`).
+- Only quizzes with status = published are served under /play; publishing regenerates game.html with pipe's build_game,
+  so students see the reviewed questions, and the page contains neither the answers nor the teacher's verbatim words from class.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def next_edit_id() -> str:
 
 
 def review(lesson_id: str, action: str, q_id: str, changes: dict | None = None) -> dict:
-    """对一道题执行审核动作，返回写入的 edit_event。"""
+    """Apply a review action to one question and return the edit_event that was written."""
     if action not in ACTIONS:
         raise HTTPException(422, f"action must be one of {ACTIONS}")
     quiz = load(lesson_id)
@@ -54,7 +54,7 @@ def review(lesson_id: str, action: str, q_id: str, changes: dict | None = None) 
         unknown = set(changes or {}) - set(EDITABLE)
         if not changes or unknown:
             raise HTTPException(422, f"edit needs changes limited to {EDITABLE}")
-        # q_id、kp_id、source 不能改：出处必须是课上真实的原话
+        # q_id, kp_id and source cannot be changed: the source must be the teacher's actual words from class
         after = {**before, **changes}
         if after["type"] != "mcq":
             after.pop("choices", None)
@@ -77,7 +77,7 @@ def review(lesson_id: str, action: str, q_id: str, changes: dict | None = None) 
 
 
 def publish(lesson_id: str) -> dict:
-    """发布（A2 通过）：重新生成 game.html，status → published。"""
+    """Publish (A2 approved): regenerate game.html, status -> published."""
     quiz = load(lesson_id)
     if quiz["status"] not in ("pending", "approved"):
         raise HTTPException(409, f"Quiz is already {quiz['status']}")
@@ -92,7 +92,7 @@ def publish(lesson_id: str) -> dict:
 
 
 def reject(lesson_id: str) -> dict:
-    """整份拒绝（A2 不通过）：题目不发布。"""
+    """Reject the whole quiz (A2 not approved): the questions are not published."""
     quiz = load(lesson_id)
     if quiz["status"] == "published":
         raise HTTPException(409, "Quiz is already published")
@@ -102,7 +102,7 @@ def reject(lesson_id: str) -> dict:
 
 
 def published(quiz_id: str) -> tuple[str, dict]:
-    """/play 用：只返回已发布的测验。未发布、不存在都当作 404，不暴露审核状态。"""
+    """For /play: return only published quizzes. Unpublished and missing both look like 404, so the review status is not exposed."""
     lesson_id = quiz_id.removeprefix("Q-")
     quiz = outbox.load(lesson_id, "quiz")
     if quiz is None or quiz.get("quiz_id") != quiz_id or quiz.get("status") != "published":

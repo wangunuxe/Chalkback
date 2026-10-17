@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "coverage",
-  "description": "本机完整覆盖表。A → B、C。outbox coverage.json。只能以 coverage_share 形式离开老师电脑。§5",
+  "description": "Full local coverage table. A → B, C. outbox coverage.json. May leave the teacher's computer only in coverage_share form. §5",
   "type": "object",
   "additionalProperties": false,
   "required": ["lesson_id", "teacher_id", "class_id", "syllabus_id", "syllabus_version", "generated_at", "points"],

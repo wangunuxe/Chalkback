@@ -1,4 +1,4 @@
-"""check_coverage.py（TA3）：coverage 的片段、分钟数、covered 都要和片段与考纲对得上。"""
+"""check_coverage.py (TA3): coverage's segments, minutes and covered must all match the segments and the syllabus."""
 import copy
 import json
 
@@ -23,7 +23,7 @@ def demo():
 def test_contract_example_passes_with_warning_for_unlisted_kp():
     errors, warnings = run(example("coverage"), [example("segment")])
     assert errors == []
-    assert warnings == ["考纲的 KP04 没有出现在 points 里"]
+    assert warnings == ["syllabus KP04 does not appear in points"]
 
 
 def test_demo_data_is_consistent():
@@ -37,13 +37,13 @@ def test_demo_lesson_plan_is_where_current_lesson_looks():
 
 
 @pytest.mark.parametrize("change,expected", [
-    (lambda c: c["points"][2]["segment_ids"].append("S-L-T1-20261017-1000-009"), "不是本节的片段"),
-    (lambda c: c["points"][0].update(minutes=8.2), "minutes 应约为 4.5"),
-    (lambda c: c["points"][1].update(covered=True), "covered 应为 False"),
-    (lambda c: c["points"].append({"kp_id": "KP99", "covered": False, "minutes": 0, "segment_ids": []}), "KP99 不在考纲里"),
-    (lambda c: c["points"].append(copy.deepcopy(c["points"][0])), "KP01 出现了 2 次"),
+    (lambda c: c["points"][2]["segment_ids"].append("S-L-T1-20261017-1000-009"), "is not a segment of this lesson"),
+    (lambda c: c["points"][0].update(minutes=8.2), "minutes should be about 4.5"),
+    (lambda c: c["points"][1].update(covered=True), "covered should be False"),
+    (lambda c: c["points"].append({"kp_id": "KP99", "covered": False, "minutes": 0, "segment_ids": []}), "KP99 is not in the syllabus"),
+    (lambda c: c["points"].append(copy.deepcopy(c["points"][0])), "KP01 appears 2 times"),
     (lambda c: c.update(class_id="4B"), "class_id"),
-    (lambda c: c.update(syllabus_version=2), "考纲应为 fr-grammaire-4e v1"),
+    (lambda c: c.update(syllabus_version=2), "syllabus should be fr-grammaire-4e v1"),
 ])
 def test_errors(change, expected):
     coverage, segments = demo()
@@ -54,7 +54,7 @@ def test_errors(change, expected):
 
 def test_shared_segment_is_split_between_kps():
     coverage, segments = demo()
-    # 片段 002（6 分钟）同时记在 KP02 和 KP03 下：各 3 分钟
+    # segment 002 (6 minutes) is recorded under both KP02 and KP03: 3 minutes each
     coverage["points"][1].update(covered=True, minutes=3.0, segment_ids=["S-L-T1-20261017-1000-002"])
     coverage["points"][2].update(minutes=3.0)
     assert run(coverage, segments) == ([], [])
