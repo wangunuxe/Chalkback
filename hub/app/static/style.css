@@ -191,3 +191,18 @@ details summary { cursor: pointer; font-weight: 700; color: var(--sky); margin-t
   .fc-row { grid-template-columns: 44px 1fr; }
   .fc-label { grid-column: 2; }
 }
+
+/* Privacy check: what stays confidential, and the result of the "send a sentence" test */
+.confidential, .protected {
+  display: flex; gap: 14px; align-items: flex-start; margin-top: 14px; padding: 14px 16px;
+  border-radius: 18px; border: 2px solid var(--green-line); background: var(--green-bg); color: #065f46;
+}
+.confidential .lock, .protected .lock { font-size: 28px; line-height: 1; }
+.confidential strong, .protected strong { font-size: 16px; }
+.conf-items { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.conf-items span { padding: 4px 10px; border-radius: 999px; background: #fff; border: 2px solid var(--green-line); font-size: 13px; font-weight: 600; }
+.protected { border-color: #10b981; box-shadow: 0 8px 20px -10px rgba(16, 185, 129, .7); }
+.protected.fresh { animation: protected-in .4s ease-out; }
+.protected p { margin: 6px 0 0; font-size: 14px; }
+.protected blockquote { margin: 8px 0 0; padding: 6px 12px; border-left: 4px solid #10b981; background: #fff; border-radius: 8px; font-style: italic; text-decoration: line-through; color: var(--ink-soft); }
+@keyframes protected-in { from { transform: scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }

@@ -16,6 +16,8 @@ progress board for the school.
 | Per lesson: class, date, syllabus point, covered yes/no, minutes | screenpipe IDs, segment IDs, timestamps |
 | Audit log: who did what, and when | The content of anything that was approved |
 
+A syllabus file used for AI import (section 3) is not stored: the Hub reads it, sends it to the AI service and discards it.
+
 This boundary is checked twice: once on the teacher's laptop before upload, and again at the Hub. The Hub rejects
 any upload that has even one field more than the `coverage_share` format (for example a `transcript` or a `quote`)
 with `422`, and stores nothing from it.
@@ -56,6 +58,9 @@ behind a proxy or host that provides a real certificate.
 | `HUB_DB` | `/data/chalkback.db` | SQLite database file |
 | `HUB_EXAM_DATE` | `2026-12-18` | Exam date used for the "won't finish before the exam" alert (`YYYY-MM-DD`) |
 | `HUB_INVITES` | — | Your school's invite codes: `teacher=CODE,head=CODE,admin=CODE`. Pick long, unguessable codes. Without it, nobody can join in production mode. |
+| `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` | — | Turns on syllabus import with AI (section 3), with Claude or Gemini. Without either, heads add points by hand. Put it in `.env` at the repo root (`cp .env.example .env`); `.env` is never committed. |
+| `HUB_AI_MODEL` | `claude-opus-5-5` / `gemini-flash-latest` | Model id for syllabus import |
+| `HUB_AI_PROVIDER` | `anthropic` | `anthropic` or `gemini`, only needed when both keys are set |
 | `HUB_MOCK_AUTH` | off | `1` = test mode: accepts `mock-token-<id>` tokens and the `DEMO-*` codes. **Never set it on a public address.** |
 
 ## 2. Workspace and invite codes (school admin)
@@ -85,6 +90,11 @@ On the dashboard, as *Department head* → **Syllabus** panel:
 
 1. **Upload a new draft.** The editor starts with the current version as JSON. Change the knowledge points and
    upload. The Hub checks the format and assigns the next version number itself.
+   **From a file:** choose the syllabus file (PDF, Word, PowerPoint, TXT or Markdown, up to 5 MB) and click
+   **Fill with AI**. The AI fills the table with the knowledge points and keywords it finds. Points that match the
+   current version keep their id (`KP01`…), so coverage already shared still counts; new points get the next numbers.
+   **Check the table before uploading**: the AI can miss or split points, and keywords drive what the pipe searches
+   for. The file is sent to the AI service (Anthropic or Google) and not stored by the Hub. Needs `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`.
 2. The draft appears under the panel. Teachers still get the previous version.
 3. **Approve vN.** This version now applies to everyone. The audit log records `approve_syllabus`
    with the target `<syllabus_id>@v<N>`.
@@ -151,6 +161,7 @@ All requests except `join` need `Authorization: Bearer <token>`.
 | GET | `/api/syllabus/current` | all | Latest approved syllabus |
 | POST | `/api/syllabus` | head | Upload a draft → `{syllabus_id, version}` |
 | POST | `/api/syllabus/{id}/approve` | head | Approve the latest draft |
+| POST | `/api/syllabus/extract` | head | AI suggestion from a file `{filename, content_base64}` → `{syllabus, kept, new, dropped}`; saves nothing |
 | POST | `/api/coverage` | teacher | Share one lesson's coverage → `{share_id}` |
 | DELETE | `/api/coverage/{share_id}` | that teacher | Withdraw a share |
 | GET | `/api/coverage?class_id=` | by role | Covered / not covered per knowledge point, with minutes |

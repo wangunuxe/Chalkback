@@ -49,7 +49,7 @@ The tech stack is a suggestion and can change, but the whole team must settle it
 
 ### Agent: ChalkBack's "brain"
 
-ChalkBack has only one agent: the AI agent running on the teacher's computer. When screenpipe launches chalkback-pipe according to the timetable, it runs a coding agent (pi by default, or claude-code), with the model chosen in screenpipe's AI preset. The console and Hub are ordinary software with no agent.
+ChalkBack has only one agent: the AI agent running on the teacher's computer. When screenpipe launches chalkback-pipe according to the timetable, it runs a coding agent (pi by default, or claude-code), with the model chosen in screenpipe's AI preset. The console and Hub are ordinary software with no agent. The Hub makes one LLM call, outside the pipe: syllabus import (§6.4), where the model only suggests knowledge points from a file the head uploads; the head edits the suggestion and it goes through the normal draft and approval A4.
 
 - **Instructions**: `pipe/pipe.md` (the 8 steps in §6.1) and the four prompts under `pipe/prompts/`.
 - **Memory**: screenpipe local data (read-only), the style profile, past coverage tables.
@@ -330,6 +330,7 @@ All endpoints use HTTPS (Docker deployment is `https://<hub>:8443`, certificate 
 | GET | `/api/syllabus/current` | All | — | `syllabus` |
 | POST | `/api/syllabus` | Head | `syllabus` (draft) | `{syllabus_id, version}` |
 | POST | `/api/syllabus/{id}/approve` | Head | — | `syllabus` (A4) |
+| POST | `/api/syllabus/extract` | Head | `{filename, content_base64, syllabus_id?}` (PDF / DOCX / PPTX / TXT / MD, ≤ 5 MB) | `{syllabus, chunks, kept, new, dropped}`: an AI-suggested draft; saves nothing. Existing kp_ids are kept for the same points. `503` if neither `ANTHROPIC_API_KEY` nor `GEMINI_API_KEY` is set |
 | POST | `/api/coverage` | Teacher | `coverage_share` | `{share_id}` (A3) |
 | DELETE | `/api/coverage/{share_id}` | The teacher themself | — | `204` (A5) |
 | GET | `/api/coverage?class_id=` | Per §4 permissions | — | Knowledge point coverage table (KPs covered / not covered for that class, with durations) |
