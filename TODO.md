@@ -62,7 +62,8 @@ Not done yet:
 - [ ] TB3 no `quiz.json` and `game.html` actually generated from demo data yet.
 - [ ] TB4 acceptance (distinguishing "not covered" from "covered last week") needs real recorded lesson data (H6).
 - [ ] TB5 missing two clearly different style profiles for T1 and T2.
-- [ ] TB6 testing: the pipe's name after install (`chalkback` or `pipe`), whether the `tree/main/pipe` URL can be installed, the port and request body of `/notify` (TODO in `pipe/pipe.md`).
+- [x] TB6 pipe name after install: **`pipe`** (named after the folder), installed in `%USERPROFILE%\.screenpipe\pipes\pipe`; tested on Windows by installing from the local folder. `docs/SETUP.md` and the console's "Prepare this lesson now" button use `pipe`.
+- [ ] TB6 still to test: whether the `tree/main/pipe` GitHub URL can be installed (the repo is private), the port and request body of `/notify` (TODO in `pipe/pipe.md`).
 - [ ] TB7 newcomer test not done; timing result empty.
 - [ ] Test once that a pipe run takes less than `timeout: 900`.
 - [ ] Before changing `pipe/scripts/build_game.py` or `check_quiz.normalize_answer`, tell C first: the console reuses these two functions directly for publishing the game and grading (`console/app/contracts.py`).
@@ -84,7 +85,7 @@ Fixed (console tests increased from 8 to 47; endpoints in `console/README.md`):
 Not done yet:
 
 - [ ] TC2 HTML wizard for `/setup` (GET currently returns JSON), the subject and class steps, and the informed consent explanation page.
-- [ ] TC2 write the pipe schedule from the timetable (generate cron, `POST /pipes/chalkback/config`): waiting on B testing the pipe's name after install (TB6 under Role B).
+- [ ] TC2 write the pipe schedule from the timetable (generate cron, `POST /pipes/pipe/config`): the installed name is `pipe` (tested). Note: screenpipe's local API on port 3030 lists no `/pipes/...` endpoint in its `/openapi.json` (tested 2026-10-18), so the schedule may have to be written another way.
 - [ ] TC3 show screenshot in source: waiting on A testing the screenshot endpoint (TA1 under Role A).
 - [ ] TC6: `/shares` merging the Hub audit; `/style` only returns JSON, no read-only page.
 - [ ] Entry point for teachers to fill in lesson plans (`lesson_plan`); `config.auto_share` is not used.

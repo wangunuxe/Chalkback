@@ -22,7 +22,8 @@ Owner: B (TB2, TB6).
 - Permissions: once `allow` is written, the reader preset no longer applies and every endpoint not listed is denied, so Api(...) must be listed explicitly
   (docs.screenpipe.com/task-permissions). A needs to verify on the demo machine that both /search and /notify are allowed.
 -->
-<!-- TODO(TB6): verify after installation whether the pipe's name is chalkback or the folder name pipe -->
+<!-- Tested on Windows (2026-10-18): after `pipe install <path>/pipe` the pipe is named after its folder, `pipe`,
+     installed in %USERPROFILE%\.screenpipe\pipes\pipe (a copy: reinstall after changing this folder). So <name> above is `pipe`. -->
 <!-- TODO(TB6): verify whether /notify is on port 11435 or on the screenpipe API (3030), and its request body format -->
 
 # ChalkBack: tidy up the lesson after class
