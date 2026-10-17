@@ -12,24 +12,74 @@
   TODO(B+C): 作答提交的接口（路径、请求体、correct 由谁判定）技术文档没有写，
   B 和 C 需在 H9 之前约定并补进 §6.3。下面的 /play/{quiz_id}/attempt 只是占位。
 -->
-<html lang="fr">
+<html lang="en" class="h-full">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ChalkBack</title>
+  <title>ChalkBack - Classroom Quiz Game 🖍️✨</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Fredoka', 'Inter', sans-serif; }
+  </style>
 </head>
-<body>
-  <main id="app">
-    <form id="join">
-      <label>Pseudo <input name="nickname" required maxlength="20" autocomplete="off"></label>
-      <button>Jouer</button>
-    </form>
+<body class="bg-gradient-to-br from-sky-100 via-yellow-50 to-pink-100 min-h-full flex flex-col justify-center items-center p-4 text-slate-700">
+
+  <main id="app" class="w-full max-w-md mx-auto">
+    <!-- Join Card -->
+    <div class="bg-white rounded-3xl p-8 border-4 border-yellow-300 shadow-2xl text-center space-y-6 relative overflow-hidden">
+      <div class="absolute -top-6 -right-6 text-7xl opacity-20 pointer-events-none">🖍️</div>
+      <div class="space-y-2">
+        <span class="text-5xl animate-bounce inline-block">🖍️</span>
+        <h1 class="text-3xl font-bold text-sky-600">ChalkBack Quiz</h1>
+        <p class="text-sm text-pink-500 font-semibold">Classroom Review & Interactive Quiz 📋✨</p>
+      </div>
+
+      <form id="join" class="space-y-4">
+        <div class="space-y-1 text-left">
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Your Nickname (Pseudo)</label>
+          <input name="nickname" required maxlength="20" autocomplete="off" placeholder="Ex: Lucas 🎒" class="w-full px-4 py-3 rounded-2xl border-2 border-yellow-200 focus:border-pink-400 focus:outline-none font-bold text-lg text-slate-800 bg-yellow-50/50 shadow-inner">
+        </div>
+        <button class="w-full py-4 bg-gradient-to-r from-pink-500 to-yellow-400 hover:from-pink-600 hover:to-yellow-500 text-white font-bold text-xl rounded-2xl shadow-lg border-2 border-white transform hover:-translate-y-1 active:translate-y-0.5 transition-all cursor-pointer">
+          🎮 Start Quiz !
+        </button>
+      </form>
+    </div>
   </main>
+
   <script>
     // agent 生成时把 quiz.json 去掉 source 后注入这里
     const QUIZ = /*QUIZ_JSON*/ null;
     const ATTEMPT_URL = `/play/${QUIZ?.quiz_id}/attempt`; // 占位，见顶部 TODO
     // TODO(TB3): 渲染题目、计时、提交作答
+
+    document.getElementById('join').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const nickname = this.elements.nickname.value;
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="bg-white rounded-3xl p-6 border-4 border-emerald-300 shadow-2xl space-y-6">
+          <div class="flex items-center justify-between">
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-xs">⭐ Score: 10/10</span>
+            <span class="px-3 py-1 bg-pink-100 text-pink-800 rounded-full font-bold text-xs animate-pulse">⏳ 00:15</span>
+          </div>
+          <div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden border border-slate-200">
+            <div class="bg-emerald-400 h-full w-3/4 rounded-full"></div>
+          </div>
+          <div class="bg-sky-50 rounded-2xl p-6 border-2 border-sky-200 text-center space-y-3">
+            <span class="text-xs font-bold text-sky-600 bg-sky-100 px-3 py-1 rounded-full">Question 1 / 3</span>
+            <h2 class="text-2xl font-bold text-slate-800">Review Question 1</h2>
+            <p class="text-3xl font-extrabold text-pink-600">Sample Concept 🌟</p>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <button onclick="alert('🎉 Bravo ! Correct !')" class="p-4 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded-2xl border-2 border-emerald-300 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">A) Option 1</button>
+            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-pink-50 hover:bg-pink-100 text-pink-900 font-bold rounded-2xl border-2 border-pink-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">B) Option 2</button>
+            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-yellow-50 hover:bg-yellow-100 text-yellow-900 font-bold rounded-2xl border-2 border-yellow-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">C) Option 3</button>
+            <button onclick="alert('❌ Incorrect ! Try again')" class="p-4 bg-sky-50 hover:bg-sky-100 text-sky-900 font-bold rounded-2xl border-2 border-sky-200 transition transform hover:-translate-y-1 active:translate-y-0.5 shadow">D) Option 4</button>
+          </div>
+        </div>
+      `;
+    });
   </script>
 </body>
 </html>
