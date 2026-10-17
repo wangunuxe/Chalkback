@@ -1,5 +1,5 @@
 {
-  "hub_url": "http://localhost:8000",
+  "hub_url": "https://localhost:8443",
   "token": "mock-token-T1",
   "teacher_id": "T1",
   "workspace_id": "W1",

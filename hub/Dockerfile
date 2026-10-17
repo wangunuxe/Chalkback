@@ -11,13 +11,15 @@ RUN pip install --no-cache-dir -r hub/requirements.txt
 COPY contracts contracts
 COPY hub hub
 
-RUN useradd --create-home chalkback && mkdir /data && chown chalkback /data
+RUN python hub/generate_cert.py
+
+RUN useradd --create-home chalkback && mkdir /data && chown -R chalkback:chalkback /app /data
 USER chalkback
 VOLUME /data
 WORKDIR /app/hub
 EXPOSE 8000
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/docs')"
+  CMD python -c "import ssl, urllib.request; ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE; urllib.request.urlopen('https://127.0.0.1:8000/docs', context=ctx)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--ssl-keyfile", "key.pem", "--ssl-certfile", "cert.pem"]

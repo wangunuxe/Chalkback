@@ -39,7 +39,7 @@ make console        # :4000，读 .mock-home
 
 ```bash
 make up             # = docker compose up --build -d
-                    # Hub http://localhost:8000（/docs 看 API），控制台 http://localhost:4000
+                    # Hub https://localhost:8443（/docs 看 API），控制台 http://localhost:4000
 make down           # 停止，数据保留
 make reset-mock     # 连数据卷一起删，下次 up 重新生成 mock
 ```
