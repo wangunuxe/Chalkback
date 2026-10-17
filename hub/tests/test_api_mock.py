@@ -22,7 +22,7 @@ def example(name):
 
 
 def test_join():
-    r = client.post("/api/join", json={"invite_code": "X", "display_name": "Mme Martin", "role": "teacher"})
+    r = client.post("/api/join", json={"invite_code": "DEMO-TEACHER","display_name": "Mme Martin", "role": "teacher"})
     assert r.status_code == 200 and set(r.json()) == {"teacher_id", "token", "workspace_id"}
 
 

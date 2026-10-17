@@ -8,8 +8,18 @@ uvicorn app.main:app --port 8000 --reload        # API 文档：http://localhost
 pytest
 ```
 
-当前所有接口返回 `contracts/examples` 的 mock（TD1），C 可以直接对接。
-mock 认证：`Authorization: Bearer mock-token-<id>`，id 以 `H` 开头为组长、`ADM` 开头为管理员，其余为老师。
+除 `/api/join` 外，接口仍返回 `contracts/examples` 的 mock（TD1），C 可以直接对接。
+
+加入（TD2）：Hub 启动时自动建好演示工作区 `W1` 和三个邀请码，每种角色一个，码和角色不符会被拒绝：
+
+| 邀请码 | 角色 |
+| --- | --- |
+| `DEMO-TEACHER` | teacher |
+| `DEMO-HEAD` | head |
+| `DEMO-ADMIN` | admin |
+
+`POST /api/join` 返回的 token 放在 `Authorization: Bearer <token>`。
+联调期仍接受 mock 认证：`Authorization: Bearer mock-token-<id>`，id 以 `H` 开头为组长、`ADM` 开头为管理员，其余为老师。设置 `HUB_MOCK_AUTH=0` 关闭。
 
 | 文件 | 内容 | 任务 |
 | --- | --- | --- |
