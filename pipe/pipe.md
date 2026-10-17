@@ -48,7 +48,8 @@ permissions:
 - 时间一律 ISO 8601 带时区（Europe/Paris），例如 `2026-10-19T10:12:05+02:00`。
 - 每个产出文件写完都要通过 `validate.py`，失败就按错误修改后重试，同一步最多 3 轮。
 - 不修改已经有 `ready` 文件的 outbox 目录。
-- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`read_reports.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`。
+- 环境变量 `CHALKBACK_MOCK=1` 时（本地开发），给 `extract_segments.py`、`read_reports.py`、`lookback.py` 和 `style_inputs.py` 加 `--mock`，
+  给 `doctor.py` 加 `--skip-screenpipe`（本地开发时没有 screenpipe）。
 
 ## 0. 环境自检
 

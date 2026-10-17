@@ -122,6 +122,8 @@ def test_mock_skips_screenpipe(lesson, coverage, home, screenpipe):
     result = run(lesson, coverage, home, mock=True)
     assert screenpipe.requests == []
     assert by_kp(result)["KP01"]["from_outbox"] is not None
+    assert by_kp(result)["KP01"]["search_error"] is None            # 有可靠证据，不需要查
+    assert "mock" in by_kp(result)["KP02"]["search_error"]          # 没查就要说没查
 
 
 def test_screenpipe_down_is_recorded_not_raised(lesson, coverage, home, monkeypatch):

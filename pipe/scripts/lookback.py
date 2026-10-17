@@ -142,7 +142,10 @@ def lookback(lesson: dict, coverage: dict, syllabus: dict, config: dict, home: P
         kp = kps.get(kp_id, {"title": kp_id, "keywords": []})
         cand = {"kp_id": kp_id, "title": kp["title"], "keywords": kp["keywords"],
                 "from_outbox": past.get(kp_id), "search_hits": [], "search_error": None}
-        if cand["from_outbox"] is None and not mock:
+        if cand["from_outbox"] is None and mock:
+            # 没查就要说没查，否则提醒会写成“过去 21 天都没讲”
+            cand["search_error"] = "mock mode: screenpipe was not queried"
+        elif cand["from_outbox"] is None:
             try:
                 cand["search_hits"] = search_hits(kp["keywords"] or [kp["title"]], since, until,
                                                   config.get("timetable", []), lesson["class_id"])
