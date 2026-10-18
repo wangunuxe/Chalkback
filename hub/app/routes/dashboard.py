@@ -2,9 +2,10 @@
 
 Alert rule: remaining uncovered knowledge points > weeks left until the exam x the class's average coverage per week so far -> "won't finish before the exam".
 
-Each view follows the §4 permission table: teachers only see their own classes (including "another class covered it, you haven't yet", without naming which class);
+Each view follows the §4 permission table: teachers only see their own classes;
 department heads see per-class knowledge point details and syllabus drafts awaiting approval (class -> grade mapping TBD, whole school for now);
 admins only see per-class summaries, plus invite codes and member counts.
+The board shows one syllabus (subject): the school's main one, or another approved one with ?syllabus_id= (the head's subject picker).
 """
 import os
 from contextlib import closing
@@ -36,14 +37,17 @@ def class_summary(conn, workspace_id: str, class_id: str, syllabus: dict, weeks_
 
 
 @router.get("/dashboard")
-def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depends(current_member)):
+def dashboard(view: Literal["teacher", "head", "admin"], syllabus_id: str | None = None,
+              member: Member = Depends(current_member)):
     if view != member.role:
         raise HTTPException(403)
     ws = member.workspace_id
     today = date.today()
     with closing(db.connect()) as conn:
         # A new school has no approved syllabus yet: the board is empty until the department head publishes one
-        syllabus = current_syllabus(conn, ws)
+        syllabus = current_syllabus(conn, ws, syllabus_id)
+        if syllabus is None and syllabus_id is not None:
+            raise HTTPException(404, f"syllabus {syllabus_id} has no approved version")
         workspace = conn.execute("SELECT name, exam_date FROM workspaces WHERE workspace_id = ?", (ws,)).fetchone()
         exam_date = os.environ.get("HUB_EXAM_DATE") or (workspace["exam_date"] if workspace else None)
         weeks_left = max(0.0, (date.fromisoformat(exam_date) - today).days / 7) if exam_date else None
@@ -60,8 +64,7 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
             shown = [c for c in all_classes if c in mine]
         else:
             shown = all_classes
-        summaries = {c: class_summary(conn, ws, c, syllabus, weeks_left, today) for c in all_classes}
-        classes = [summaries[c] for c in shown]
+        classes = [class_summary(conn, ws, c, syllabus, weeks_left, today) for c in shown]
 
         result = {
             "view": view,
@@ -75,19 +78,14 @@ def dashboard(view: Literal["teacher", "head", "admin"], member: Member = Depend
             "classes": classes,
         }
 
-        if view == "teacher":
-            for c in classes:
-                peers_covered = {p["kp_id"] for other, s in summaries.items() if other != c["class_id"]
-                                 for p in s["points"] if p["covered"]}
-                c["peer_gaps"] = [p["kp_id"] for p in c["points"] if not p["covered"] and p["kp_id"] in peers_covered]
-        elif view == "head":
+        if view == "head":
             # Drafts newer than the latest approved version of their own syllabus (one syllabus per subject)
             result["drafts"] = [dict(r) for r in conn.execute(
                 "SELECT s.syllabus_id, s.version FROM syllabi s WHERE s.workspace_id = ? AND s.status = 'draft'"
                 " AND s.version > COALESCE((SELECT MAX(a.version) FROM syllabi a WHERE a.workspace_id = s.workspace_id"
                 " AND a.syllabus_id = s.syllabus_id AND a.status = 'approved'), 0)"
                 " ORDER BY s.syllabus_id, s.version", (ws,))]
-        else:
+        elif view == "admin":
             for c in classes:
                 del c["points"]
             result["invites"] = [dict(r) for r in conn.execute(

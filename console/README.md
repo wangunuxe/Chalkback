@@ -24,7 +24,7 @@ pytest              # from console/
 | `app/routes/play.py` | Student game, answers | TC4/5 |
 | `app/routes/shares.py` | Share records and withdrawal (A5) | TC6 |
 | `app/routes/style.py` | Style profile (read-only) | TC6 |
-| `app/screenpipe.py`, `app/routes/recorder.py` | Recording panel: screenpipe status, start/stop recording, latest voice and screen text, run the pipe now | — |
+| `app/screenpipe.py`, `app/routes/recorder.py` | Recording panel: screenpipe status, start/stop recording; stopping runs the pipe | — |
 
 ## API
 
@@ -51,7 +51,7 @@ pytest              # from console/
 
 ## Recording panel (screenpipe)
 
-The top of `/console` controls screenpipe on this computer. It uses the screenpipe local API, with the same settings as pipe's scripts:
+The top of `/console` controls screenpipe on this computer: Start / Stop recording. Stopping generates the quiz game for the lesson automatically (no other button), and the panel shows its progress, or why it failed. It uses the screenpipe local API, with the same settings as pipe's scripts:
 
 ```bash
 export SCREENPIPE_LOCAL_API_KEY=...   # screenpipe Settings > Privacy (or: npx -y screenpipe@latest auth token)
@@ -63,11 +63,10 @@ make teacher
 | --- | --- | --- |
 | GET | `/screenpipe/status` | `/health`, `/audio/device/status`, `/vision/device/status`. `app_open: false` when screenpipe was quit and only serves history |
 | POST | `/screenpipe/recording/start` | `/audio/start`, then `/vision/device/start` for every monitor in `/vision/list`. 409 if the screenpipe app is closed |
-| POST | `/screenpipe/recording/stop` | `/audio/stop`, `/vision/device/stop` for running monitors |
-| GET | `/screenpipe/recent?minutes=10` | `/search` (audio from the microphone only, plus OCR), newest first, 1–120 minutes |
-| POST | `/screenpipe/process` | "Generate quiz game": runs `npx -y screenpipe@latest pipe run pipe` in the background (the installed pipe is named after its folder, `pipe`; change with `CHALKBACK_PIPE_RUN`) for the last lesson in the timetable; results arrive in the outbox. 409 while a run is going on |
+| POST | `/screenpipe/recording/stop` | `/audio/stop`, `/vision/device/stop` for running monitors, then starts the pipe like `POST /screenpipe/process`; the answer has the run in `run` (if the pipe cannot start, recording is still stopped and `run.error` says why) |
+| POST | `/screenpipe/process` | Run the pipe again (e.g. after a failed run): runs `npx -y screenpipe@latest pipe run pipe` in the background (the installed pipe is named after its folder, `pipe`; change with `CHALKBACK_PIPE_RUN`) for the last lesson in the timetable; results arrive in the outbox. 409 while a run is going on |
 | GET | `/screenpipe/process` | Last run: `never`, `running`, `done` or `failed` (with `exit_code` and the last lines of `state/pipe-run.log`) |
 
-Privacy: the transcript and screen text are only shown on this page. They are not stored and never sent to the Hub (`tests/test_screenpipe.py` fails if any of these calls reaches the Hub client).
+Privacy: the panel shows no transcript or screen text and stores nothing; none of these calls reaches the Hub (`tests/test_screenpipe.py` fails if one does).
 
 WSL on Windows: screenpipe runs on Windows, so WSL needs `networkingMode=mirrored` in `%UserProfile%\.wslconfig` (then `wsl --shutdown`) to reach `localhost:3030`.

@@ -141,6 +141,11 @@ def test_second_subject_does_not_replace_the_main_syllabus():
     assert visible(HEAD)[cid]["progress"] == {"covered": 1, "total": 1}
     board = client.get("/api/dashboard?view=head", headers=HEAD).json()
     assert board["syllabus"]["syllabus_id"] == SYLLABUS and "3K" not in {c["class_id"] for c in board["classes"]}
+    # the head's subject picker: the board for the maths syllabus has only maths classes
+    board = client.get("/api/dashboard?view=head&syllabus_id=maths-3e", headers=HEAD).json()
+    assert board["syllabus"]["subject"] == "maths" and [c["class_id"] for c in board["classes"]] == ["3K"]
+    assert board["classes"][0]["points"] == [{"kp_id": "M01", "covered": True, "minutes": 5}]
+    assert client.get("/api/dashboard?view=head&syllabus_id=nope", headers=HEAD).status_code == 404
 
 
 def test_prototype_courses_table_is_kept_aside(tmp_path):

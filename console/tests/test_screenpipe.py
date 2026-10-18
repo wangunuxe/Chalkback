@@ -18,18 +18,6 @@ class FakeScreenpipe:
         path = request.url.path
         if path == "/health":
             return httpx.Response(503, json={"status": "degraded"})
-        if path == "/search":
-            if request.url.params["content_type"] == "audio":
-                return httpx.Response(200, json={"data": [
-                    {"type": "Audio", "content": {"transcription": "Le passé composé avec avoir", "device_type": "Input",
-                                                  "timestamp": "2026-10-18T09:01:00Z"}},
-                    {"type": "Audio", "content": {"transcription": "music from the speakers", "device_type": "Output",
-                                                  "timestamp": "2026-10-18T09:02:00Z"}},
-                ]})
-            return httpx.Response(200, json={"data": [
-                {"type": "OCR", "content": {"text": "J'ai mangé une pomme", "app_name": "PowerPoint",
-                                            "timestamp": "2026-10-18T09:03:00Z"}},
-            ]})
         if path == "/audio/device/status":  # like real screenpipe, still answers after the app was quit
             return httpx.Response(200, json=[
                 {"name": "Microphone (input)", "is_running": self.mic_running and self.open},
@@ -87,7 +75,7 @@ def test_status_lists_microphones_only(client, fake):
     assert s["microphones"] == [{"name": "Microphone", "running": False}]
 
 
-def test_start_and_stop_recording(client, fake):
+def test_start_and_stop_recording(client, fake, pipe_run):
     s = client.post("/screenpipe/recording/start").json()
     assert s["recording"] is True and s["screens"] == 1
     assert fake.called("POST", "/audio/start") and fake.called("POST", "/vision/device/start")
@@ -123,25 +111,8 @@ def test_wrong_api_key(client, monkeypatch):
 
     monkeypatch.setattr(screenpipe, "_client", lambda: httpx.Client(
         transport=httpx.MockTransport(lambda r: httpx.Response(403, json={"error": "unauthorized"})), base_url="http://x"))
-    r = client.get("/screenpipe/recent")
+    r = client.get("/screenpipe/status")
     assert r.status_code == 502 and "SCREENPIPE_LOCAL_API_KEY" in r.json()["detail"]
-
-
-def test_recent_is_teacher_voice_and_screen_newest_first(client, fake):
-    body = client.get("/screenpipe/recent?minutes=5").json()
-    assert body["minutes"] == 5
-    assert [(i["kind"], i["text"]) for i in body["items"]] == [
-        ("screen", "J'ai mangé une pomme"),
-        ("speech", "Le passé composé avec avoir"),
-    ]
-    search = next(r for m, p, r in fake.requests if p == "/search")
-    assert "start_time" in search.url.params
-    assert search.headers["Authorization"] == "Bearer sp-test-key"
-
-
-def test_recent_minutes_are_bounded(client, fake):
-    assert client.get("/screenpipe/recent?minutes=0").status_code == 422
-    assert client.get("/screenpipe/recent?minutes=500").status_code == 422
 
 
 class FakeProc:
@@ -190,6 +161,23 @@ def test_failed_run_shows_why(client, pipe_run):
     assert len(pipe_run) == 2
 
 
+def test_stop_recording_generates_the_quiz_game(client, fake, pipe_run):
+    s = client.post("/screenpipe/recording/stop").json()
+    assert s["recording"] is False and s["run"]["status"] == "running"
+    assert pipe_run[0].cmd[-2:] == ["run", "pipe"] and len(pipe_run) == 1
+    s = client.post("/screenpipe/recording/stop").json()  # stopping again while it runs follows the same run
+    assert s["run"]["status"] == "running" and len(pipe_run) == 1
+
+
+def test_stop_recording_without_node_still_stops(client, fake, monkeypatch):
+    from app import screenpipe
+
+    monkeypatch.setattr(screenpipe.shutil, "which", lambda name: None)
+    r = client.post("/screenpipe/recording/stop")
+    assert r.status_code == 200 and r.json()["recording"] is False
+    assert r.json()["run"]["status"] == "failed" and "npx not found" in r.json()["run"]["error"]
+
+
 def test_process_without_node(client, monkeypatch):
     from app import screenpipe
 
@@ -200,12 +188,13 @@ def test_process_without_node(client, monkeypatch):
 
 def test_panel_blocked_from_lan(app, fake):
     lan = TestClient(app, client=("192.168.1.20", 50000))
-    for method, path in (("GET", "/screenpipe/status"), ("GET", "/screenpipe/recent"), ("POST", "/screenpipe/recording/start")):
+    for method, path in (("GET", "/screenpipe/status"), ("POST", "/screenpipe/recording/stop"), ("POST", "/screenpipe/recording/start")):
         assert lan.request(method, path).status_code == 403
     assert fake.requests == []
 
 
 def test_console_page_has_recording_panel(client, fake):
     html = client.get("/console").text
-    assert 'id="recorder"' in html and "/screenpipe/recording/start" in html and "Generate quiz game" in html
+    assert 'id="recorder"' in html and "/screenpipe/recording/start" in html and "Last 10 minutes" not in html
+    assert "Generate quiz game" not in html and "generated automatically" in html
     assert "nothing is sent to the school Hub" in html
