@@ -42,18 +42,11 @@ def test_teacher_sees_only_own_classes():
     assert classes["6A"]["covered"] == 1 and classes["6A"]["total"] == len(classes["6A"]["points"])
 
 
-def test_teacher_peer_gaps_are_anonymous():
-    c = by_class(board("teacher", T5))["6A"]
-    assert "KP02" in c["peer_gaps"] and "KP01" not in c["peer_gaps"]  # 6B covered it, 6A did not; ones 6A already covered do not count
-    assert "6B" not in str(c)
-
-
 def test_head_sees_all_classes_with_details_and_drafts():
     client.post("/api/syllabus", json=example("syllabus"), headers=HEAD)
     result = board("head", HEAD)
     classes = by_class(result)
     assert {"6A", "6B"} <= set(classes) and "points" in classes["6B"]
-    assert "peer_gaps" not in classes["6B"]
     assert result["drafts"] and all(d["version"] > result["syllabus"]["version"] for d in result["drafts"])
 
 

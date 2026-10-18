@@ -229,7 +229,7 @@ function bindPrivacy(b, classId) {
   };
 }
 
-function renderTeacher(b, titles, courses, syllabi) {
+function renderTeacher(b, courses, syllabi) {
   const consoleLink = `<section class="card green"><div class="row">
       <span><strong>Your ChalkBack console</strong><br><span class="muted">Review quizzes, approve or withdraw shares. Transcripts and screenshots stay there, on your computer.</span></span>
       <a class="btn" href="${CONSOLE_URL}/console" target="_blank" rel="noopener">Open my console →</a>
@@ -239,29 +239,11 @@ function renderTeacher(b, titles, courses, syllabi) {
   const waiting = b.syllabus ? "" : `<section class="card amber"><h3>📚 No syllabus yet</h3>
       <p class="sub" style="margin:0">Your department head has not published the school's syllabus. Once it is approved you can
         create your courses, and the lessons you share appear here.</p></section>`;
-  if (!b.classes.length) {
-    if (waiting) return consoleLink + waiting + mine;
-    return consoleLink + mine + `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` + privacy;
-  }
-  return consoleLink + mine + b.classes.map((c) => `
-    <section class="card">
-      <div class="row"><h2>Class ${esc(c.class_id)}</h2>${status(c)}</div>
-      <p class="sub">${c.covered} of ${c.total} knowledge points covered · pace ${c.weekly_rate} per week</p>
-      ${bar(c)}
-      ${riskText(c, b)}
-      <div class="table-wrap" style="margin-top:16px"><table>
-        <thead><tr><th>Knowledge point</th><th class="c">Covered</th></tr></thead>
-        <tbody>${c.points.map((p) => `<tr><td><span class="kp-title">${esc(titles[p.kp_id])}</span><span class="kp-id">${esc(p.kp_id)}</span></td>
-          <td class="c" data-key="${esc(c.class_id)}:${esc(p.kp_id)}">${chip(p)}</td></tr>`).join("")}</tbody>
-      </table></div>
-    </section>
-    ${c.peer_gaps.length ? `<section class="card amber">
-      <h3>💡 Covered in other classes, not yet in ${esc(c.class_id)}</h3>
-      <p class="sub">Only you see this comparison. Other classes are not named.</p>
-      <div class="stats">${c.peer_gaps.map((k) => `<span class="chip risk">${esc(titles[k])}</span>`).join("")}</div>
-    </section>` : ""}`).join("") + privacy;
+  if (waiting) return consoleLink + waiting + mine;
+  const empty = !b.classes.length && !courses.length
+    ? `<section class="card empty">No shared lessons yet.<br>Approve a lesson's coverage in your ChalkBack console and it will appear here.</section>` : "";
+  return consoleLink + mine + empty + privacy;
 }
-
 // Pre-exam forecast: at the current weekly pace, how many weeks the remaining knowledge points will take, compared with the exam date
 function forecast(b) {
   if (b.weeks_left == null || !b.classes.length) return "";
@@ -350,10 +332,20 @@ function renderPreview(info = "", sticky = false) {
     </tbody></table></div>`;
 }
 
-async function renderHead(b, titles, courses) {
+// The head looks at one subject (syllabus) at a time; the choice is remembered on this computer
+let headSyllabus = (() => { try { return localStorage.getItem("chalkback.headSyllabus"); } catch { return null; } })();
+function subjectPicker(b, syllabi) {
+  if (!b.syllabus || syllabi.length < 2) return "";
+  return `<section class="card"><div class="row">
+      <span><strong>Subject</strong><br><span class="muted">Every class and course below is for this subject only.</span></span>
+      <select id="head-subject" style="max-width:320px">${syllabi.map((s) => `<option value="${esc(s.syllabus_id)}"${s.syllabus_id === b.syllabus.syllabus_id ? " selected" : ""}>
+        📚 ${esc(s.subject)} ${esc(s.level)}</option>`).join("")}</select>
+    </div></section>`;
+}
+async function renderHead(b, titles, courses, syllabi) {
   const risky = b.classes.filter((c) => c.at_risk);
   // A new school has no approved syllabus: the editor starts empty and the head publishes the first one
-  const cur = await api("/api/syllabus/current");
+  const cur = await api(`/api/syllabus/current${b.syllabus ? `?syllabus_id=${encodeURIComponent(b.syllabus.syllabus_id)}` : ""}`);
   const current = cur.ok ? await cur.json() : { syllabus_id: "", subject: "", level: "", knowledge_points: [] };
   approvedIds = new Set(current.knowledge_points.map((kp) => kp.kp_id));
   const matrix = b.classes.length ? `<div class="table-wrap"><table>
@@ -364,6 +356,7 @@ async function renderHead(b, titles, courses) {
         <tr><td><strong>Progress</strong></td>${b.classes.map((c) => `<td class="c"><strong>${c.covered}/${c.total}</strong><br>${status(c)}</td>`).join("")}</tr>
       </tbody></table></div>` : `<div class="empty">No class has shared coverage yet.</div>`;
   return `
+    ${subjectPicker(b, syllabi)}
     ${risky.length ? `<section class="card amber"><h3>⚠️ Exam alert</h3>${risky.map((c) => `<p style="margin:12px 0 0"><strong>Class ${esc(c.class_id)}</strong></p>${riskText(c, b)}`).join("")}</section>` : ""}
     ${classHierarchy(courses, { detail: true })}
     ${forecast(b)}
@@ -414,6 +407,13 @@ async function renderHead(b, titles, courses) {
 }
 
 function bindHead() {
+  const pick = $("head-subject");
+  if (pick) pick.onchange = () => {
+    headSyllabus = pick.value;
+    pick.blur(); // a focused select pauses the 3-second refresh
+    try { localStorage.setItem("chalkback.headSyllabus", headSyllabus); } catch {}
+    refresh(true);
+  };
   for (const b of document.querySelectorAll("[data-approve]")) {
     b.onclick = async () => {
       b.disabled = true;
@@ -553,6 +553,14 @@ const kpChips = (points) => `<div class="kp-chips">${points.map((p) => p.covered
   ? `<span class="chip yes" title="${esc(p.kp_id)}">✅ ${esc(p.title)} · ${p.minutes} min</span>`
   : `<span class="chip no" title="${esc(p.kp_id)}">○ ${esc(p.title)}</span>`).join("")}</div>`;
 
+// A course's syllabus compared with what was taught: every knowledge point of the course's syllabus, covered or not
+const courseTable = (c) => `<div class="table-wrap"><table>
+    <thead><tr><th>Class ${esc(c.class_id)} · ${esc(subjectOf(c))} · knowledge point</th><th class="c">Covered</th></tr></thead>
+    <tbody>${c.points.map((p) => `<tr><td><span class="kp-title">${esc(p.title)}</span><span class="kp-id">${esc(p.kp_id)}</span></td>
+      <td class="c" data-key="${esc(c.course_id)}:${esc(p.kp_id)}">${chip(p)}</td></tr>`).join("")
+      || `<tr><td colspan="2" class="muted">This course's syllabus has no knowledge points.</td></tr>`}</tbody>
+  </table></div>`;
+
 const summaryBox = (s, label) => `<div class="summary-box">
     <div class="summary-label">📝 ${label} · ${esc(shortDate(s.sent_at))}</div>
     <p>${esc(s.text)}</p>
@@ -590,7 +598,7 @@ function teacherCourse(course) {
       <div class="bar"><span style="width:${pctOf(course.progress)}%"></span></div>
       <span class="muted">${course.progress.covered}/${course.progress.total} knowledge points taught · ${esc(lessonsText(course.lessons))}</span>
     </div>
-    ${kpChips(course.points)}
+    ${courseTable(course)}
     ${sent ? summaryBox(sent, "Sent to your department head") : ""}
     ${editor}
     ${actions}
@@ -758,12 +766,16 @@ $("view").addEventListener("input", (e) => {
 let previous = null;
 function snapshot(b, events, courses) {
   const cells = {};
-  for (const c of courses) cells[`course:${c.course_id}`] = `${c.summary?.sent_at ?? ""}|${c.progress.covered}`;
+  for (const c of courses) {
+    cells[`course:${c.course_id}`] = `${c.summary?.sent_at ?? ""}|${c.progress.covered}`;
+    for (const p of c.points || []) cells[`${c.course_id}:${p.kp_id}`] = `${p.covered}|${p.minutes}`;
+  }
   for (const c of b.classes) {
     cells[c.class_id] = c.covered;
     for (const p of c.points || []) cells[`${c.class_id}:${p.kp_id}`] = `${p.covered}|${p.minutes}`;
   }
-  return { role, cells, events: new Set(events.map((e) => e.event_id)) };
+  // Switching the head's subject is not a change to announce, like switching roles
+  return { role: `${role}:${b.syllabus?.syllabus_id ?? ""}`, cells, events: new Set(events.map((e) => e.event_id)) };
 }
 function announce(prev, now, events) {
   if (!prev || prev.role !== now.role) return;
@@ -792,22 +804,25 @@ async function refresh(force = false) {
   try {
     renderRoles();
     const view = role;
-    const [r, a, c, s] = await Promise.all([api(`/api/dashboard?view=${view}`), api("/api/audit"), api("/api/courses"),
-      view === "teacher" ? api("/api/syllabus") : null]);
+    const s = view === "admin" ? null : await api("/api/syllabus");
+    const syllabi = s?.ok ? await s.json() : [];
+    if (view === "head" && !syllabi.some((x) => x.syllabus_id === headSyllabus)) headSyllabus = null; // e.g. chosen on another Hub
+    const pick = view === "head" && headSyllabus ? `&syllabus_id=${encodeURIComponent(headSyllabus)}` : "";
+    const [r, a, c] = await Promise.all([api(`/api/dashboard?view=${view}${pick}`), api("/api/audit"), api("/api/courses")]);
     if (view !== role) { again = true; return; } // switched roles while loading: draw the new role instead
     if (!r.ok) { $("view").innerHTML = `<section class="card empty">Could not load the board (${r.status}).</section>`; return; }
     const b = await r.json();
     const events = a.ok ? await a.json() : [];
-    const courses = c.ok ? await c.json() : [];
-    const syllabi = s?.ok ? await s.json() : [];
+    let courses = c.ok ? await c.json() : [];
+    if (view === "head" && b.syllabus) courses = courses.filter((x) => x.syllabus.syllabus_id === b.syllabus.syllabus_id);
     for (const course of courses) courseNames[course.course_id] = course.name;
     currentCourses = courses;
     const titles = Object.fromEntries((b.syllabus?.knowledge_points ?? []).map((kp) => [kp.kp_id, kp.title]));
     renderSummary(b, courses);
     const firstClass = b.classes[0]?.class_id ?? "4A";
     const form = saveForm();
-    if (role === "teacher") { $("view").innerHTML = renderTeacher(b, titles, courses, syllabi); bindPrivacy(b, firstClass); }
-    else if (role === "head") { $("view").innerHTML = await renderHead(b, titles, courses); bindHead(); }
+    if (role === "teacher") { $("view").innerHTML = renderTeacher(b, courses, syllabi); bindPrivacy(b, firstClass); }
+    else if (role === "head") { $("view").innerHTML = await renderHead(b, titles, courses, syllabi); bindHead(); }
     else $("view").innerHTML = renderAdmin(b, courses);
     restoreForm(form);
     renderAudit(events);

@@ -1,5 +1,5 @@
-"""Local screenpipe API, for the console's Recording panel: status, start/stop recording, latest transcript and
-screen text, and generating the quiz game for the last lesson now (running the pipe) instead of waiting for the timetable.
+"""Local screenpipe API, for the console's Recording panel: status, start/stop recording, and generating the quiz game
+for the last lesson (running the pipe) as soon as recording stops, instead of waiting for the timetable.
 
 Teacher's computer only. Nothing returned here is stored or sent to the Hub: it is only shown on the local console page.
 Address and auth follow pipe's scripts: SCREENPIPE_URL (default http://localhost:3030) and SCREENPIPE_LOCAL_API_KEY
@@ -12,7 +12,7 @@ import os
 import shlex
 import shutil
 import subprocess
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import HTTPException
@@ -97,22 +97,6 @@ def stop_recording() -> dict:
         if screen.get("is_running"):
             _call("POST", "/vision/device/stop", json={"monitor_id": _monitor_id(screen)})
     return status()
-
-
-def recent(minutes: int) -> list[dict]:
-    """The teacher's own speech (microphone only, not the speakers) and screen text of the last `minutes`, newest first."""
-    since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    items = []
-    for kind, content_type, limit in (("speech", "audio", 100), ("screen", "ocr", 30)):
-        body = _call("GET", "/search", params={"content_type": content_type, "start_time": since, "limit": limit}) or {}
-        for hit in body.get("data", []):
-            c = hit.get("content", {})
-            if kind == "speech" and str(c.get("device_type", "")).lower() != "input":
-                continue
-            text = (c.get("transcription") or c.get("text") or "").strip()
-            if text:
-                items.append({"time": c.get("timestamp"), "kind": kind, "app": c.get("app_name"), "text": text[:400]})
-    return sorted(items, key=lambda i: i["time"] or "", reverse=True)
 
 
 def log_path():

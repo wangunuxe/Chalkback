@@ -120,10 +120,9 @@ refreshes every 3 seconds.
 
 | | Teacher | Department head | School admin |
 | --- | --- | --- | --- |
-| Class syllabus progress | Own classes, per knowledge point | All classes, knowledge point × class matrix | All classes, totals only |
+| Class syllabus progress | Own courses: one table per course, its syllabus's knowledge points covered or not | One subject at a time (picker at the top): all its classes, knowledge point × class matrix | All classes, totals only |
 | Classes and courses | Own courses | Every class → its courses → knowledge points covered | Every class → its courses, progress only |
 | Course summaries | Review, send, withdraw their own | The ones teachers sent | No |
-| "Covered elsewhere, not yet in your class" | Yes, without naming the other class | No | No |
 | Exam alert | Own classes | All classes | All classes |
 | Syllabus | Read | Upload drafts and approve | Read |
 | Invite codes and members | — | — | Yes |
@@ -144,6 +143,11 @@ A teacher "owns" a class once they have shared coverage for it.
 
 ### Classes and courses (department head)
 
+The department head looks at one subject at a time: choose it with the **Subject** picker at the top of the board
+(shown once two syllabi are approved; the main syllabus is the default, and the choice is remembered on this computer).
+The exam alert, "Classes and courses", the exam forecast, the coverage matrix and the syllabus editor then show only
+that subject.
+
 The "Classes and courses" card lists every class (a group of students) with the courses taught to it. A course is
 one teacher teaching one syllabus to one class, e.g. *Grammaire — 4A* (French, T1) and *Mathématiques — 4A* (maths, T3).
 - Each class shows its overall progress: knowledge points taught across all its courses.
@@ -152,8 +156,7 @@ one teacher teaching one syllabus to one class, e.g. *Grammaire — 4A* (French,
 - A summary is written by screenpipe on the teacher's laptop. The teacher reads it, can edit it, and only then sends
   it; they can withdraw it at any time, and it disappears from your board within 3 seconds.
 
-A new subject needs its own syllabus: upload and approve it like the first one. The coverage matrix and the exam
-forecast stay on the school's main syllabus (the first one approved); other subjects appear per course.
+A new subject needs its own syllabus: upload and approve it like the first one; it then appears in the Subject picker.
 
 ## 6. Exam alert
 
@@ -203,8 +206,7 @@ make mock-local    # without Docker (make hub + make teacher): Hub https://local
 ```
 
 As department head H1 this approves the French syllabus (the main one) and a maths syllabus, shares nine example
-lessons through the real API (class 4A is on track, 4B triggers the exam alert, teacher T1 sees a point covered in
-another class but not in theirs), and creates five courses, three with a summary. Running it again adds nothing new. To see T1's view, choose *I already have a
+lessons through the real API (class 4A is on track, 4B triggers the exam alert), and creates five courses, three with a summary. Running it again adds nothing new. To see T1's view, choose *I already have a
 token* on the home page and enter `mock-token-T1`.
 
 ## Known limits
